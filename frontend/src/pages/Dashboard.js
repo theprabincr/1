@@ -141,7 +141,7 @@ const getBestOdds = (bookmakers) => {
     });
   });
   
-  return { home: bestHome || -110, away: bestAway || -110 };
+  return { home: bestHome || 1.91, away: bestAway || 1.91 };
 };
 
 const Dashboard = () => {
