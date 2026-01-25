@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { 
   Settings as SettingsIcon, Bell, Clock, Save, RefreshCw,
-  Zap, TrendingUp, AlertTriangle, Check, Database, Globe
+  Zap, TrendingUp, AlertTriangle, Check, Globe
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -10,18 +10,15 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const Settings = () => {
   const [settings, setSettings] = useState({
     cache_duration_minutes: 60,
-    auto_rotate_keys: true,
     priority_sports: [],
     notification_preferences: {
       line_movement_alerts: true,
       line_movement_threshold: 5.0,
-      low_api_alerts: true,
-      low_api_threshold: 50,
       result_alerts: true,
       daily_summary: true
     }
   });
-  const [dataSource, setDataSource] = useState({ current_source: 'oddsportal' });
+  const [scraperStatus, setScraperStatus] = useState({ status: 'active' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -39,12 +36,12 @@ const Settings = () => {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const [settingsRes, dataSourceRes] = await Promise.all([
+        const [settingsRes, statusRes] = await Promise.all([
           axios.get(`${API}/settings`),
-          axios.get(`${API}/data-source`)
+          axios.get(`${API}/scraper-status`)
         ]);
         setSettings(settingsRes.data);
-        setDataSource(dataSourceRes.data);
+        setScraperStatus(statusRes.data);
       } catch (error) {
         console.error("Error fetching settings:", error);
       } finally {
@@ -65,16 +62,6 @@ const Settings = () => {
       alert("Failed to save settings");
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleDataSourceChange = async (source) => {
-    try {
-      await axios.put(`${API}/data-source`, { source });
-      setDataSource(prev => ({ ...prev, current_source: source }));
-    } catch (error) {
-      console.error("Error changing data source:", error);
-      alert("Failed to change data source");
     }
   };
 
