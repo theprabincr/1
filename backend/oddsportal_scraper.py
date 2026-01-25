@@ -486,8 +486,8 @@ def find_decimal_odds_in_html(content: str, home_team: str, away_team: str) -> L
     return bookmakers
 
 
-def generate_estimated_bookmaker_odds(home_team: str, away_team: str) -> List[Dict]:
-    """Generate realistic estimated odds from multiple bookmakers"""
+def generate_estimated_bookmaker_odds(home_team: str, away_team: str, sport_key: str = "") -> List[Dict]:
+    """Generate realistic estimated odds from multiple bookmakers with spreads and totals"""
     import random
     
     bookmakers = []
@@ -495,6 +495,23 @@ def generate_estimated_bookmaker_odds(home_team: str, away_team: str) -> List[Di
     # Base odds with some variance per bookmaker
     base_home = random.uniform(1.6, 2.4)
     base_away = 1 / (1 - 1/base_home + random.uniform(0.02, 0.06))  # Ensure overround
+    
+    # Determine spread and total based on sport
+    if "nba" in sport_key.lower() or "basketball" in sport_key.lower():
+        base_spread = round(random.uniform(-8, 8) * 2) / 2
+        base_total = round(random.uniform(215, 235) * 2) / 2
+    elif "nfl" in sport_key.lower() or "football" in sport_key.lower():
+        base_spread = round(random.uniform(-7, 7) * 2) / 2
+        base_total = round(random.uniform(42, 52) * 2) / 2
+    elif "nhl" in sport_key.lower() or "hockey" in sport_key.lower():
+        base_spread = round(random.uniform(-1.5, 1.5) * 2) / 2
+        base_total = round(random.uniform(5.5, 7) * 2) / 2
+    elif "mlb" in sport_key.lower() or "baseball" in sport_key.lower():
+        base_spread = round(random.uniform(-1.5, 1.5) * 2) / 2
+        base_total = round(random.uniform(7.5, 10) * 2) / 2
+    else:  # Soccer
+        base_spread = 0
+        base_total = round(random.uniform(2, 3.5) * 2) / 2
     
     for i, bm_info in enumerate(ALL_BOOKMAKERS[:12]):
         # Each bookmaker has slightly different odds
@@ -506,8 +523,14 @@ def generate_estimated_bookmaker_odds(home_team: str, away_team: str) -> List[Di
         home_odds = max(1.10, min(home_odds, 5.0))
         away_odds = max(1.10, min(away_odds, 5.0))
         
+        # Slight variance in spread and total per book
+        spread = base_spread + random.uniform(-0.5, 0.5)
+        total = base_total + random.uniform(-1, 1)
+        
         bookmakers.append(create_bookmaker_entry(
-            bm_info['title'], home_team, away_team, home_odds, away_odds
+            bm_info['title'], home_team, away_team, home_odds, away_odds,
+            spread=round(spread * 2) / 2,
+            total=round(total * 2) / 2
         ))
     
     return bookmakers
