@@ -250,12 +250,17 @@ async def get_events(sport_key: str, markets: str = "h2h,spreads,totals"):
     return data
 
 @api_router.get("/event/{event_id}")
-async def get_event_details(event_id: str, sport_key: str):
+async def get_event_details(event_id: str, sport_key: str = "basketball_nba"):
     """Get detailed odds for a specific event"""
-    events = await get_events(sport_key)
-    for event in events:
-        if event.get('id') == event_id:
-            return event
+    # Try multiple sports if not found
+    sports_to_try = [sport_key, "basketball_nba", "americanfootball_nfl", "baseball_mlb", "icehockey_nhl", "soccer_epl"]
+    
+    for sk in sports_to_try:
+        events = await get_events(sk)
+        for event in events:
+            if event.get('id') == event_id:
+                return event
+    
     raise HTTPException(status_code=404, detail="Event not found")
 
 @api_router.get("/line-movement/{event_id}")
@@ -440,14 +445,17 @@ async def get_performance(sport_key: Optional[str] = None, days: int = 30):
     }
 
 @api_router.get("/odds-comparison/{event_id}")
-async def get_odds_comparison(event_id: str, sport_key: str):
+async def get_odds_comparison(event_id: str, sport_key: str = "basketball_nba"):
     """Get odds comparison across all sportsbooks for an event"""
-    events = await get_events(sport_key)
+    # Try multiple sports if not found
+    sports_to_try = [sport_key, "basketball_nba", "americanfootball_nfl", "baseball_mlb", "icehockey_nhl", "soccer_epl"]
     
-    for event in events:
-        if event.get("id") == event_id:
-            comparison = format_odds_comparison(event)
-            return comparison
+    for sk in sports_to_try:
+        events = await get_events(sk)
+        for event in events:
+            if event.get("id") == event_id:
+                comparison = format_odds_comparison(event)
+                return comparison
     
     raise HTTPException(status_code=404, detail="Event not found")
 
@@ -661,6 +669,7 @@ async def get_mock_events(sport_key: str):
 def generate_mock_line_movement(event_id: str):
     """Generate mock line movement data"""
     import random
+    from datetime import timedelta
     
     movements = []
     base_time = datetime.now(timezone.utc)
@@ -668,7 +677,8 @@ def generate_mock_line_movement(event_id: str):
     
     for i in range(24):
         hour_offset = 24 - i
-        timestamp = (base_time.replace(hour=base_time.hour - hour_offset % 24)).isoformat()
+        # Use timedelta for proper hour calculation
+        timestamp = (base_time - timedelta(hours=hour_offset)).isoformat()
         
         # Simulate line movement
         home_drift = random.randint(-20, 20)
