@@ -39,18 +39,27 @@ async def scrape_oddsportal(sport_key: str) -> List[Dict]:
         from playwright.async_api import async_playwright
         
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
+            browser = await p.chromium.launch(
+                headless=True,
+                executable_path="/pw-browsers/chromium-1200/chrome-linux/chrome"
+            )
             context = await browser.new_context(
                 user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             )
             page = await context.new_page()
             
             # Navigate to the page
-            await page.goto(url, wait_until='networkidle', timeout=30000)
-            await asyncio.sleep(2)  # Wait for dynamic content
+            await page.goto(url, wait_until='networkidle', timeout=60000)
+            await asyncio.sleep(3)  # Wait for dynamic content
             
-            # Get all event rows
-            event_rows = await page.query_selector_all('div[class*="eventRow"]')
+            # Get all event rows - OddsPortal uses various selectors
+            event_rows = await page.query_selector_all('div[class*="eventRow"], div[class*="flex-col"][class*="border-black"]')
+            
+            if not event_rows:
+                # Try alternative selector
+                event_rows = await page.query_selector_all('a[href*="/basketball/usa/nba/"][class*="flex"]')
+            
+            logger.info(f"Found {len(event_rows)} event rows on OddsPortal for {sport_key}")
             
             for row in event_rows:
                 try:
