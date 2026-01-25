@@ -602,7 +602,7 @@ async def get_sports():
 
 @api_router.get("/events/{sport_key}")
 async def get_events(sport_key: str, markets: str = "h2h,spreads,totals", force_refresh: bool = False):
-    """Get events with odds for a specific sport - uses 30min cache to save API calls"""
+    """Get events with odds for a specific sport - uses OddsPortal scraping (free) or Odds API (paid)"""
     global events_cache
     
     cache_key = f"{sport_key}_{markets}"
@@ -616,6 +616,27 @@ async def get_events(sport_key: str, markets: str = "h2h,spreads,totals", force_
             logger.info(f"Using cached data for {sport_key} (age: {cache_age_minutes:.1f} min)")
             return cached_data
     
+    # Try OddsPortal first (free scraping)
+    if DATA_SOURCE == 'oddsportal':
+        try:
+            from oddsportal_scraper import scrape_oddsportal
+            events = await scrape_oddsportal(sport_key)
+            
+            if events:
+                # Store odds snapshots for line movement
+                for event in events:
+                    await store_odds_snapshot(event)
+                
+                # Cache the results
+                events_cache[cache_key] = (events, now)
+                logger.info(f"Cached {len(events)} events from OddsPortal for {sport_key}")
+                return events
+            else:
+                logger.warning(f"OddsPortal returned no events for {sport_key}, falling back to Odds API")
+        except Exception as e:
+            logger.error(f"OddsPortal scraping failed: {e}, falling back to Odds API")
+    
+    # Fallback to Odds API if OddsPortal fails or DATA_SOURCE is 'oddsapi'
     # Check if we should conserve API calls (below 50 remaining)
     if current_api_key.get('requests_remaining') and current_api_key['requests_remaining'] < 50:
         logger.warning(f"Low API calls remaining: {current_api_key['requests_remaining']}. Using cache if available.")
