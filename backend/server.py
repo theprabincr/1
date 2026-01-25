@@ -1098,7 +1098,7 @@ def generate_mock_line_movement(event_id: str):
                 "event_id": event_id,
                 "timestamp": timestamp,
                 "bookmaker": bm_key,
-                "bookmaker_title": SPORTSBOOK_NAMES[bm_key],
+                "bookmaker_title": SPORTSBOOK_NAMES.get(bm_key, bm_key),
                 "market": "h2h",
                 "outcomes": [
                     {"name": "Home", "price": base_home_price + home_drift + random.randint(-10, 10)},
@@ -1133,11 +1133,47 @@ async def scheduled_result_checker():
             logger.error(f"Scheduled result checker error: {e}")
             await asyncio.sleep(60)  # Wait a minute before retrying
 
+# Background task for line movement checking and recommendation updates
+async def scheduled_line_movement_checker():
+    """Background task that runs every hour to check line movements"""
+    while True:
+        try:
+            await asyncio.sleep(3600)  # Run every hour
+            logger.info("Running scheduled line movement check...")
+            await update_recommendations_on_line_movement()
+        except Exception as e:
+            logger.error(f"Scheduled line movement checker error: {e}")
+            await asyncio.sleep(60)
+
+# Background task for auto-generating recommendations
+async def scheduled_recommendation_generator():
+    """Background task that generates recommendations periodically"""
+    # Wait 30 seconds on startup to let services initialize
+    await asyncio.sleep(30)
+    
+    while True:
+        try:
+            logger.info("Running scheduled recommendation generation...")
+            await auto_generate_recommendations()
+            await asyncio.sleep(7200)  # Run every 2 hours
+        except Exception as e:
+            logger.error(f"Scheduled recommendation generator error: {e}")
+            await asyncio.sleep(120)
+
 @app.on_event("startup")
 async def startup_event():
     """Start background tasks on app startup"""
     # Start the scheduled result checker
     asyncio.create_task(scheduled_result_checker())
+    logger.info("Started background result checker - runs every hour")
+    
+    # Start line movement checker
+    asyncio.create_task(scheduled_line_movement_checker())
+    logger.info("Started line movement checker - runs every hour")
+    
+    # Start recommendation generator
+    asyncio.create_task(scheduled_recommendation_generator())
+    logger.info("Started recommendation generator - runs every 2 hours")
     logger.info("Started background result checker - will run every hour")
 
 @app.on_event("shutdown")
