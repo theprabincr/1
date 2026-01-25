@@ -369,8 +369,14 @@ async def fetch_odds_api(endpoint: str, params: dict = None):
 @api_router.get("/api-usage")
 async def get_api_usage():
     """Get current API usage statistics and system status"""
+    # Get all API keys summary
+    all_keys = await db.api_keys.find({}, {"_id": 0}).to_list(100)
+    total_remaining = sum(k.get('requests_remaining', 0) for k in all_keys if not k.get('is_exhausted'))
+    
     return {
-        **api_usage,
+        **current_api_key,
+        "total_remaining_all_keys": total_remaining,
+        "active_keys_count": len([k for k in all_keys if k.get('is_active') and not k.get('is_exhausted')]),
         "monthly_limit": 500,
         "cache_duration_minutes": CACHE_DURATION_MINUTES,
         "background_tasks": {
@@ -378,6 +384,481 @@ async def get_api_usage():
             "line_movement_checker": "Active (every hour)",
             "recommendation_generator": "Active (every 6 hours)"
         }
+    }
+
+# ==================== API KEY MANAGEMENT ENDPOINTS ====================
+
+@api_router.get("/api-keys")
+async def list_api_keys():
+    """List all API keys (with masked values)"""
+    keys = await db.api_keys.find({}, {"_id": 0}).to_list(100)
+    # Mask the actual key values for security
+    for key in keys:
+        if key.get('key'):
+            key['key_masked'] = key['key'][:8] + '...' + key['key'][-4:]
+            del key['key']
+    return keys
+
+@api_router.post("/api-keys")
+async def add_api_key(key_data: ApiKeyCreate):
+    """Add a new API key"""
+    # Check if key already exists
+    existing = await db.api_keys.find_one({"key": key_data.key})
+    if existing:
+        raise HTTPException(status_code=400, detail="API key already exists")
+    
+    new_key = ApiKey(
+        key=key_data.key,
+        name=key_data.name
+    )
+    
+    await db.api_keys.insert_one(new_key.model_dump())
+    
+    # Create notification
+    await create_notification(
+        "api_key_added",
+        "New API Key Added",
+        f"API key '{key_data.name}' has been added with 500 calls available.",
+        {"key_name": key_data.name}
+    )
+    
+    return {"message": "API key added successfully", "id": new_key.id}
+
+@api_router.delete("/api-keys/{key_id}")
+async def delete_api_key(key_id: str):
+    """Delete an API key"""
+    result = await db.api_keys.delete_one({"id": key_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="API key not found")
+    return {"message": "API key deleted successfully"}
+
+@api_router.put("/api-keys/{key_id}/activate")
+async def activate_api_key(key_id: str):
+    """Activate a specific API key"""
+    # Deactivate all others first
+    await db.api_keys.update_many({}, {"$set": {"is_active": False}})
+    
+    result = await db.api_keys.update_one(
+        {"id": key_id},
+        {"$set": {"is_active": True, "is_exhausted": False}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="API key not found")
+    
+    return {"message": "API key activated"}
+
+@api_router.put("/api-keys/{key_id}/reset")
+async def reset_api_key(key_id: str):
+    """Reset an API key's usage (for when a new month starts)"""
+    result = await db.api_keys.update_one(
+        {"id": key_id},
+        {"$set": {
+            "requests_remaining": 500,
+            "requests_used": 0,
+            "is_exhausted": False
+        }}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="API key not found")
+    
+    return {"message": "API key usage reset"}
+
+# ==================== BANKROLL MANAGEMENT ENDPOINTS ====================
+
+@api_router.get("/bankroll")
+async def get_bankroll():
+    """Get current bankroll status"""
+    # Get latest transaction to know current balance
+    latest = await db.bankroll.find_one({}, sort=[("created_at", -1)])
+    current_balance = latest.get('balance_after', 0) if latest else 0
+    
+    # Get summary stats
+    transactions = await db.bankroll.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    
+    total_deposited = sum(t['amount'] for t in transactions if t['type'] == 'deposit')
+    total_withdrawn = sum(t['amount'] for t in transactions if t['type'] == 'withdrawal')
+    total_wagered = sum(t['amount'] for t in transactions if t['type'] == 'bet')
+    total_won = sum(t['amount'] for t in transactions if t['type'] == 'win')
+    total_lost = sum(t['amount'] for t in transactions if t['type'] == 'loss')
+    
+    profit_loss = total_won - total_lost
+    roi = (profit_loss / total_wagered * 100) if total_wagered > 0 else 0
+    
+    return {
+        "current_balance": current_balance,
+        "total_deposited": total_deposited,
+        "total_withdrawn": total_withdrawn,
+        "total_wagered": total_wagered,
+        "total_won": total_won,
+        "total_lost": total_lost,
+        "profit_loss": profit_loss,
+        "roi": round(roi, 2),
+        "recent_transactions": transactions[:20]
+    }
+
+@api_router.get("/bankroll/transactions")
+async def get_bankroll_transactions(limit: int = 50, offset: int = 0):
+    """Get bankroll transactions with pagination"""
+    transactions = await db.bankroll.find({}, {"_id": 0}).sort("created_at", -1).skip(offset).limit(limit).to_list(limit)
+    total = await db.bankroll.count_documents({})
+    return {"transactions": transactions, "total": total}
+
+@api_router.post("/bankroll/deposit")
+async def deposit_bankroll(deposit: BankrollDeposit):
+    """Deposit funds to bankroll"""
+    latest = await db.bankroll.find_one({}, sort=[("created_at", -1)])
+    current_balance = latest.get('balance_after', 0) if latest else 0
+    
+    new_balance = current_balance + deposit.amount
+    
+    transaction = BankrollTransaction(
+        type="deposit",
+        amount=deposit.amount,
+        description=deposit.description,
+        balance_after=new_balance
+    )
+    
+    await db.bankroll.insert_one(transaction.model_dump())
+    return {"message": "Deposit successful", "new_balance": new_balance}
+
+@api_router.post("/bankroll/withdraw")
+async def withdraw_bankroll(withdrawal: BankrollWithdrawal):
+    """Withdraw funds from bankroll"""
+    latest = await db.bankroll.find_one({}, sort=[("created_at", -1)])
+    current_balance = latest.get('balance_after', 0) if latest else 0
+    
+    if withdrawal.amount > current_balance:
+        raise HTTPException(status_code=400, detail="Insufficient balance")
+    
+    new_balance = current_balance - withdrawal.amount
+    
+    transaction = BankrollTransaction(
+        type="withdrawal",
+        amount=withdrawal.amount,
+        description=withdrawal.description,
+        balance_after=new_balance
+    )
+    
+    await db.bankroll.insert_one(transaction.model_dump())
+    return {"message": "Withdrawal successful", "new_balance": new_balance}
+
+@api_router.post("/bankroll/place-bet")
+async def place_bet(bet: PlaceBet):
+    """Record a bet placement"""
+    # Verify prediction exists
+    prediction = await db.predictions.find_one({"id": bet.prediction_id})
+    if not prediction:
+        raise HTTPException(status_code=404, detail="Prediction not found")
+    
+    latest = await db.bankroll.find_one({}, sort=[("created_at", -1)])
+    current_balance = latest.get('balance_after', 0) if latest else 0
+    
+    if bet.stake > current_balance:
+        raise HTTPException(status_code=400, detail="Insufficient balance")
+    
+    new_balance = current_balance - bet.stake
+    
+    transaction = BankrollTransaction(
+        type="bet",
+        amount=bet.stake,
+        description=f"Bet on {prediction.get('predicted_outcome')} @ {prediction.get('odds_at_prediction')}",
+        prediction_id=bet.prediction_id,
+        balance_after=new_balance
+    )
+    
+    await db.bankroll.insert_one(transaction.model_dump())
+    
+    # Update prediction with stake
+    await db.predictions.update_one(
+        {"id": bet.prediction_id},
+        {"$set": {"stake": bet.stake}}
+    )
+    
+    return {"message": "Bet placed", "new_balance": new_balance}
+
+@api_router.post("/bankroll/record-result")
+async def record_bet_result(prediction_id: str, result: str):
+    """Record the result of a bet and update bankroll"""
+    prediction = await db.predictions.find_one({"id": prediction_id})
+    if not prediction:
+        raise HTTPException(status_code=404, detail="Prediction not found")
+    
+    stake = prediction.get('stake', 0)
+    if stake == 0:
+        return {"message": "No stake recorded for this prediction"}
+    
+    latest = await db.bankroll.find_one({}, sort=[("created_at", -1)])
+    current_balance = latest.get('balance_after', 0) if latest else 0
+    
+    if result == "win":
+        odds = prediction.get('odds_at_prediction', 1.91)
+        payout = stake * odds
+        new_balance = current_balance + payout
+        
+        transaction = BankrollTransaction(
+            type="win",
+            amount=payout,
+            description=f"Won bet: {prediction.get('predicted_outcome')} @ {odds}",
+            prediction_id=prediction_id,
+            balance_after=new_balance
+        )
+    elif result == "loss":
+        new_balance = current_balance
+        transaction = BankrollTransaction(
+            type="loss",
+            amount=stake,
+            description=f"Lost bet: {prediction.get('predicted_outcome')}",
+            prediction_id=prediction_id,
+            balance_after=new_balance
+        )
+    else:  # push
+        new_balance = current_balance + stake
+        transaction = BankrollTransaction(
+            type="deposit",
+            amount=stake,
+            description=f"Push - stake returned: {prediction.get('predicted_outcome')}",
+            prediction_id=prediction_id,
+            balance_after=new_balance
+        )
+    
+    await db.bankroll.insert_one(transaction.model_dump())
+    return {"message": f"Result recorded: {result}", "new_balance": new_balance}
+
+# ==================== NOTIFICATIONS ENDPOINTS ====================
+
+@api_router.get("/notifications")
+async def get_notifications(unread_only: bool = False, limit: int = 50):
+    """Get notifications"""
+    query = {"read": False} if unread_only else {}
+    notifications = await db.notifications.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    unread_count = await db.notifications.count_documents({"read": False})
+    return {"notifications": notifications, "unread_count": unread_count}
+
+@api_router.put("/notifications/{notif_id}/read")
+async def mark_notification_read(notif_id: str):
+    """Mark a notification as read"""
+    await db.notifications.update_one({"id": notif_id}, {"$set": {"read": True}})
+    return {"message": "Notification marked as read"}
+
+@api_router.put("/notifications/read-all")
+async def mark_all_notifications_read():
+    """Mark all notifications as read"""
+    await db.notifications.update_many({}, {"$set": {"read": True}})
+    return {"message": "All notifications marked as read"}
+
+@api_router.delete("/notifications/{notif_id}")
+async def delete_notification(notif_id: str):
+    """Delete a notification"""
+    await db.notifications.delete_one({"id": notif_id})
+    return {"message": "Notification deleted"}
+
+# ==================== SETTINGS ENDPOINTS ====================
+
+@api_router.get("/settings")
+async def get_settings():
+    """Get app settings"""
+    settings = await db.settings.find_one({}, {"_id": 0})
+    if not settings:
+        settings = AppSettings().model_dump()
+    return settings
+
+@api_router.put("/settings")
+async def update_settings(settings: AppSettings):
+    """Update app settings"""
+    global CACHE_DURATION_MINUTES
+    CACHE_DURATION_MINUTES = settings.cache_duration_minutes
+    
+    await db.settings.update_one(
+        {},
+        {"$set": settings.model_dump()},
+        upsert=True
+    )
+    return {"message": "Settings updated"}
+
+# ==================== EXPORT ENDPOINTS ====================
+
+@api_router.get("/export/predictions")
+async def export_predictions(format: str = "csv"):
+    """Export predictions history"""
+    predictions = await db.predictions.find({}, {"_id": 0}).to_list(10000)
+    
+    if format == "json":
+        return predictions
+    
+    # CSV export
+    if not predictions:
+        return {"message": "No predictions to export"}
+    
+    output = io.StringIO()
+    fieldnames = ['id', 'event_id', 'sport_key', 'home_team', 'away_team', 'commence_time',
+                  'prediction_type', 'predicted_outcome', 'confidence', 'odds_at_prediction',
+                  'result', 'created_at', 'ai_model']
+    
+    writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction='ignore')
+    writer.writeheader()
+    for pred in predictions:
+        writer.writerow(pred)
+    
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=predictions_export.csv"}
+    )
+
+@api_router.get("/export/bankroll")
+async def export_bankroll(format: str = "csv"):
+    """Export bankroll transactions"""
+    transactions = await db.bankroll.find({}, {"_id": 0}).to_list(10000)
+    
+    if format == "json":
+        return transactions
+    
+    if not transactions:
+        return {"message": "No transactions to export"}
+    
+    output = io.StringIO()
+    fieldnames = ['id', 'type', 'amount', 'description', 'prediction_id', 'balance_after', 'created_at']
+    
+    writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction='ignore')
+    writer.writeheader()
+    for trans in transactions:
+        writer.writerow(trans)
+    
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=bankroll_export.csv"}
+    )
+
+@api_router.get("/export/performance-report")
+async def export_performance_report():
+    """Generate comprehensive performance report"""
+    performance = await get_performance()
+    bankroll = await get_bankroll()
+    api_usage = await get_api_usage()
+    
+    report = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "performance": performance,
+        "bankroll": bankroll,
+        "api_usage": api_usage
+    }
+    
+    return report
+
+# ==================== ANALYTICS ENDPOINTS ====================
+
+@api_router.get("/analytics/trends")
+async def get_analytics_trends(days: int = 30):
+    """Get betting trends and analytics"""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    
+    # Get predictions in date range
+    predictions = await db.predictions.find(
+        {"created_at": {"$gte": cutoff}},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    # Daily breakdown
+    daily_stats = {}
+    for pred in predictions:
+        date = pred.get('created_at', '')[:10]
+        if date not in daily_stats:
+            daily_stats[date] = {"wins": 0, "losses": 0, "pushes": 0, "pending": 0, "total": 0}
+        
+        daily_stats[date]["total"] += 1
+        result = pred.get('result', 'pending')
+        if result in daily_stats[date]:
+            daily_stats[date][result] += 1
+    
+    # Sport breakdown
+    sport_stats = {}
+    for pred in predictions:
+        sport = pred.get('sport_key', 'unknown')
+        if sport not in sport_stats:
+            sport_stats[sport] = {"wins": 0, "losses": 0, "total": 0}
+        
+        sport_stats[sport]["total"] += 1
+        if pred.get('result') == 'win':
+            sport_stats[sport]["wins"] += 1
+        elif pred.get('result') == 'loss':
+            sport_stats[sport]["losses"] += 1
+    
+    # Market type breakdown
+    market_stats = {}
+    for pred in predictions:
+        market = pred.get('prediction_type', 'moneyline')
+        if market not in market_stats:
+            market_stats[market] = {"wins": 0, "losses": 0, "total": 0, "avg_odds": []}
+        
+        market_stats[market]["total"] += 1
+        market_stats[market]["avg_odds"].append(pred.get('odds_at_prediction', 1.91))
+        if pred.get('result') == 'win':
+            market_stats[market]["wins"] += 1
+        elif pred.get('result') == 'loss':
+            market_stats[market]["losses"] += 1
+    
+    # Calculate averages
+    for market in market_stats:
+        odds_list = market_stats[market]["avg_odds"]
+        market_stats[market]["avg_odds"] = sum(odds_list) / len(odds_list) if odds_list else 0
+    
+    return {
+        "daily_stats": dict(sorted(daily_stats.items())),
+        "sport_stats": sport_stats,
+        "market_stats": market_stats,
+        "total_predictions": len(predictions)
+    }
+
+@api_router.get("/analytics/streaks")
+async def get_streaks():
+    """Get winning/losing streaks"""
+    predictions = await db.predictions.find(
+        {"result": {"$in": ["win", "loss"]}},
+        {"_id": 0}
+    ).sort("created_at", 1).to_list(1000)
+    
+    if not predictions:
+        return {"current_streak": 0, "best_win_streak": 0, "worst_loss_streak": 0, "streak_type": "none"}
+    
+    # Calculate streaks
+    current_streak = 0
+    current_type = None
+    best_win_streak = 0
+    worst_loss_streak = 0
+    temp_streak = 0
+    temp_type = None
+    
+    for pred in predictions:
+        result = pred.get('result')
+        if result == temp_type:
+            temp_streak += 1
+        else:
+            if temp_type == 'win' and temp_streak > best_win_streak:
+                best_win_streak = temp_streak
+            elif temp_type == 'loss' and temp_streak > worst_loss_streak:
+                worst_loss_streak = temp_streak
+            temp_streak = 1
+            temp_type = result
+    
+    # Check final streak
+    if temp_type == 'win' and temp_streak > best_win_streak:
+        best_win_streak = temp_streak
+    elif temp_type == 'loss' and temp_streak > worst_loss_streak:
+        worst_loss_streak = temp_streak
+    
+    current_streak = temp_streak
+    current_type = temp_type
+    
+    return {
+        "current_streak": current_streak,
+        "streak_type": current_type or "none",
+        "best_win_streak": best_win_streak,
+        "worst_loss_streak": worst_loss_streak
     }
 
 # AI Analysis function
