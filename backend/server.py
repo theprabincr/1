@@ -863,6 +863,53 @@ async def generate_smart_recommendation(event: dict, sport_key: str, odds_data: 
         best_over = max(all_markets['totals']['over'], key=lambda x: x['price'], default={'price': 1, 'point': 0, 'book': 'N/A'})
         best_under = max(all_markets['totals']['under'], key=lambda x: x['price'], default={'price': 1, 'point': 0, 'book': 'N/A'})
         
+        # Fetch line movement data from our database
+        event_id = event.get("id")
+        line_movement_info = ""
+        try:
+            opening = await db.opening_odds.find_one({"event_id": event_id}, {"_id": 0})
+            snapshots = await db.odds_history.find({"event_id": event_id}, {"_id": 0}).sort("timestamp", 1).to_list(50)
+            
+            if opening and snapshots:
+                opening_home = opening.get("home_odds", 0)
+                opening_away = opening.get("away_odds", 0)
+                current_home = best_h2h_home['price']
+                current_away = best_h2h_away['price']
+                
+                home_movement = ((current_home - opening_home) / opening_home * 100) if opening_home > 0 else 0
+                away_movement = ((current_away - opening_away) / opening_away * 100) if opening_away > 0 else 0
+                
+                line_movement_info = f"""
+LINE MOVEMENT (from our tracking):
+- {home_team}: Opening {opening_home:.2f} → Current {current_home:.2f} ({home_movement:+.1f}% change)
+- {away_team}: Opening {opening_away:.2f} → Current {current_away:.2f} ({away_movement:+.1f}% change)
+- Snapshots recorded: {len(snapshots)} hourly updates
+- Movement direction: {"Sharp money on {0}" if home_movement < -3 else "Sharp money on {1}" if away_movement < -3 else "Stable lines"}.format(home_team, away_team)
+"""
+        except Exception as e:
+            logger.debug(f"Could not fetch line movement: {e}")
+        
+        # Fetch roster/lineup context from ESPN
+        roster_info = ""
+        try:
+            matchup_context = await get_matchup_context(home_team, away_team, sport_key)
+            
+            home_injuries = matchup_context.get("home_team", {}).get("injuries", [])
+            away_injuries = matchup_context.get("away_team", {}).get("injuries", [])
+            home_players = matchup_context.get("home_team", {}).get("key_players", [])
+            away_players = matchup_context.get("away_team", {}).get("key_players", [])
+            
+            if home_injuries or away_injuries or home_players or away_players:
+                roster_info = f"""
+ROSTER/INJURY INFO (from ESPN):
+- {home_team} key players: {', '.join(home_players[:3]) if home_players else 'N/A'}
+- {home_team} injuries: {', '.join([f"{i['name']} ({i['status']})" for i in home_injuries[:3]]) if home_injuries else 'None reported'}
+- {away_team} key players: {', '.join(away_players[:3]) if away_players else 'N/A'}
+- {away_team} injuries: {', '.join([f"{i['name']} ({i['status']})" for i in away_injuries[:3]]) if away_injuries else 'None reported'}
+"""
+        except Exception as e:
+            logger.debug(f"Could not fetch roster context: {e}")
+        
         # Build comprehensive prompt for AI analyzing ALL markets - SELECTIVE for 70%+ confidence
         prompt = f"""You are a highly selective sports betting expert. Only recommend bets with HIGH confidence (7+/10).
         
@@ -881,16 +928,16 @@ SPREAD:
 TOTALS:
 - Over {best_over.get('point', 0)}: {best_over['price']:.2f} ({best_over['book']})
 - Under {best_under.get('point', 0)}: {best_under['price']:.2f} ({best_under['book']})
-
+{line_movement_info}{roster_info}
 IMPORTANT: Only recommend if you have HIGH confidence (7-10). If no strong edge exists, say "NO_BET".
-Consider: team form, injuries, home advantage, line value, historical matchups.
+Consider: team form, injuries, home advantage, line value, line movement direction, historical matchups.
 
 Response format:
 MARKET: [moneyline/spread/total or NO_BET]
-PICK: [Exact selection - e.g., "Team Name" or "Over 45.5"]
+PICK: [Exact selection - e.g., "Team Name" for ML, "Team Name -5.5" for spread, "Over 220.5" for totals]
 ODDS: [Best odds available]
 CONFIDENCE: [7-10 only, or skip if below 7]
-REASONING: [2-3 sentences on why this has 70%+ win probability]"""
+REASONING: [2-3 sentences on why this has 70%+ win probability based on all data above]"""
 
         # Get AI analysis
         analysis_text = await get_ai_analysis(prompt, "gpt-5.2")
