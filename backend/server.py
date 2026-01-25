@@ -436,8 +436,6 @@ async def get_events(sport_key: str, markets: str = "h2h,spreads,totals", force_
         if cache_key in events_cache:
             return events_cache[cache_key][0]
         return []
-    
-    return upcoming_events
 
 @api_router.get("/event/{event_id}")
 async def get_event_details(event_id: str, sport_key: str = "basketball_nba"):
