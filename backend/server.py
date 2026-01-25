@@ -1146,55 +1146,148 @@ async def check_and_update_results(background_tasks: BackgroundTasks):
     return {"message": "Result checking started in background"}
 
 async def auto_check_results():
-    """Background task to check event results and update predictions"""
+    """Background task to check event results using ESPN API and update predictions"""
+    logger.info("Starting automatic result checking with ESPN API...")
+    
     try:
         # Get all pending predictions
         pending = await db.predictions.find(
             {"result": "pending"},
             {"_id": 0}
-        ).to_list(100)
+        ).to_list(200)
         
-        for prediction in pending:
-            event_id = prediction.get("event_id")
-            commence_time_str = prediction.get("commence_time")
-            
-            if not commence_time_str:
-                continue
-            
+        if not pending:
+            logger.info("No pending predictions to check")
+            return
+        
+        logger.info(f"Checking {len(pending)} pending predictions...")
+        
+        # Group predictions by sport for efficient API calls
+        by_sport = {}
+        for pred in pending:
+            sport_key = pred.get("sport_key", "")
+            if sport_key not in by_sport:
+                by_sport[sport_key] = []
+            by_sport[sport_key].append(pred)
+        
+        # Fetch scores for each sport and process predictions
+        results_updated = 0
+        for sport_key, predictions in by_sport.items():
             try:
-                commence_time = datetime.fromisoformat(commence_time_str.replace('Z', '+00:00'))
-                now = datetime.now(timezone.utc)
+                # Fetch recent game scores from ESPN
+                games = await fetch_espn_scores(sport_key, days_back=5)
                 
-                # Check if 5 hours have passed since event start
-                hours_since_start = (now - commence_time).total_seconds() / 3600
+                if not games:
+                    logger.warning(f"No ESPN scores available for {sport_key}")
+                    continue
                 
-                if hours_since_start >= 5:
-                    # Try to fetch result from scores API
-                    result = await fetch_event_result(
-                        prediction.get("sport_key"),
-                        event_id,
-                        prediction.get("home_team"),
-                        prediction.get("away_team"),
-                        prediction.get("predicted_outcome"),
-                        prediction.get("prediction_type")
-                    )
-                    
-                    if result:
-                        await db.predictions.update_one(
-                            {"id": prediction.get("id")},
-                            {"$set": {"result": result, "result_updated_at": now.isoformat()}}
+                logger.info(f"Fetched {len(games)} games from ESPN for {sport_key}")
+                
+                for prediction in predictions:
+                    try:
+                        commence_time_str = prediction.get("commence_time")
+                        if not commence_time_str:
+                            continue
+                        
+                        commence_time = datetime.fromisoformat(commence_time_str.replace('Z', '+00:00'))
+                        now = datetime.now(timezone.utc)
+                        
+                        # Only check if at least 2 hours have passed since event start (game should be over)
+                        hours_since_start = (now - commence_time).total_seconds() / 3600
+                        
+                        if hours_since_start < 2:
+                            continue  # Game probably not finished yet
+                        
+                        # Find matching game in ESPN results
+                        matching_game = await find_matching_game(
+                            sport_key,
+                            prediction.get("home_team"),
+                            prediction.get("away_team"),
+                            commence_time_str,
+                            games
                         )
-                        logger.info(f"Updated prediction {prediction.get('id')} with result: {result}")
+                        
+                        if matching_game and matching_game.get("status") == "final":
+                            # Determine bet result
+                            result = determine_bet_result(
+                                prediction.get("prediction_type", "moneyline"),
+                                prediction.get("predicted_outcome", ""),
+                                matching_game.get("home_team"),
+                                matching_game.get("away_team"),
+                                matching_game.get("home_score", 0),
+                                matching_game.get("away_score", 0),
+                                matching_game.get("total_score", 0)
+                            )
+                            
+                            if result in ["win", "loss", "push"]:
+                                # Update prediction with result
+                                await db.predictions.update_one(
+                                    {"id": prediction.get("id")},
+                                    {"$set": {
+                                        "result": result,
+                                        "result_updated_at": now.isoformat(),
+                                        "final_score": {
+                                            "home": matching_game.get("home_score"),
+                                            "away": matching_game.get("away_score"),
+                                            "total": matching_game.get("total_score")
+                                        }
+                                    }}
+                                )
+                                
+                                results_updated += 1
+                                logger.info(f"Updated prediction {prediction.get('id')}: {result} "
+                                          f"({matching_game.get('home_team')} {matching_game.get('home_score')} - "
+                                          f"{matching_game.get('away_score')} {matching_game.get('away_team')})")
+                                
+                                # Create notification for result
+                                await create_notification(
+                                    "result",
+                                    f"Bet Result: {result.upper()}",
+                                    f"{prediction.get('home_team')} vs {prediction.get('away_team')} - "
+                                    f"Your pick: {prediction.get('predicted_outcome')} "
+                                    f"(Final: {matching_game.get('home_score')}-{matching_game.get('away_score')})",
+                                    {
+                                        "prediction_id": prediction.get("id"),
+                                        "result": result,
+                                        "final_score": {
+                                            "home": matching_game.get("home_score"),
+                                            "away": matching_game.get("away_score")
+                                        }
+                                    }
+                                )
+                        
+                    except Exception as e:
+                        logger.error(f"Error processing prediction {prediction.get('id')}: {e}")
+                
+                await asyncio.sleep(0.5)  # Rate limiting between sports
+                
             except Exception as e:
-                logger.error(f"Error processing prediction {prediction.get('id')}: {e}")
+                logger.error(f"Error fetching ESPN scores for {sport_key}: {e}")
+        
+        logger.info(f"Result checking complete. Updated {results_updated} predictions.")
                 
     except Exception as e:
         logger.error(f"Error in auto_check_results: {e}")
 
 async def fetch_event_result(sport_key: str, event_id: str, home_team: str, away_team: str, predicted_outcome: str, prediction_type: str) -> Optional[str]:
-    """Fetch event result - currently requires manual update as OddsPortal doesn't provide scores"""
-    # OddsPortal doesn't provide live scores, results need to be updated manually
-    # or we could integrate a free scores API in the future
+    """Fetch event result using ESPN API"""
+    try:
+        # Find matching game
+        game = await find_matching_game(sport_key, home_team, away_team, None)
+        
+        if game and game.get("status") == "final":
+            return determine_bet_result(
+                prediction_type,
+                predicted_outcome,
+                game.get("home_team"),
+                game.get("away_team"),
+                game.get("home_score", 0),
+                game.get("away_score", 0),
+                game.get("total_score", 0)
+            )
+    except Exception as e:
+        logger.error(f"Error fetching event result: {e}")
+    
     return None
 
 @api_router.get("/scores/{sport_key}")
