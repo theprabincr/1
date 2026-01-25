@@ -321,7 +321,7 @@ def extract_odds_from_listing_page(content: str) -> Dict[str, Dict]:
                     "home": home_odds,
                     "away": away_odds
                 }
-        except:
+        except (ValueError, IndexError):
             pass
     
     return odds_by_event
@@ -350,7 +350,7 @@ def parse_event_page(content: str, event_id: str, sport_key: str, home_team: str
                 bookmakers = parse_json_odds(data, home_team, away_team)
                 if bookmakers:
                     break
-            except:
+            except (json.JSONDecodeError, KeyError, TypeError):
                 pass
     
     # Method 2: Parse HTML odds table structure
