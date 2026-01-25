@@ -31,30 +31,31 @@ EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 # Cache for mock events (to keep IDs consistent)
 mock_events_cache = {}
 
-# Sportsbook mapping for The Odds API
+# API usage tracking
+api_usage = {
+    "requests_remaining": None,
+    "requests_used": None,
+    "last_updated": None
+}
+
+# Active sportsbooks (only ones that return data from API)
 SPORTSBOOKS = {
-    'bet365': 'bet365',
     'draftkings': 'draftkings',
     'fanduel': 'fanduel',
     'betmgm': 'betmgm',
-    'caesars': 'williamhill_us',  # Caesars was William Hill
     'pinnacle': 'pinnacle',
     'unibet': 'unibet',
     'betway': 'betway',
-    'pointsbet': 'pointsbetus',
     'betonline': 'betonlineag'
 }
 
 SPORTSBOOK_NAMES = {
-    'bet365': 'Bet365',
     'draftkings': 'DraftKings',
     'fanduel': 'FanDuel',
     'betmgm': 'BetMGM',
-    'williamhill_us': 'Caesars',
     'pinnacle': 'Pinnacle',
     'unibet': 'Unibet',
     'betway': 'Betway',
-    'pointsbetus': 'PointsBet',
     'betonlineag': 'BetOnline'
 }
 
