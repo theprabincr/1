@@ -190,6 +190,16 @@ const Performance = () => {
     }
   };
 
+  const checkResults = async () => {
+    try {
+      await axios.post(`${API}/check-results`);
+      // Refresh performance after checking results
+      setTimeout(fetchPerformance, 2000);
+    } catch (error) {
+      console.error("Error checking results:", error);
+    }
+  };
+
   useEffect(() => {
     fetchPerformance();
   }, []);
@@ -210,14 +220,24 @@ const Performance = () => {
           <h1 className="font-mono font-bold text-2xl text-text-primary">Performance</h1>
           <p className="text-text-muted text-sm mt-1">Track your prediction history</p>
         </div>
-        <button 
-          onClick={fetchPerformance}
-          className="btn-outline flex items-center gap-2"
-          data-testid="refresh-performance-btn"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Refresh
-        </button>
+        <div className="flex gap-2">
+          <button 
+            onClick={checkResults}
+            className="btn-primary flex items-center gap-2"
+            data-testid="check-results-btn"
+          >
+            <CheckCircle className="w-4 h-4" />
+            Check Results
+          </button>
+          <button 
+            onClick={fetchPerformance}
+            className="btn-outline flex items-center gap-2"
+            data-testid="refresh-performance-btn"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Main Stats */}
