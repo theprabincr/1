@@ -195,8 +195,17 @@ async def fetch_odds_api(endpoint: str, params: dict = None):
 # Get API usage endpoint
 @api_router.get("/api-usage")
 async def get_api_usage():
-    """Get current API usage statistics"""
-    return api_usage
+    """Get current API usage statistics and system status"""
+    return {
+        **api_usage,
+        "monthly_limit": 500,
+        "cache_duration_minutes": CACHE_DURATION_MINUTES,
+        "background_tasks": {
+            "result_checker": "Active (every 2 hours)",
+            "line_movement_checker": "Active (every hour)",
+            "recommendation_generator": "Active (every 6 hours)"
+        }
+    }
 
 # AI Analysis function
 async def get_ai_analysis(prompt: str, model: str = "gpt-5.2") -> str:
