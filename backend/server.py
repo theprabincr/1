@@ -152,34 +152,16 @@ class ResultUpdate(BaseModel):
     prediction_id: str
     result: str  # 'win', 'loss', 'push'
 
-# API Key Management Models
-class ApiKey(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    key: str
-    name: str
-    requests_remaining: Optional[int] = 500
-    requests_used: Optional[int] = 0
-    is_active: bool = True
-    is_exhausted: bool = False
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    last_used_at: Optional[str] = None
-
-class ApiKeyCreate(BaseModel):
-    key: str
-    name: str
-
 # Notification Models
 class NotificationPreferences(BaseModel):
     line_movement_alerts: bool = True
     line_movement_threshold: float = 5.0  # Percentage change to trigger alert
-    low_api_alerts: bool = True
-    low_api_threshold: int = 50  # Alert when below this many calls
     result_alerts: bool = True
     daily_summary: bool = True
 
 class Notification(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    type: str  # 'line_movement', 'api_low', 'result', 'recommendation'
+    type: str  # 'line_movement', 'result', 'recommendation'
     title: str
     message: str
     data: Optional[Dict] = None
@@ -189,11 +171,10 @@ class Notification(BaseModel):
 # Settings Model
 class AppSettings(BaseModel):
     cache_duration_minutes: int = 60
-    auto_rotate_keys: bool = True
     priority_sports: List[str] = []
     notification_preferences: NotificationPreferences = NotificationPreferences()
 
-# Helper function to get active API key
+# Helper function to create notifications
 async def get_active_api_key() -> Optional[str]:
     """Get the current active API key, with auto-rotation if needed"""
     global current_api_key
