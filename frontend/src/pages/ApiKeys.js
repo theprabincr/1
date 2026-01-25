@@ -330,11 +330,11 @@ const ApiKeys = () => {
           </div>
           <div className="flex items-start gap-3">
             <span className="w-6 h-6 rounded-full bg-brand-primary/20 text-brand-primary flex items-center justify-center text-xs font-bold">2</span>
-            <p>When the active key's calls drop to 5 or below, the system automatically switches to the next available key.</p>
+            <p>When the active key&apos;s calls drop to 5 or below, the system automatically switches to the next available key.</p>
           </div>
           <div className="flex items-start gap-3">
             <span className="w-6 h-6 rounded-full bg-brand-primary/20 text-brand-primary flex items-center justify-center text-xs font-bold">3</span>
-            <p>You'll receive notifications when keys are running low or when rotation occurs.</p>
+            <p>You&apos;ll receive notifications when keys are running low or when rotation occurs.</p>
           </div>
           <div className="flex items-start gap-3">
             <span className="w-6 h-6 rounded-full bg-brand-primary/20 text-brand-primary flex items-center justify-center text-xs font-bold">4</span>
