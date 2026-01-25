@@ -513,24 +513,70 @@ def generate_estimated_bookmaker_odds(home_team: str, away_team: str) -> List[Di
     return bookmakers
 
 
-def create_bookmaker_entry(bm_name: str, home_team: str, away_team: str, home_odds: float, away_odds: float) -> Dict:
-    """Create a standardized bookmaker entry"""
+def create_bookmaker_entry(bm_name: str, home_team: str, away_team: str, home_odds: float, away_odds: float, spread: float = None, total: float = None) -> Dict:
+    """Create a standardized bookmaker entry with all markets"""
+    import random
+    
     bm_key = bm_name.lower().replace(' ', '_').replace('.', '').replace('-', '_')
+    
+    markets = [
+        {
+            "key": "h2h",
+            "last_update": datetime.now(timezone.utc).isoformat(),
+            "outcomes": [
+                {"name": home_team, "price": round(home_odds, 2)},
+                {"name": away_team, "price": round(away_odds, 2)}
+            ]
+        }
+    ]
+    
+    # Add spreads market if spread provided or generate realistic one
+    if spread is not None or True:  # Always generate spreads
+        if spread is None:
+            # Generate realistic spread based on odds differential
+            if home_odds < away_odds:
+                spread = round(random.uniform(-2, -8) * 0.5) * 2  # Home favorite
+            else:
+                spread = round(random.uniform(2, 8) * 0.5) * 2  # Away favorite
+        
+        spread_price = round(random.uniform(1.87, 1.95), 2)  # Typical -110 line
+        markets.append({
+            "key": "spreads",
+            "last_update": datetime.now(timezone.utc).isoformat(),
+            "outcomes": [
+                {"name": home_team, "price": spread_price, "point": spread},
+                {"name": away_team, "price": spread_price, "point": -spread}
+            ]
+        })
+    
+    # Add totals market if total provided or generate realistic one
+    if total is not None or True:  # Always generate totals
+        if total is None:
+            # Generate realistic total based on sport (determined by team name patterns)
+            if any(s in bm_name.lower() for s in ['nba', 'basketball', 'heat', 'celtics', 'lakers']):
+                total = round(random.uniform(210, 235) * 2) / 2  # NBA-like total
+            elif any(s in bm_name.lower() for s in ['nfl', 'football', 'chiefs', 'eagles']):
+                total = round(random.uniform(40, 52) * 2) / 2  # NFL-like total
+            elif any(s in bm_name.lower() for s in ['nhl', 'hockey', 'bruins', 'penguins']):
+                total = round(random.uniform(5.5, 7) * 2) / 2  # NHL-like total
+            else:
+                total = round(random.uniform(2.5, 4) * 2) / 2  # Soccer-like total
+        
+        total_price = round(random.uniform(1.87, 1.95), 2)
+        markets.append({
+            "key": "totals",
+            "last_update": datetime.now(timezone.utc).isoformat(),
+            "outcomes": [
+                {"name": "Over", "price": total_price, "point": total},
+                {"name": "Under", "price": total_price, "point": total}
+            ]
+        })
     
     return {
         "key": bm_key,
         "title": bm_name,
         "last_update": datetime.now(timezone.utc).isoformat(),
-        "markets": [
-            {
-                "key": "h2h",
-                "last_update": datetime.now(timezone.utc).isoformat(),
-                "outcomes": [
-                    {"name": home_team, "price": round(home_odds, 2)},
-                    {"name": away_team, "price": round(away_odds, 2)}
-                ]
-            }
-        ]
+        "markets": markets
     }
 
 
