@@ -6,7 +6,7 @@ import {
   Home, TrendingUp, BarChart3, Trophy, 
   Activity, Settings, ChevronRight, RefreshCw,
   Calendar, Clock, Zap, Target, DollarSign, Wifi,
-  Key, Bell
+  Bell, Globe
 } from "lucide-react";
 
 // Pages
@@ -16,7 +16,6 @@ import LineMovement from "./pages/LineMovement";
 import OddsComparison from "./pages/OddsComparison";
 import Predictions from "./pages/Predictions";
 import Performance from "./pages/Performance";
-import ApiKeys from "./pages/ApiKeys";
 import SettingsPage from "./pages/Settings";
 import Notifications from "./pages/Notifications";
 
@@ -31,7 +30,6 @@ const navItems = [
   { path: "/odds-comparison", icon: BarChart3, label: "Odds Compare" },
   { path: "/predictions", icon: Target, label: "Predictions" },
   { path: "/performance", icon: Trophy, label: "Performance" },
-  { path: "/api-keys", icon: Key, label: "API Keys" },
   { path: "/settings", icon: Settings, label: "Settings" },
 ];
 
