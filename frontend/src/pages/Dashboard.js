@@ -237,9 +237,9 @@ const Dashboard = () => {
           color={performance?.roi >= 0 ? "green" : "red"}
         />
         <StatCard
-          title="Total Picks"
+          title="Completed"
           value={performance?.total_predictions || 0}
-          subtitle={`${performance?.wins || 0}W - ${performance?.losses || 0}L - ${recommendations.length} pending`}
+          subtitle={`${performance?.wins || 0}W - ${performance?.losses || 0}L`}
           icon={Target}
           color="blue"
         />
