@@ -192,28 +192,6 @@ class ApiKeyCreate(BaseModel):
     key: str
     name: str
 
-# Bankroll Management Models
-class BankrollTransaction(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    type: str  # 'deposit', 'withdrawal', 'bet', 'win', 'loss'
-    amount: float
-    description: str
-    prediction_id: Optional[str] = None
-    balance_after: float
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-
-class BankrollDeposit(BaseModel):
-    amount: float
-    description: str = "Deposit"
-
-class BankrollWithdrawal(BaseModel):
-    amount: float
-    description: str = "Withdrawal"
-
-class PlaceBet(BaseModel):
-    prediction_id: str
-    stake: float
-
 # Notification Models
 class NotificationPreferences(BaseModel):
     line_movement_alerts: bool = True
