@@ -53,6 +53,22 @@ BOOKMAKERS = {
     'betonlineag': 'BetOnline'
 }
 
+# Sportsbook display names (for UI)
+SPORTSBOOK_NAMES = {
+    'bet365': 'bet365',
+    'pinnacle': 'Pinnacle',
+    'draftkings': 'DraftKings',
+    'fanduel': 'FanDuel',
+    'betmgm': 'BetMGM',
+    'unibet': 'Unibet',
+    'betway': 'Betway',
+    'betfair': 'Betfair',
+    'william_hill': 'William Hill',
+    '1xbet': '1xBet',
+    'betonlineag': 'BetOnline',
+    'oddsportal_best': 'Best Available'
+}
+
 # Market types to analyze
 MARKET_TYPES = ['h2h', 'spreads', 'totals']
 
