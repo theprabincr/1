@@ -353,7 +353,6 @@ const Predictions = () => {
               <PredictionCard 
                 key={prediction.id} 
                 prediction={prediction}
-                onUpdateResult={handleUpdateResult}
               />
             ))}
           </div>
