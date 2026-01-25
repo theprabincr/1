@@ -374,22 +374,18 @@ async def root():
     return {"message": "BetPredictor API v1.0", "status": "running"}
 
 @api_router.get("/sports", response_model=List[Sport])
-async def get_sports():
+async def list_sports():
     """Get list of available sports"""
-    data = await fetch_odds_api("/sports")
-    if data is None:
-        # Return mock data if API unavailable
-        return [
-            {"key": "americanfootball_nfl", "group": "American Football", "title": "NFL", "description": "US Football", "active": True, "has_outrights": False},
-            {"key": "basketball_nba", "group": "Basketball", "title": "NBA", "description": "US Basketball", "active": True, "has_outrights": False},
-            {"key": "baseball_mlb", "group": "Baseball", "title": "MLB", "description": "US Baseball", "active": True, "has_outrights": False},
-            {"key": "icehockey_nhl", "group": "Ice Hockey", "title": "NHL", "description": "US Ice Hockey", "active": True, "has_outrights": False},
-            {"key": "soccer_epl", "group": "Soccer", "title": "EPL", "description": "English Premier League", "active": True, "has_outrights": False},
-            {"key": "soccer_spain_la_liga", "group": "Soccer", "title": "La Liga", "description": "Spanish La Liga", "active": True, "has_outrights": False},
-            {"key": "mma_mixed_martial_arts", "group": "MMA", "title": "MMA", "description": "Mixed Martial Arts", "active": True, "has_outrights": False},
-            {"key": "tennis_atp_french_open", "group": "Tennis", "title": "ATP French Open", "description": "Tennis", "active": True, "has_outrights": False},
-        ]
-    return [Sport(**s) for s in data if s.get('active', False)]
+    # Return hardcoded sports list (OddsPortal supported)
+    return [
+        {"key": "americanfootball_nfl", "group": "American Football", "title": "NFL", "description": "US Football", "active": True, "has_outrights": False},
+        {"key": "basketball_nba", "group": "Basketball", "title": "NBA", "description": "US Basketball", "active": True, "has_outrights": False},
+        {"key": "baseball_mlb", "group": "Baseball", "title": "MLB", "description": "US Baseball", "active": True, "has_outrights": False},
+        {"key": "icehockey_nhl", "group": "Ice Hockey", "title": "NHL", "description": "US Ice Hockey", "active": True, "has_outrights": False},
+        {"key": "soccer_epl", "group": "Soccer", "title": "EPL", "description": "English Premier League", "active": True, "has_outrights": False},
+        {"key": "soccer_spain_la_liga", "group": "Soccer", "title": "La Liga", "description": "Spanish La Liga", "active": True, "has_outrights": False},
+        {"key": "mma_mixed_martial_arts", "group": "MMA", "title": "MMA", "description": "Mixed Martial Arts", "active": True, "has_outrights": False},
+    ]
 
 @api_router.get("/events/{sport_key}")
 async def get_events(sport_key: str, markets: str = "h2h,spreads,totals", force_refresh: bool = False):
