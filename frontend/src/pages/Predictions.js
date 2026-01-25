@@ -35,7 +35,7 @@ const AnalysisCard = ({ title, analysis, icon: Icon, color }) => {
 };
 
 // Prediction Card
-const PredictionCard = ({ prediction, onUpdateResult }) => {
+const PredictionCard = ({ prediction }) => {
   const confidence = (prediction.confidence * 100).toFixed(0);
   
   const statusColors = {
