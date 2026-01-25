@@ -45,6 +45,13 @@ const StatCard = ({ title, value, subtitle, icon: Icon, trend, color = "lime" })
 const TopPickCard = ({ pick, onClick }) => {
   const confidence = pick.confidence * 100;
   
+  // Get market type badge
+  const marketBadge = {
+    'moneyline': { label: 'ML', color: 'bg-blue-500/20 text-blue-400' },
+    'spread': { label: 'SPR', color: 'bg-purple-500/20 text-purple-400' },
+    'total': { label: 'O/U', color: 'bg-orange-500/20 text-orange-400' }
+  }[pick.prediction_type] || { label: 'ML', color: 'bg-blue-500/20 text-blue-400' };
+  
   return (
     <div 
       className="event-card cursor-pointer" 
@@ -52,7 +59,12 @@ const TopPickCard = ({ pick, onClick }) => {
       data-testid={`pick-${pick.event_id}`}
     >
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-mono text-text-muted uppercase">{pick.sport_key?.replace(/_/g, ' ')}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono text-text-muted uppercase">{pick.sport_key?.replace(/_/g, ' ')}</span>
+          <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${marketBadge.color}`}>
+            {marketBadge.label}
+          </span>
+        </div>
         <span className={`px-2 py-1 rounded text-xs font-bold ${
           confidence >= 70 ? "bg-semantic-success/20 text-semantic-success" :
           confidence >= 50 ? "bg-semantic-warning/20 text-semantic-warning" :
@@ -74,9 +86,7 @@ const TopPickCard = ({ pick, onClick }) => {
         </div>
         <div className="text-right">
           <p className="text-xs text-text-muted">Odds</p>
-          <p className={`font-mono font-bold ${
-            pick.odds_at_prediction > 0 ? "text-semantic-success" : "text-semantic-danger"
-          }`}>
+          <p className="font-mono font-bold text-brand-primary">
             {pick.odds_at_prediction?.toFixed(2)}
           </p>
         </div>
