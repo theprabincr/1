@@ -49,8 +49,7 @@ BOOKMAKERS = {
     'betway': 'Betway',
     'betfair': 'Betfair',
     'william_hill': 'William Hill',
-    '1xbet': '1xBet'
-}
+    '1xbet': '1xBet',
     'betonlineag': 'BetOnline'
 }
 
