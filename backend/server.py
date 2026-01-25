@@ -1,4 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -12,6 +13,9 @@ from datetime import datetime, timezone, timedelta
 import httpx
 import asyncio
 import hashlib
+import csv
+import io
+import json
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -22,7 +26,6 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 # The Odds API config
-ODDS_API_KEY = os.environ.get('ODDS_API_KEY', '')
 ODDS_API_BASE = "https://api.the-odds-api.com/v4"
 
 # Emergent LLM Key
@@ -31,17 +34,28 @@ EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 # Cache for mock events (to keep IDs consistent)
 mock_events_cache = {}
 
-# Events cache to reduce API calls (cache for 30 minutes)
+# Events cache to reduce API calls (configurable duration)
 events_cache = {}
-CACHE_DURATION_MINUTES = 30
+CACHE_DURATION_MINUTES = 60  # Extended from 30 to 60 minutes for better API conservation
 
-# API usage tracking
-api_usage = {
+# Default API key from env (fallback)
+DEFAULT_ODDS_API_KEY = os.environ.get('ODDS_API_KEY', '')
+
+# Current active API key (will be managed dynamically)
+current_api_key = {
+    "key": DEFAULT_ODDS_API_KEY,
+    "key_id": "default",
     "requests_remaining": None,
     "requests_used": None,
     "last_updated": None,
     "monthly_limit": 500
 }
+
+# Notification queue for line movement alerts
+notification_queue = []
+
+# Priority events (events to prioritize for API calls)
+priority_events = set()
 
 # Active sportsbooks (only ones that return data from API)
 SPORTSBOOKS = {
