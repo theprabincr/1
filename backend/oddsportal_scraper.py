@@ -369,7 +369,7 @@ def parse_event_page(content: str, event_id: str, sport_key: str, home_team: str
     
     # If no bookmakers found, generate reasonable estimates based on the matchup
     if not bookmakers:
-        bookmakers = generate_estimated_bookmaker_odds(home_team, away_team)
+        bookmakers = generate_estimated_bookmaker_odds(home_team, away_team, sport_key)
     
     return {
         "id": event_id,
