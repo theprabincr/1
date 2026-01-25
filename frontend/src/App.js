@@ -127,14 +127,6 @@ const Sidebar = () => {
         )}
       </div>
     </aside>
-              Total: <span className="font-mono text-brand-secondary">
-                {apiUsage.total_remaining_all_keys}
-              </span>
-            </span>
-          </div>
-        )}
-      </div>
-    </aside>
   );
 };
 
