@@ -9,65 +9,81 @@ Build a betting predictor application that fetches data from all future and in-p
 3. **Casual Fan** - Looks for AI-powered recommendations with analysis
 
 ## Core Requirements (Static)
-- Fetch sports events and odds from The Odds API (or mock data)
-- Track 10 major sportsbooks: bet365, DraftKings, FanDuel, BetMGM, Caesars, Pinnacle, Unibet, Betway, PointsBet, BetOnline
-- AI analysis using GPT-5.2 and Claude Sonnet 4.5
-- Line movement tracking with visual charts
-- Odds comparison across sportsbooks
-- Win/loss tracking for algorithm performance
+- Real-time odds from The Odds API (API key configured)
+- European/decimal odds format
+- Track 7 active sportsbooks: DraftKings, FanDuel, BetMGM, Pinnacle, Unibet, Betway, BetOnline
+- AI analysis using GPT-5.2
+- Auto-generate recommendations without user interaction
+- Line movement tracking with hourly updates
+- Auto-track results 5 hours after event completion
 - No authentication required
 
-## What's Been Implemented (December 2025)
+## What's Been Implemented (January 2025)
+
 ### Backend (FastAPI + MongoDB)
 - [x] GET /api/sports - List available sports
-- [x] GET /api/events/{sport_key} - Get events with odds
+- [x] GET /api/events/{sport_key} - Get upcoming events with decimal odds
+- [x] GET /api/api-usage - Track API calls remaining
 - [x] GET /api/line-movement/{event_id} - Line movement history
 - [x] GET /api/odds-comparison/{event_id} - Compare odds across books
-- [x] POST /api/analyze - AI analysis using GPT-5.2 + Claude
-- [x] GET /api/recommendations - Get AI picks
-- [x] POST /api/generate-recommendations - Generate new picks
+- [x] POST /api/analyze - AI analysis using GPT-5.2
+- [x] GET /api/recommendations - Get auto-generated AI picks
 - [x] PUT /api/result - Track win/loss/push
 - [x] GET /api/performance - Performance statistics
-- [x] Mock data generation when API key not provided
+- [x] GET /api/scores/{sport} - Fetch completed game scores
+
+### Background Tasks (Automatic)
+- [x] Auto-generate recommendations every 2 hours
+- [x] Check line movements hourly and update confidence
+- [x] Auto-check results hourly for completed events
+- [x] Track API usage from response headers
 
 ### Frontend (React + Tailwind)
-- [x] Dashboard with stats, top picks, live events
-- [x] Events page with sport filters, odds display
-- [x] Line Movement page with Recharts visualization
-- [x] Odds Comparison with 10 sportsbook comparison
-- [x] Predictions page with AI analysis
-- [x] Performance tracking with charts
+- [x] Dashboard with auto-generated Top Picks
+- [x] API usage counter in sidebar (Calls Left: XXX)
+- [x] Events page with decimal odds from 7 active sportsbooks
+- [x] Line Movement page with charts
+- [x] Odds Comparison with best odds highlighted
+- [x] Performance tracking with win/loss history
 
 ### Design
 - Dark terminal/HFT theme with lime green accents
 - JetBrains Mono for data, Manrope for body
-- Responsive sidebar navigation
+- Only active sportsbooks displayed (removed bet365, Caesars, PointsBet)
 
 ## Prioritized Backlog
 
-### P0 - Critical (Blocking Core Functionality)
-- [ ] Add real The Odds API integration (requires API key from user)
-- [ ] Add scheduled job to auto-track event results
+### P0 - Critical
+- [x] Real API integration ✅
+- [x] Auto-generate recommendations ✅
+- [x] API usage tracking ✅
 
 ### P1 - Important
-- [ ] Add notifications for sharp line movements
-- [ ] Add prop bets support
-- [ ] Add bankroll management tracking
-- [ ] Add user preferences/favorites
+- [ ] Push notifications for sharp line movements
+- [ ] Historical odds tracking (requires API upgrade)
+- [ ] Prop bets support
 
 ### P2 - Nice to Have
-- [ ] Add more sports (Tennis, Golf, Cricket)
-- [ ] Add historical odds analysis
-- [ ] Add social sharing of picks
-- [ ] Add dark/light theme toggle
+- [ ] More sports coverage
+- [ ] Bankroll management
+- [ ] Social sharing
 
 ## Tech Stack
 - **Backend**: FastAPI, MongoDB, emergentintegrations (LLM)
 - **Frontend**: React, Tailwind CSS, Recharts, Lucide Icons
-- **AI Models**: GPT-5.2 (OpenAI), Claude Sonnet 4.5 (Anthropic)
-- **Data Source**: The Odds API (mock data if no key)
+- **AI Model**: GPT-5.2 (OpenAI via Emergent)
+- **Data Source**: The Odds API (241 calls remaining)
+
+## Active Sportsbooks
+1. DraftKings
+2. FanDuel
+3. BetMGM
+4. Pinnacle
+5. Unibet
+6. Betway
+7. BetOnline
 
 ## Next Tasks
-1. User to provide The Odds API key for real data
-2. Implement automated result tracking
-3. Add push notifications for line movements
+1. Monitor API usage (241 calls remaining)
+2. Add push notifications for line movement alerts
+3. Consider API tier upgrade for historical data
