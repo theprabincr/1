@@ -1570,12 +1570,13 @@ async def auto_check_results():
 
 async def fetch_event_result(sport_key: str, event_id: str, home_team: str, away_team: str, predicted_outcome: str, prediction_type: str) -> Optional[str]:
     """Fetch event result from The Odds API scores endpoint"""
-    if not ODDS_API_KEY:
+    api_key = await get_active_api_key()
+    if not api_key:
         return None
     
     try:
         params = {
-            "apiKey": ODDS_API_KEY,
+            "apiKey": api_key,
             "daysFrom": 3  # Look back 3 days for completed events
         }
         
