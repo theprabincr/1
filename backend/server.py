@@ -488,6 +488,140 @@ async def get_performance(sport_key: Optional[str] = None, days: int = 30):
         "recent_predictions": recent
     }
 
+# Auto-tracking system for results
+@api_router.post("/check-results")
+async def check_and_update_results(background_tasks: BackgroundTasks):
+    """Check for completed events and update prediction results"""
+    background_tasks.add_task(auto_check_results)
+    return {"message": "Result checking started in background"}
+
+async def auto_check_results():
+    """Background task to check event results and update predictions"""
+    try:
+        # Get all pending predictions
+        pending = await db.predictions.find(
+            {"result": "pending"},
+            {"_id": 0}
+        ).to_list(100)
+        
+        for prediction in pending:
+            event_id = prediction.get("event_id")
+            commence_time_str = prediction.get("commence_time")
+            
+            if not commence_time_str:
+                continue
+            
+            try:
+                commence_time = datetime.fromisoformat(commence_time_str.replace('Z', '+00:00'))
+                now = datetime.now(timezone.utc)
+                
+                # Check if 5 hours have passed since event start
+                hours_since_start = (now - commence_time).total_seconds() / 3600
+                
+                if hours_since_start >= 5:
+                    # Try to fetch result from scores API
+                    result = await fetch_event_result(
+                        prediction.get("sport_key"),
+                        event_id,
+                        prediction.get("home_team"),
+                        prediction.get("away_team"),
+                        prediction.get("predicted_outcome"),
+                        prediction.get("prediction_type")
+                    )
+                    
+                    if result:
+                        await db.predictions.update_one(
+                            {"id": prediction.get("id")},
+                            {"$set": {"result": result, "result_updated_at": now.isoformat()}}
+                        )
+                        logger.info(f"Updated prediction {prediction.get('id')} with result: {result}")
+            except Exception as e:
+                logger.error(f"Error processing prediction {prediction.get('id')}: {e}")
+                
+    except Exception as e:
+        logger.error(f"Error in auto_check_results: {e}")
+
+async def fetch_event_result(sport_key: str, event_id: str, home_team: str, away_team: str, predicted_outcome: str, prediction_type: str) -> Optional[str]:
+    """Fetch event result from The Odds API scores endpoint"""
+    if not ODDS_API_KEY:
+        return None
+    
+    try:
+        params = {
+            "apiKey": ODDS_API_KEY,
+            "daysFrom": 3  # Look back 3 days for completed events
+        }
+        
+        async with httpx.AsyncClient() as http_client:
+            response = await http_client.get(
+                f"{ODDS_API_BASE}/sports/{sport_key}/scores",
+                params=params,
+                timeout=30.0
+            )
+            
+            if response.status_code == 200:
+                scores_data = response.json()
+                
+                # Find the matching event
+                for event in scores_data:
+                    if event.get("id") == event_id or (
+                        event.get("home_team") == home_team and 
+                        event.get("away_team") == away_team
+                    ):
+                        if event.get("completed"):
+                            scores = event.get("scores", [])
+                            if scores and len(scores) >= 2:
+                                home_score = None
+                                away_score = None
+                                
+                                for score in scores:
+                                    if score.get("name") == home_team:
+                                        home_score = int(score.get("score", 0))
+                                    elif score.get("name") == away_team:
+                                        away_score = int(score.get("score", 0))
+                                
+                                if home_score is not None and away_score is not None:
+                                    # Determine if prediction was correct
+                                    if prediction_type == "moneyline":
+                                        winner = home_team if home_score > away_score else away_team
+                                        if home_score == away_score:
+                                            return "push"
+                                        return "win" if predicted_outcome == winner else "loss"
+                                    
+                                    # For now, mark as needs manual review
+                                    return None
+                        return None
+            return None
+    except Exception as e:
+        logger.error(f"Error fetching scores: {e}")
+        return None
+
+@api_router.get("/scores/{sport_key}")
+async def get_scores(sport_key: str, days_from: int = 3):
+    """Get recent scores for completed events"""
+    if not ODDS_API_KEY:
+        return {"error": "API key not configured", "scores": []}
+    
+    try:
+        params = {
+            "apiKey": ODDS_API_KEY,
+            "daysFrom": days_from
+        }
+        
+        async with httpx.AsyncClient() as http_client:
+            response = await http_client.get(
+                f"{ODDS_API_BASE}/sports/{sport_key}/scores",
+                params=params,
+                timeout=30.0
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            return {"error": f"API returned {response.status_code}", "scores": []}
+    except Exception as e:
+        logger.error(f"Error fetching scores: {e}")
+        return {"error": str(e), "scores": []}
+
 @api_router.get("/odds-comparison/{event_id}")
 async def get_odds_comparison(event_id: str, sport_key: str = "basketball_nba"):
     """Get odds comparison across all sportsbooks for an event"""
