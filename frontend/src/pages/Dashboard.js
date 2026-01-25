@@ -77,7 +77,7 @@ const TopPickCard = ({ pick, onClick }) => {
           <p className={`font-mono font-bold ${
             pick.odds_at_prediction > 0 ? "text-semantic-success" : "text-semantic-danger"
           }`}>
-            {pick.odds_at_prediction > 0 ? "+" : ""}{pick.odds_at_prediction}
+            {pick.odds_at_prediction?.toFixed(2)}
           </p>
         </div>
       </div>
@@ -92,8 +92,8 @@ const LiveEventCard = ({ event }) => {
   return (
     <div className="event-card" data-testid={`event-${event.id}`}>
       <div className="flex items-center gap-2 mb-3">
-        <span className="w-2 h-2 rounded-full bg-semantic-success animate-pulse"></span>
-        <span className="text-xs font-mono text-semantic-success">LIVE</span>
+        <span className="w-2 h-2 rounded-full bg-brand-primary"></span>
+        <span className="text-xs font-mono text-brand-primary">UPCOMING</span>
         <span className="text-xs text-text-muted ml-auto">
           {event.sport_title || event.sport_key?.replace(/_/g, ' ')}
         </span>
@@ -102,10 +102,8 @@ const LiveEventCard = ({ event }) => {
       <div className="grid grid-cols-3 gap-2 items-center">
         <div>
           <p className="text-text-primary font-semibold text-sm truncate">{event.home_team}</p>
-          <p className={`font-mono text-lg font-bold ${
-            bestOdds.home > 0 ? "text-semantic-success" : "text-text-primary"
-          }`}>
-            {bestOdds.home > 0 ? "+" : ""}{bestOdds.home}
+          <p className="font-mono text-lg font-bold text-brand-primary">
+            {bestOdds.home?.toFixed(2)}
           </p>
         </div>
         
@@ -115,10 +113,8 @@ const LiveEventCard = ({ event }) => {
         
         <div className="text-right">
           <p className="text-text-primary font-semibold text-sm truncate">{event.away_team}</p>
-          <p className={`font-mono text-lg font-bold ${
-            bestOdds.away > 0 ? "text-semantic-success" : "text-text-primary"
-          }`}>
-            {bestOdds.away > 0 ? "+" : ""}{bestOdds.away}
+          <p className="font-mono text-lg font-bold text-brand-primary">
+            {bestOdds.away?.toFixed(2)}
           </p>
         </div>
       </div>
@@ -126,10 +122,10 @@ const LiveEventCard = ({ event }) => {
   );
 };
 
-// Helper to get best odds
+// Helper to get best odds (decimal format - higher is better)
 const getBestOdds = (bookmakers) => {
-  let bestHome = -9999;
-  let bestAway = -9999;
+  let bestHome = 1;
+  let bestAway = 1;
   
   bookmakers.forEach(bm => {
     bm.markets?.forEach(market => {
