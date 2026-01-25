@@ -5,7 +5,8 @@ import axios from "axios";
 import { 
   Home, TrendingUp, BarChart3, Trophy, 
   Activity, Settings, ChevronRight, RefreshCw,
-  Calendar, Clock, Zap, Target, DollarSign, Wifi
+  Calendar, Clock, Zap, Target, DollarSign, Wifi,
+  Key, Wallet, Bell, PieChart
 } from "lucide-react";
 
 // Pages
@@ -15,6 +16,11 @@ import LineMovement from "./pages/LineMovement";
 import OddsComparison from "./pages/OddsComparison";
 import Predictions from "./pages/Predictions";
 import Performance from "./pages/Performance";
+import ApiKeys from "./pages/ApiKeys";
+import Bankroll from "./pages/Bankroll";
+import SettingsPage from "./pages/Settings";
+import Analytics from "./pages/Analytics";
+import Notifications from "./pages/Notifications";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
@@ -27,6 +33,10 @@ const navItems = [
   { path: "/odds-comparison", icon: BarChart3, label: "Odds Compare" },
   { path: "/predictions", icon: Target, label: "Predictions" },
   { path: "/performance", icon: Trophy, label: "Performance" },
+  { path: "/analytics", icon: PieChart, label: "Analytics" },
+  { path: "/bankroll", icon: Wallet, label: "Bankroll" },
+  { path: "/api-keys", icon: Key, label: "API Keys" },
+  { path: "/settings", icon: Settings, label: "Settings" },
 ];
 
 // Sidebar Component with API Usage
