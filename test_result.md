@@ -270,21 +270,22 @@ frontend:
 
 metadata:
   created_by: "main_agent"
-  version: "2.0"
-  test_sequence: 1
+  version: "3.0"
+  test_sequence: 2
   run_ui: false
 
 test_plan:
   current_focus:
-    - "API Key Management System"
-    - "Bankroll Management"
-    - "Notifications System"
+    - "ESPN Scores Integration"
+    - "Automatic Result Tracking"
+    - "70% Confidence Filter"
+    - "Time Window Filter"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
   - agent: "main"
-    message: "Implemented all enhancements: API key management with auto-rotation, bankroll tracking, notifications system, settings, analytics, and export functionality. All new backend endpoints tested via curl and working. Ready for backend testing."
+    message: "Implemented ESPN scores integration for automatic win/loss tracking. Added 70%+ confidence filter for recommendations. Added time window filter (today to 3 days) for pre-match bets. Background result checker now runs every 15 minutes. NEW endpoints: /api/scores/{sport_key}, /api/live-scores, /api/pending-results. Ready for backend testing."
   - agent: "testing"
     message: "✅ COMPREHENSIVE BACKEND TESTING COMPLETE - 91.1% success rate (41/45 tests passed). All major BetPredictor enhancements verified working: API Key Management CRUD, Bankroll Management (deposit/withdraw/transactions), Notifications system, Settings API, Analytics (trends/streaks), Export functionality (JSON/CSV), Enhanced API usage endpoint with total_remaining_all_keys and active_keys_count fields. Minor issues: API key reset timing, Generate recommendations timeout (60s), CSV parsing in test framework. Core functionality fully operational."
