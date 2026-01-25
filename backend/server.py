@@ -25,59 +25,32 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# The Odds API config (fallback)
-ODDS_API_BASE = "https://api.the-odds-api.com/v4"
-
 # Emergent LLM Key
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 
-# Data source: 'oddsportal' (free scraping) or 'oddsapi' (paid API)
-DATA_SOURCE = os.environ.get('ODDS_DATA_SOURCE', 'oddsportal')
-
-# Cache for mock events (to keep IDs consistent)
-mock_events_cache = {}
-
-# Events cache to reduce scraping/API calls (configurable duration)
+# Events cache to reduce scraping (1 hour cache)
 events_cache = {}
-CACHE_DURATION_MINUTES = 60  # Cache for 1 hour
+CACHE_DURATION_MINUTES = 60
 
-# Default API key from env (fallback for Odds API)
-DEFAULT_ODDS_API_KEY = os.environ.get('ODDS_API_KEY', '')
-
-# Current active API key (will be managed dynamically)
-current_api_key = {
-    "key": DEFAULT_ODDS_API_KEY,
-    "key_id": "default",
-    "requests_remaining": None,
-    "requests_used": None,
-    "last_updated": None,
-    "monthly_limit": 500
-}
+# Last scrape timestamp for status
+last_scrape_time = None
 
 # Notification queue for line movement alerts
 notification_queue = []
 
-# Priority events (events to prioritize for API calls)
-priority_events = set()
-
-# Active sportsbooks (only ones that return data from API)
-SPORTSBOOKS = {
-    'draftkings': 'draftkings',
-    'fanduel': 'fanduel',
-    'betmgm': 'betmgm',
-    'pinnacle': 'pinnacle',
-    'unibet': 'unibet',
-    'betway': 'betway',
-    'betonline': 'betonlineag'
-}
-
-SPORTSBOOK_NAMES = {
+# Bookmakers tracked from OddsPortal
+BOOKMAKERS = {
+    'bet365': 'bet365',
+    'pinnacle': 'Pinnacle',
     'draftkings': 'DraftKings',
     'fanduel': 'FanDuel',
     'betmgm': 'BetMGM',
-    'pinnacle': 'Pinnacle',
     'unibet': 'Unibet',
     'betway': 'Betway',
+    'betfair': 'Betfair',
+    'william_hill': 'William Hill',
+    '1xbet': '1xBet'
+}
     'betonlineag': 'BetOnline'
 }
 
