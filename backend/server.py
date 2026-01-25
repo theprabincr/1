@@ -1976,8 +1976,8 @@ async def scheduled_recommendation_generator():
     while True:
         try:
             # Check API usage before generating
-            if api_usage.get('requests_remaining') and api_usage['requests_remaining'] < 30:
-                logger.warning(f"Low API calls ({api_usage['requests_remaining']}). Skipping recommendation generation.")
+            if current_api_key.get('requests_remaining') and current_api_key['requests_remaining'] < 30:
+                logger.warning(f"Low API calls ({current_api_key['requests_remaining']}). Skipping recommendation generation.")
                 await asyncio.sleep(21600)  # Wait 6 hours
                 continue
             
