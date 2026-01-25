@@ -39,30 +39,34 @@ const navItems = [
   { path: "/settings", icon: Settings, label: "Settings" },
 ];
 
-// Sidebar Component with API Usage
+// Sidebar Component with API Usage and Notifications
 const Sidebar = () => {
-  const [apiUsage, setApiUsage] = useState({ requests_remaining: null });
+  const [apiUsage, setApiUsage] = useState({ requests_remaining: null, total_remaining_all_keys: null });
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   useEffect(() => {
-    const fetchApiUsage = async () => {
+    const fetchData = async () => {
       try {
-        const response = await axios.get(`${API}/api-usage`);
-        setApiUsage(response.data);
+        const [usageRes, notifRes] = await Promise.all([
+          axios.get(`${API}/api-usage`),
+          axios.get(`${API}/notifications?unread_only=true&limit=1`)
+        ]);
+        setApiUsage(usageRes.data);
+        setUnreadNotifications(notifRes.data.unread_count);
       } catch (error) {
-        console.error("Error fetching API usage:", error);
+        console.error("Error fetching sidebar data:", error);
       }
     };
     
-    fetchApiUsage();
-    // Refresh every 5 minutes
-    const interval = setInterval(fetchApiUsage, 300000);
+    fetchData();
+    const interval = setInterval(fetchData, 60000); // Refresh every minute
     return () => clearInterval(interval);
   }, []);
 
   return (
     <aside className="sidebar" data-testid="sidebar">
       <div className="p-6">
-        <div className="flex items-center gap-3 mb-8">
+        <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 rounded-lg bg-brand-primary flex items-center justify-center">
             <Zap className="w-6 h-6 text-zinc-950" />
           </div>
@@ -71,8 +75,28 @@ const Sidebar = () => {
             <p className="text-xs text-text-muted">AI-Powered Picks</p>
           </div>
         </div>
+
+        {/* Notifications Link */}
+        <NavLink
+          to="/notifications"
+          className={({ isActive }) =>
+            `flex items-center gap-3 p-3 rounded-lg mb-4 transition-all ${
+              isActive 
+                ? 'bg-brand-primary/20 text-brand-primary' 
+                : 'bg-zinc-800 text-text-secondary hover:bg-zinc-700'
+            }`
+          }
+        >
+          <Bell className="w-5 h-5" />
+          <span className="font-medium">Notifications</span>
+          {unreadNotifications > 0 && (
+            <span className="ml-auto px-2 py-0.5 rounded-full text-xs bg-brand-primary text-zinc-950 font-bold">
+              {unreadNotifications}
+            </span>
+          )}
+        </NavLink>
         
-        <nav className="space-y-1">
+        <nav className="space-y-1 max-h-[calc(100vh-380px)] overflow-y-auto">
           {navItems.map((item) => (
             <NavLink
               key={item.path}
@@ -90,15 +114,15 @@ const Sidebar = () => {
         </nav>
       </div>
       
-      <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-zinc-800 space-y-3">
+      <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-zinc-800 space-y-2">
         <div className="flex items-center gap-3 text-sm">
           <Activity className="w-4 h-4 text-semantic-success" />
-          <span className="text-text-muted">API Status: <span className="text-semantic-success">Online</span></span>
+          <span className="text-text-muted">API: <span className="text-semantic-success">Online</span></span>
         </div>
         <div className="flex items-center gap-3 text-sm" data-testid="api-usage">
           <Wifi className="w-4 h-4 text-brand-primary" />
           <span className="text-text-muted">
-            Calls Left: <span className={`font-mono font-bold ${
+            Active: <span className={`font-mono font-bold ${
               apiUsage.requests_remaining > 100 ? 'text-semantic-success' :
               apiUsage.requests_remaining > 20 ? 'text-semantic-warning' : 'text-semantic-danger'
             }`}>
@@ -106,6 +130,16 @@ const Sidebar = () => {
             </span>
           </span>
         </div>
+        {apiUsage.total_remaining_all_keys > 0 && (
+          <div className="flex items-center gap-3 text-sm">
+            <Key className="w-4 h-4 text-brand-secondary" />
+            <span className="text-text-muted">
+              Total: <span className="font-mono text-brand-secondary">
+                {apiUsage.total_remaining_all_keys}
+              </span>
+            </span>
+          </div>
+        )}
       </div>
     </aside>
   );
