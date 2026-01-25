@@ -1293,7 +1293,7 @@ REASONING: [2-3 sentences on why this is the best value bet]"""
             conf_match = re.search(r'confidence[:\s]*(\d+)', analysis_lower)
             if conf_match:
                 confidence = int(conf_match.group(1)) / 10
-        except:
+        except Exception:
             pass
         
         # Determine market type and pick
