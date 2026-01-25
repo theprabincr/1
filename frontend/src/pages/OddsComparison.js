@@ -8,29 +8,24 @@ import {
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+// Active sportsbooks only
 const SPORTSBOOK_LOGOS = {
-  'bet365': 'https://logo.clearbit.com/bet365.com',
   'draftkings': 'https://logo.clearbit.com/draftkings.com',
   'fanduel': 'https://logo.clearbit.com/fanduel.com',
   'betmgm': 'https://logo.clearbit.com/betmgm.com',
-  'williamhill_us': 'https://logo.clearbit.com/caesars.com',
   'pinnacle': 'https://logo.clearbit.com/pinnacle.com',
   'unibet': 'https://logo.clearbit.com/unibet.com',
   'betway': 'https://logo.clearbit.com/betway.com',
-  'pointsbetus': 'https://logo.clearbit.com/pointsbet.com',
   'betonlineag': 'https://logo.clearbit.com/betonline.ag',
 };
 
 const SPORTSBOOK_NAMES = {
-  'bet365': 'Bet365',
   'draftkings': 'DraftKings',
   'fanduel': 'FanDuel',
   'betmgm': 'BetMGM',
-  'williamhill_us': 'Caesars',
   'pinnacle': 'Pinnacle',
   'unibet': 'Unibet',
   'betway': 'Betway',
-  'pointsbetus': 'PointsBet',
   'betonlineag': 'BetOnline'
 };
 
