@@ -232,13 +232,13 @@ async def get_sports():
 
 @api_router.get("/events/{sport_key}")
 async def get_events(sport_key: str, markets: str = "h2h,spreads,totals"):
-    """Get events with odds for a specific sport"""
+    """Get events with odds for a specific sport - only upcoming events"""
     bookmaker_keys = ",".join(SPORTSBOOKS.values())
     params = {
         "regions": "us,eu,uk,au",
         "markets": markets,
         "bookmakers": bookmaker_keys,
-        "oddsFormat": "american"
+        "oddsFormat": "decimal"  # European format
     }
     
     data = await fetch_odds_api(f"/sports/{sport_key}/odds", params)
@@ -247,11 +247,22 @@ async def get_events(sport_key: str, markets: str = "h2h,spreads,totals"):
         # Return mock data
         return await get_mock_events(sport_key)
     
-    # Store odds history for line movement tracking
+    # Filter to only show upcoming events (not past)
+    now = datetime.now(timezone.utc)
+    upcoming_events = []
     for event in data:
-        await store_odds_snapshot(event)
+        commence_time_str = event.get('commence_time', '')
+        if commence_time_str:
+            try:
+                commence_time = datetime.fromisoformat(commence_time_str.replace('Z', '+00:00'))
+                if commence_time > now:
+                    upcoming_events.append(event)
+                    # Store odds history for line movement tracking
+                    await store_odds_snapshot(event)
+            except:
+                upcoming_events.append(event)
     
-    return data
+    return upcoming_events
 
 @api_router.get("/event/{event_id}")
 async def get_event_details(event_id: str, sport_key: str = "basketball_nba"):
