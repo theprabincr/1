@@ -447,7 +447,7 @@ def parse_html_odds_table(content: str, home_team: str, away_team: str) -> List[
                 bookmakers.append(create_bookmaker_entry(
                     bm_name, home_team, away_team, home_odds, away_odds
                 ))
-        except:
+        except (ValueError, AttributeError):
             pass
     
     # Deduplicate
