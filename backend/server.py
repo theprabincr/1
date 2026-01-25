@@ -1293,7 +1293,6 @@ async def get_mock_events(sport_key: str):
 def generate_mock_line_movement(event_id: str):
     """Generate mock line movement data"""
     import random
-    from datetime import timedelta
     
     movements = []
     base_time = datetime.now(timezone.utc)
