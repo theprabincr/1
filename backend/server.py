@@ -1364,6 +1364,12 @@ async def update_recommendations_on_line_movement():
     logger.info("Checking line movements and updating recommendations...")
     
     try:
+        # Get settings for threshold
+        settings = await db.settings.find_one({})
+        threshold = 5.0
+        if settings and settings.get('notification_preferences'):
+            threshold = settings['notification_preferences'].get('line_movement_threshold', 5.0)
+        
         # Get pending predictions
         pending = await db.predictions.find({"result": "pending"}, {"_id": 0}).to_list(50)
         
@@ -1397,16 +1403,18 @@ async def update_recommendations_on_line_movement():
                             if outcome.get("name") == predicted_team and outcome.get("price", 1) > current_best:
                                 current_best = outcome.get("price")
             
-            # Check for significant line movement (>5% change)
+            # Check for significant line movement
             if original_odds > 0:
                 change_pct = abs(current_best - original_odds) / original_odds * 100
                 
-                if change_pct > 5:
+                if change_pct >= threshold:
                     # Line moved significantly - add note to analysis
                     new_analysis = prediction.get("analysis", "") + f"\n\n[LINE MOVEMENT UPDATE: Odds moved from {original_odds:.2f} to {current_best:.2f} ({change_pct:.1f}% change)]"
                     
                     # Adjust confidence based on movement direction
                     new_confidence = prediction.get("confidence", 0.6)
+                    movement_direction = "favorable" if current_best > original_odds else "adverse"
+                    
                     if current_best > original_odds:
                         # Line moving in our favor (better value)
                         new_confidence = min(new_confidence + 0.05, 0.95)
@@ -1427,6 +1435,22 @@ async def update_recommendations_on_line_movement():
                         }}
                     )
                     logger.info(f"Updated prediction {prediction.get('id')} - line moved {change_pct:.1f}%")
+                    
+                    # Create notification for significant line movement
+                    if settings and settings.get('notification_preferences', {}).get('line_movement_alerts', True):
+                        await create_notification(
+                            "line_movement",
+                            f"Line Movement Alert: {prediction.get('home_team')} vs {prediction.get('away_team')}",
+                            f"Odds moved {change_pct:.1f}% ({movement_direction}): {original_odds:.2f} → {current_best:.2f}",
+                            {
+                                "prediction_id": prediction.get("id"),
+                                "event_id": event_id,
+                                "original_odds": original_odds,
+                                "current_odds": current_best,
+                                "change_pct": change_pct,
+                                "direction": movement_direction
+                            }
+                        )
                     
     except Exception as e:
         logger.error(f"Error in update_recommendations_on_line_movement: {e}")
