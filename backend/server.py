@@ -1750,14 +1750,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Background task scheduler for auto-checking results
+# Background task scheduler for auto-checking results - runs every 15 minutes for real-time updates
 async def scheduled_result_checker():
-    """Background task that runs every 2 hours to check for completed events (to save API calls)"""
+    """Background task that runs every 15 minutes to check for completed events using ESPN API"""
+    # Initial delay to let services start
+    await asyncio.sleep(90)
+    
     while True:
         try:
-            await asyncio.sleep(7200)  # Run every 2 hours
-            logger.info("Running scheduled result check...")
+            logger.info("Running scheduled result check (every 15 minutes)...")
             await auto_check_results()
+            await asyncio.sleep(900)  # Run every 15 minutes (900 seconds)
         except Exception as e:
             logger.error(f"Scheduled result checker error: {e}")
             await asyncio.sleep(60)  # Wait a minute before retrying
@@ -1776,13 +1779,13 @@ async def scheduled_line_movement_checker():
 
 # Background task for auto-generating recommendations (reduced frequency to save API calls)
 async def scheduled_recommendation_generator():
-    """Background task that generates recommendations every 4 hours"""
+    """Background task that generates 70%+ confidence recommendations every 4 hours"""
     # Wait 60 seconds on startup to let services initialize
     await asyncio.sleep(60)
     
     while True:
         try:
-            logger.info("Running scheduled recommendation generation...")
+            logger.info("Running scheduled recommendation generation (70%+ confidence only)...")
             await auto_generate_recommendations()
             await asyncio.sleep(14400)  # Run every 4 hours
         except Exception as e:
@@ -1836,9 +1839,9 @@ async def scheduled_oddsportal_scraper():
 @app.on_event("startup")
 async def startup_event():
     """Start background tasks on app startup"""
-    # Start the scheduled result checker
+    # Start the scheduled result checker - now every 15 minutes
     asyncio.create_task(scheduled_result_checker())
-    logger.info("Started background result checker - runs every 2 hours")
+    logger.info("Started background result checker - runs every 15 MINUTES with ESPN API")
     
     # Start line movement checker  
     asyncio.create_task(scheduled_line_movement_checker())
@@ -1846,7 +1849,7 @@ async def startup_event():
     
     # Start recommendation generator
     asyncio.create_task(scheduled_recommendation_generator())
-    logger.info("Started recommendation generator - runs every 6 hours")
+    logger.info("Started recommendation generator - runs every 4 hours (70%+ confidence only)")
     
     # Start OddsPortal scraper
     asyncio.create_task(scheduled_oddsportal_scraper())
