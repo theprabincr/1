@@ -1291,12 +1291,94 @@ async def fetch_event_result(sport_key: str, event_id: str, home_team: str, away
     return None
 
 @api_router.get("/scores/{sport_key}")
-async def get_scores(sport_key: str, days_from: int = 3):
-    """Get recent scores - placeholder for future integration"""
+async def get_scores(sport_key: str, days_back: int = 3, status: Optional[str] = None):
+    """Get live and recent scores from ESPN API"""
+    try:
+        games = await fetch_espn_scores(sport_key, days_back=days_back)
+        
+        # Filter by status if specified
+        if status:
+            if status == "live":
+                games = [g for g in games if g.get("status") == "in_progress"]
+            elif status == "final":
+                games = [g for g in games if g.get("status") == "final"]
+            elif status == "scheduled":
+                games = [g for g in games if g.get("status") == "scheduled"]
+        
+        return {
+            "sport_key": sport_key,
+            "games_count": len(games),
+            "games": games
+        }
+    except Exception as e:
+        logger.error(f"Error fetching scores for {sport_key}: {e}")
+        return {
+            "sport_key": sport_key,
+            "games_count": 0,
+            "games": [],
+            "error": str(e)
+        }
+
+@api_router.get("/live-scores")
+async def get_all_live_scores():
+    """Get all currently in-progress games across all sports"""
+    sports = ["basketball_nba", "americanfootball_nfl", "baseball_mlb", "icehockey_nhl", "soccer_epl"]
+    all_live = []
+    
+    for sport_key in sports:
+        try:
+            games = await get_live_games(sport_key)
+            for game in games:
+                game["sport_key"] = sport_key
+            all_live.extend(games)
+        except Exception as e:
+            logger.error(f"Error fetching live scores for {sport_key}: {e}")
+    
     return {
-        "message": "Scores tracking coming soon. Use the predictions page to manually update results.",
-        "scores": []
+        "live_games_count": len(all_live),
+        "games": all_live
     }
+
+@api_router.get("/pending-results")
+async def get_pending_results():
+    """Get pending predictions that are waiting for results"""
+    pending = await db.predictions.find(
+        {"result": "pending"},
+        {"_id": 0}
+    ).sort("commence_time", 1).to_list(100)
+    
+    now = datetime.now(timezone.utc)
+    
+    # Categorize by status
+    awaiting_start = []
+    in_progress = []
+    awaiting_result = []
+    
+    for pred in pending:
+        try:
+            commence_time_str = pred.get("commence_time", "")
+            if commence_time_str:
+                commence_time = datetime.fromisoformat(commence_time_str.replace('Z', '+00:00'))
+                hours_since_start = (now - commence_time).total_seconds() / 3600
+                
+                if hours_since_start < 0:
+                    awaiting_start.append(pred)
+                elif hours_since_start < 3:
+                    in_progress.append(pred)
+                else:
+                    awaiting_result.append(pred)
+            else:
+                awaiting_start.append(pred)
+        except Exception:
+            awaiting_start.append(pred)
+    
+    return {
+        "total_pending": len(pending),
+        "awaiting_start": awaiting_start,
+        "in_progress": in_progress,
+        "awaiting_result": awaiting_result
+    }
+
 @api_router.get("/odds-comparison/{event_id}")
 async def get_odds_comparison(event_id: str, sport_key: str = "basketball_nba"):
     """Get odds comparison across all sportsbooks for an event"""
