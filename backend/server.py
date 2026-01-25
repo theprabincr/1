@@ -914,6 +914,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Background task scheduler for auto-checking results
+async def scheduled_result_checker():
+    """Background task that runs every hour to check for completed events"""
+    while True:
+        try:
+            await asyncio.sleep(3600)  # Run every hour
+            logger.info("Running scheduled result check...")
+            await auto_check_results()
+        except Exception as e:
+            logger.error(f"Scheduled result checker error: {e}")
+            await asyncio.sleep(60)  # Wait a minute before retrying
+
+@app.on_event("startup")
+async def startup_event():
+    """Start background tasks on app startup"""
+    # Start the scheduled result checker
+    asyncio.create_task(scheduled_result_checker())
+    logger.info("Started background result checker - will run every hour")
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
