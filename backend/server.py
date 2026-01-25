@@ -453,8 +453,8 @@ async def get_event_details(event_id: str, sport_key: str = "basketball_nba"):
 
 @api_router.get("/line-movement/{event_id}")
 async def get_line_movement(event_id: str, sport_key: str = "basketball_nba"):
-    """Get line movement history for an event - up to 5 days"""
-    # First check database for stored history
+    """Get line movement history for an event from stored OddsPortal snapshots"""
+    # Check database for stored history from OddsPortal scraping
     history = await db.odds_history.find(
         {"event_id": event_id},
         {"_id": 0}
@@ -464,33 +464,25 @@ async def get_line_movement(event_id: str, sport_key: str = "basketball_nba"):
     if history:
         return history
     
-    # Try to fetch historical odds from API (if available)
-    api_key = await get_active_api_key()
-    if api_key:
-        try:
-            # Fetch historical odds - The Odds API provides event odds endpoint
-            params = {
-                "apiKey": api_key,
-                "regions": "us,eu,uk,au",
-                "markets": "h2h,spreads,totals",
-                "oddsFormat": "decimal"
-            }
-            async with httpx.AsyncClient() as http_client:
-                response = await http_client.get(
-                    f"{ODDS_API_BASE}/sports/{sport_key}/events/{event_id}/odds",
-                    params=params,
-                    timeout=30.0
-                )
-                if response.status_code == 200:
-                    event_data = response.json()
-                    # Store and return this data
-                    await store_odds_snapshot(event_data)
-                    return await db.odds_history.find(
-                        {"event_id": event_id},
-                        {"_id": 0}
-                    ).sort("timestamp", -1).to_list(500)
-        except Exception as e:
-            logger.error(f"Error fetching historical odds: {e}")
+    # Try to get from OddsPortal scraper's stored data
+    try:
+        from oddsportal_scraper import get_line_movement_data
+        events = await get_events(sport_key)
+        
+        for event in events:
+            if event.get('id') == event_id and event.get('source_url'):
+                movement = await get_line_movement_data(event_id, event['source_url'])
+                if movement:
+                    # Store for future reference
+                    for item in movement:
+                        await db.odds_history.insert_one({
+                            "event_id": event_id,
+                            **item,
+                            "source": "oddsportal"
+                        })
+                    return movement
+    except Exception as e:
+        logger.error(f"Error fetching line movement from OddsPortal: {e}")
     
     # Fallback to mock data
     return generate_mock_line_movement(event_id)
