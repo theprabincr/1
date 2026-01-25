@@ -307,10 +307,6 @@ const LineMovement = () => {
     { key: "soccer_epl", label: "EPL" },
   ];
 
-  useEffect(() => {
-    fetchEvents();
-  }, [selectedSport]);
-
   const fetchEvents = async () => {
     setLoading(true);
     try {
@@ -328,6 +324,11 @@ const LineMovement = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchEvents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSport]);
 
   const fetchLineMovement = async (eventId) => {
     setLoadingLine(true);
