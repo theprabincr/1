@@ -11,6 +11,7 @@ import uuid
 from datetime import datetime, timezone
 import httpx
 import asyncio
+import hashlib
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -26,6 +27,9 @@ ODDS_API_BASE = "https://api.the-odds-api.com/v4"
 
 # Emergent LLM Key
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
+
+# Cache for mock events (to keep IDs consistent)
+mock_events_cache = {}
 
 # Sportsbook mapping for The Odds API
 SPORTSBOOKS = {
