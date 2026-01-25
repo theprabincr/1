@@ -129,13 +129,13 @@ const MarketTable = ({ title, data, homeTeam, awayTeam, marketKey }) => {
               </div>
               
               <OddsCell 
-                value={homeOutcome?.price || 0}
+                value={homeOutcome?.price || 1}
                 point={homeOutcome?.point}
                 isBest={bm.bookmaker === bestHome.book}
               />
               
               <OddsCell 
-                value={awayOutcome?.price || 0}
+                value={awayOutcome?.price || 1}
                 point={awayOutcome?.point}
                 isBest={bm.bookmaker === bestAway.book}
               />
@@ -150,10 +150,10 @@ const MarketTable = ({ title, data, homeTeam, awayTeam, marketKey }) => {
           <span className="text-text-muted">Best Available:</span>
           <div className="flex gap-4">
             <span className="font-mono text-brand-primary">
-              {homeTeam || 'Home'}: {bestHome.price > 0 ? '+' : ''}{bestHome.price} @ {SPORTSBOOK_NAMES[bestHome.book]}
+              {homeTeam || 'Home'}: {bestHome.price?.toFixed(2)} @ {SPORTSBOOK_NAMES[bestHome.book]}
             </span>
             <span className="font-mono text-brand-primary">
-              {awayTeam || 'Away'}: {bestAway.price > 0 ? '+' : ''}{bestAway.price} @ {SPORTSBOOK_NAMES[bestAway.book]}
+              {awayTeam || 'Away'}: {bestAway.price?.toFixed(2)} @ {SPORTSBOOK_NAMES[bestAway.book]}
             </span>
           </div>
         </div>
