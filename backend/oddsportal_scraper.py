@@ -207,29 +207,99 @@ def extract_event_links_from_html(content: str, sport_key: str) -> List[tuple]:
     links = []
     seen = set()
     
-    # Pattern based on sport
+    # Pattern to match full event URL - captures everything before the event ID
+    # OddsPortal format: /sport/country/league/team1-team2-EVENTID/
     patterns = {
-        "basketball_nba": r'href="(/basketball/usa/nba/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"',
-        "americanfootball_nfl": r'href="(/american-football/usa/nfl/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"',
-        "baseball_mlb": r'href="(/baseball/usa/mlb/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"',
-        "icehockey_nhl": r'href="(/hockey/usa/nhl/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"',
-        "soccer_epl": r'href="(/football/england/premier-league/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"',
-        "soccer_spain_la_liga": r'href="(/football/spain/laliga/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"',
-        "mma_mixed_martial_arts": r'href="(/mma/ufc/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"',
+        "basketball_nba": r'href="(/basketball/usa/nba/([a-z0-9-]+)-([A-Za-z0-9]{6,12})/)"',
+        "americanfootball_nfl": r'href="(/american-football/usa/nfl/([a-z0-9-]+)-([A-Za-z0-9]{6,12})/)"',
+        "baseball_mlb": r'href="(/baseball/usa/mlb/([a-z0-9-]+)-([A-Za-z0-9]{6,12})/)"',
+        "icehockey_nhl": r'href="(/hockey/usa/nhl/([a-z0-9-]+)-([A-Za-z0-9]{6,12})/)"',
+        "soccer_epl": r'href="(/football/england/premier-league/([a-z0-9-]+)-([A-Za-z0-9]{6,12})/)"',
+        "soccer_spain_la_liga": r'href="(/football/spain/laliga/([a-z0-9-]+)-([A-Za-z0-9]{6,12})/)"',
+        "mma_mixed_martial_arts": r'href="(/mma/ufc/([a-z0-9-]+)-([A-Za-z0-9]{6,12})/)"',
     }
     
-    pattern = patterns.get(sport_key, r'href="(/[^"]+/([^/]+)-([^/]+)-([A-Za-z0-9]{6,12})/)"')
+    pattern = patterns.get(sport_key, r'href="(/[^"]+/([a-z0-9-]+)-([A-Za-z0-9]{6,12})/)"')
     
-    for match in re.finditer(pattern, content):
-        event_url, team1_slug, team2_slug, event_id = match.groups()
+    for match in re.finditer(pattern, content, re.IGNORECASE):
+        event_url, teams_slug, event_id = match.groups()
         
         if event_id not in seen and len(event_id) >= 6:
             seen.add(event_id)
-            home = clean_team_name(team1_slug)
-            away = clean_team_name(team2_slug)
-            links.append((event_url, home, away, event_id))
+            # Split teams - look for common separators in the slug
+            home, away = parse_teams_from_slug(teams_slug)
+            if home and away:
+                links.append((event_url, home, away, event_id))
     
     return links
+
+
+def parse_teams_from_slug(slug: str) -> tuple:
+    """Parse home and away team names from URL slug like 'orlando-magic-cleveland-cavaliers'"""
+    # Common team identifiers for major sports
+    nba_teams = [
+        'atlanta-hawks', 'boston-celtics', 'brooklyn-nets', 'charlotte-hornets',
+        'chicago-bulls', 'cleveland-cavaliers', 'dallas-mavericks', 'denver-nuggets',
+        'detroit-pistons', 'golden-state-warriors', 'houston-rockets', 'indiana-pacers',
+        'la-clippers', 'los-angeles-clippers', 'la-lakers', 'los-angeles-lakers',
+        'memphis-grizzlies', 'miami-heat', 'milwaukee-bucks', 'minnesota-timberwolves',
+        'new-orleans-pelicans', 'new-york-knicks', 'oklahoma-city-thunder', 'orlando-magic',
+        'philadelphia-76ers', 'phoenix-suns', 'portland-trail-blazers', 'sacramento-kings',
+        'san-antonio-spurs', 'toronto-raptors', 'utah-jazz', 'washington-wizards'
+    ]
+    
+    nfl_teams = [
+        'arizona-cardinals', 'atlanta-falcons', 'baltimore-ravens', 'buffalo-bills',
+        'carolina-panthers', 'chicago-bears', 'cincinnati-bengals', 'cleveland-browns',
+        'dallas-cowboys', 'denver-broncos', 'detroit-lions', 'green-bay-packers',
+        'houston-texans', 'indianapolis-colts', 'jacksonville-jaguars', 'kansas-city-chiefs',
+        'las-vegas-raiders', 'los-angeles-chargers', 'los-angeles-rams', 'miami-dolphins',
+        'minnesota-vikings', 'new-england-patriots', 'new-orleans-saints', 'new-york-giants',
+        'new-york-jets', 'philadelphia-eagles', 'pittsburgh-steelers', 'san-francisco-49ers',
+        'seattle-seahawks', 'tampa-bay-buccaneers', 'tennessee-titans', 'washington-commanders'
+    ]
+    
+    nhl_teams = [
+        'anaheim-ducks', 'boston-bruins', 'buffalo-sabres', 'calgary-flames',
+        'carolina-hurricanes', 'chicago-blackhawks', 'colorado-avalanche', 'columbus-blue-jackets',
+        'dallas-stars', 'detroit-red-wings', 'edmonton-oilers', 'florida-panthers',
+        'los-angeles-kings', 'minnesota-wild', 'montreal-canadiens', 'nashville-predators',
+        'new-jersey-devils', 'new-york-islanders', 'new-york-rangers', 'ottawa-senators',
+        'philadelphia-flyers', 'pittsburgh-penguins', 'san-jose-sharks', 'seattle-kraken',
+        'st-louis-blues', 'tampa-bay-lightning', 'toronto-maple-leafs', 'vancouver-canucks',
+        'vegas-golden-knights', 'washington-capitals', 'winnipeg-jets'
+    ]
+    
+    all_teams = nba_teams + nfl_teams + nhl_teams
+    
+    slug_lower = slug.lower()
+    
+    # Try to find two team names in the slug
+    found_teams = []
+    for team in sorted(all_teams, key=len, reverse=True):  # Try longer names first
+        if team in slug_lower:
+            found_teams.append(team)
+            slug_lower = slug_lower.replace(team, '|||', 1)  # Mark found
+            if len(found_teams) >= 2:
+                break
+    
+    if len(found_teams) >= 2:
+        return clean_team_name(found_teams[0]), clean_team_name(found_teams[1])
+    
+    # Fallback: split by common patterns
+    # Try splitting at the middle where two words repeat pattern
+    parts = slug.split('-')
+    if len(parts) >= 4:
+        # Find where team 1 ends and team 2 begins
+        # Usually format is: team1-city-team1-name-team2-city-team2-name
+        mid = len(parts) // 2
+        home = '-'.join(parts[:mid])
+        away = '-'.join(parts[mid:])
+        return clean_team_name(home), clean_team_name(away)
+    elif len(parts) >= 2:
+        return clean_team_name(parts[0]), clean_team_name('-'.join(parts[1:]))
+    
+    return clean_team_name(slug), "Unknown"
 
 
 def extract_odds_from_listing_page(content: str) -> Dict[str, Dict]:
