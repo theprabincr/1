@@ -26,19 +26,28 @@ class BettingPredictorAPITester:
                 response = requests.post(url, json=data, headers=headers, timeout=timeout)
             elif method == 'PUT':
                 response = requests.put(url, json=data, headers=headers, timeout=timeout)
+            elif method == 'DELETE':
+                response = requests.delete(url, headers=headers, timeout=timeout)
 
             success = response.status_code == expected_status
             if success:
                 self.tests_passed += 1
                 print(f"✅ Passed - Status: {response.status_code}")
                 try:
-                    response_data = response.json()
-                    if isinstance(response_data, list):
-                        print(f"   Response: List with {len(response_data)} items")
-                    elif isinstance(response_data, dict):
-                        print(f"   Response keys: {list(response_data.keys())}")
+                    # Handle CSV responses differently
+                    if 'text/csv' in response.headers.get('content-type', ''):
+                        print(f"   Response: CSV data ({len(response.text)} characters)")
+                        return success, response.text
+                    else:
+                        response_data = response.json()
+                        if isinstance(response_data, list):
+                            print(f"   Response: List with {len(response_data)} items")
+                        elif isinstance(response_data, dict):
+                            print(f"   Response keys: {list(response_data.keys())}")
+                        return success, response_data
                 except:
                     print(f"   Response: {response.text[:100]}...")
+                    return success, response.text
             else:
                 self.failed_tests.append({
                     'name': name,
@@ -49,7 +58,7 @@ class BettingPredictorAPITester:
                 print(f"❌ Failed - Expected {expected_status}, got {response.status_code}")
                 print(f"   Response: {response.text[:200]}")
 
-            return success, response.json() if success and response.text else {}
+            return success, {}
 
         except Exception as e:
             self.failed_tests.append({
