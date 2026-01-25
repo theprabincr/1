@@ -54,7 +54,7 @@ Build a betting predictor application that fetches data from all future and in-p
 - [x] **Automatic win/loss calculation based on final scores** (NEW)
 
 ### Frontend (React + Tailwind)
-- [x] Dashboard with auto-generated Top Picks
+- [x] Dashboard with auto-generated Top Picks (filtered to 70%+ confidence)
 - [x] Events page with decimal odds from multiple bookmakers
 - [x] **Line Movement page** with:
   - Sport selector (NBA, NFL, MLB, NHL, EPL)
@@ -64,9 +64,19 @@ Build a betting predictor application that fetches data from all future and in-p
   - Bookmakers list with individual odds
   - Source: OddsPortal badge
 - [x] Odds Comparison with best odds highlighted
-- [x] Performance tracking with win/loss history
-- [x] Notifications system
+- [x] Performance tracking with win/loss history (auto-updated)
+- [x] Notifications system (includes result notifications)
 - [x] Settings page
+
+### Key Features (January 2025 Update)
+- **Real-time Score Tracking**: ESPN API integration for live and final scores
+- **Automatic Result Calculation**: Win/loss/push automatically determined based on:
+  - Moneyline: Which team won
+  - Spread: Did team cover the spread
+  - Total (O/U): Combined score vs line
+- **70%+ Confidence Filter**: Only high-confidence recommendations shown
+- **Time Window Filter**: Pre-match bets only (today to 3 days out)
+- **15-Minute Result Checking**: Background task checks completed games frequently
 
 ### Removed Features
 - [x] API Keys management (no longer needed - OddsPortal is free)
