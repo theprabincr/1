@@ -3,7 +3,7 @@ OddsPortal Scraper - Scrapes odds data from oddsportal.com
 Uses Playwright for JavaScript rendering
 """
 import asyncio
-import json
+from datetime import datetime, timezone, timedelta
 import logging
 import re
 from datetime import datetime, timezone
