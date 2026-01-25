@@ -464,39 +464,81 @@ async def get_event_details(event_id: str, sport_key: str = "basketball_nba"):
 
 @api_router.get("/line-movement/{event_id}")
 async def get_line_movement(event_id: str, sport_key: str = "basketball_nba"):
-    """Get line movement history for an event from stored OddsPortal snapshots"""
-    # Check database for stored history from OddsPortal scraping
-    history = await db.odds_history.find(
+    """Get line movement history for an event including opening odds and hourly snapshots"""
+    
+    # Get opening odds
+    opening = await db.opening_odds.find_one({"event_id": event_id}, {"_id": 0})
+    
+    # Get all hourly snapshots sorted by timestamp
+    snapshots = await db.odds_history.find(
         {"event_id": event_id},
         {"_id": 0}
-    ).sort("timestamp", -1).limit(500).to_list(500)
+    ).sort("timestamp", 1).to_list(500)
     
-    # If we have history, return it
-    if history:
-        return history
+    # Group snapshots by bookmaker for better visualization
+    by_bookmaker = {}
+    all_timestamps = set()
     
-    # Try to get from OddsPortal scraper's stored data
-    try:
-        from oddsportal_scraper import get_line_movement_data
-        events = await get_events(sport_key)
+    for snap in snapshots:
+        bm = snap.get("bookmaker", "average")
+        if bm not in by_bookmaker:
+            by_bookmaker[bm] = {
+                "bookmaker": bm,
+                "bookmaker_title": snap.get("bookmaker_title", bm),
+                "snapshots": []
+            }
         
-        for event in events:
-            if event.get('id') == event_id and event.get('source_url'):
-                movement = await get_line_movement_data(event_id, event['source_url'])
-                if movement:
-                    # Store for future reference
-                    for item in movement:
-                        await db.odds_history.insert_one({
-                            "event_id": event_id,
-                            **item,
-                            "source": "oddsportal"
-                        })
-                    return movement
-    except Exception as e:
-        logger.error(f"Error fetching line movement from OddsPortal: {e}")
+        by_bookmaker[bm]["snapshots"].append({
+            "timestamp": snap.get("timestamp"),
+            "home_odds": snap.get("home_odds"),
+            "away_odds": snap.get("away_odds")
+        })
+        all_timestamps.add(snap.get("timestamp"))
     
-    # Fallback to mock data
-    return generate_mock_line_movement(event_id)
+    # Calculate average odds across all bookmakers at each timestamp
+    chart_data = []
+    for snap in snapshots:
+        ts = snap.get("timestamp")
+        home = snap.get("home_odds")
+        away = snap.get("away_odds")
+        
+        if home and away:
+            # Check if we already have this timestamp
+            existing = next((c for c in chart_data if c["timestamp"] == ts), None)
+            if existing:
+                # Average with existing
+                existing["home_odds"] = (existing["home_odds"] + home) / 2
+                existing["away_odds"] = (existing["away_odds"] + away) / 2
+            else:
+                chart_data.append({
+                    "timestamp": ts,
+                    "home_odds": home,
+                    "away_odds": away
+                })
+    
+    # Sort chart data by timestamp
+    chart_data.sort(key=lambda x: x["timestamp"])
+    
+    # Get event info
+    event_info = None
+    events = await get_events(sport_key)
+    for event in events:
+        if event.get("id") == event_id:
+            event_info = {
+                "home_team": event.get("home_team"),
+                "away_team": event.get("away_team"),
+                "commence_time": event.get("commence_time")
+            }
+            break
+    
+    return {
+        "event_id": event_id,
+        "event_info": event_info,
+        "opening_odds": opening,
+        "bookmakers": list(by_bookmaker.values()),
+        "chart_data": chart_data,
+        "total_snapshots": len(snapshots)
+    }
 
 @api_router.post("/analyze")
 async def analyze_game(request: AnalysisRequest):
