@@ -1,0 +1,83 @@
+{
+  "summary": "Completed comprehensive testing of BetPredictor application. Backend core functionality working with mock data, AI analysis operational. Frontend navigation and UI working well. Performance endpoints have timeout issues.",
+  "backend_issues": {
+    "critical_bugs": [
+      {
+        "endpoint": "/api/line-movement/{event_id}",
+        "issue": "Returns 500 internal server error",
+        "impact": "Line movement charts not working",
+        "fix_priority": "HIGH"
+      },
+      {
+        "endpoint": "/api/event/{event_id}",
+        "issue": "Returns 404 for all event detail requests",
+        "impact": "Event details page not accessible",
+        "fix_priority": "MEDIUM"
+      },
+      {
+        "endpoint": "/api/odds-comparison/{event_id}",
+        "issue": "Returns 404 for odds comparison requests",
+        "impact": "Odds comparison functionality broken",
+        "fix_priority": "HIGH"
+      }
+    ],
+    "flaky_endpoints": [
+      {
+        "endpoint": "/api/performance",
+        "failure_rate": "Timeout issues",
+        "symptoms": "Requests timeout after 30+ seconds",
+        "workaround": "Increase timeout or optimize query"
+      },
+      {
+        "endpoint": "/api/generate-recommendations",
+        "failure_rate": "Timeout issues", 
+        "symptoms": "Long processing time causing timeouts",
+        "workaround": "Background processing needed"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Performance Page",
+        "issue": "Page fails to load due to backend timeout",
+        "selector": "[data-testid=\"performance-page\"]",
+        "fix_priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Line Movement",
+        "issue": "Charts not displaying due to backend 500 error",
+        "affected_selectors": ["[data-testid=\"line-movement-chart\"]"]
+      },
+      {
+        "flow": "Odds Comparison",
+        "issue": "Event comparison not working due to 404 errors",
+        "affected_selectors": ["[data-testid=\"market-h2h\"]", "[data-testid=\"market-spreads\"]"]
+      }
+    ]
+  },
+  "passed_tests": [
+    "Root API endpoint (/api/)",
+    "Sports list endpoint (/api/sports)",
+    "Events endpoints for all sports",
+    "AI Analysis with GPT-5.2 and Claude",
+    "Dashboard page loading and navigation",
+    "Events page with sport filters",
+    "Navigation between all pages",
+    "Sport filter buttons functionality",
+    "Predictions page and AI analysis UI",
+    "Dashboard stats cards and live events display",
+    "Recommendation creation and listing"
+  ],
+  "test_report_links": ["/app/backend_test.py"],
+  "success_percentage": {
+    "backend": "52%",
+    "frontend": "85%"
+  },
+  "updated_files": ["/app/backend_test.py"],
+  "action_item_for_main_agent": "Fix backend issues: 1) Line movement endpoint 500 error 2) Event details 404 errors 3) Odds comparison 404 errors 4) Performance endpoint timeout optimization. These are blocking key features like line movement charts and odds comparison.",
+  "should_call_test_agent_after_fix": "true",
+  "should_main_agent_test_itself": "false"
+}
