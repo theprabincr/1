@@ -175,57 +175,6 @@ class AppSettings(BaseModel):
     notification_preferences: NotificationPreferences = NotificationPreferences()
 
 # Helper function to create notifications
-async def get_active_api_key() -> Optional[str]:
-    """Get the current active API key, with auto-rotation if needed"""
-    global current_api_key
-    
-    # Try to get from database first
-    active_key = await db.api_keys.find_one({"is_active": True, "is_exhausted": False})
-    
-    if active_key:
-        # Check if key is nearly exhausted
-        if active_key.get('requests_remaining', 500) <= 5:
-            # Mark as exhausted and try to find another
-            await db.api_keys.update_one(
-                {"id": active_key['id']},
-                {"$set": {"is_exhausted": True}}
-            )
-            # Try to find another active key
-            next_key = await db.api_keys.find_one({"is_active": True, "is_exhausted": False})
-            if next_key:
-                current_api_key['key'] = next_key['key']
-                current_api_key['key_id'] = next_key['id']
-                logger.info(f"Auto-rotated to API key: {next_key['name']}")
-                await create_notification(
-                    "api_rotation",
-                    "API Key Rotated",
-                    f"Switched to API key: {next_key['name']}",
-                    {"key_name": next_key['name']}
-                )
-                return next_key['key']
-            else:
-                # No more keys available
-                await create_notification(
-                    "api_exhausted",
-                    "All API Keys Exhausted",
-                    "All API keys have been exhausted. Please add a new key.",
-                    {}
-                )
-                return DEFAULT_ODDS_API_KEY if DEFAULT_ODDS_API_KEY else None
-        
-        current_api_key['key'] = active_key['key']
-        current_api_key['key_id'] = active_key['id']
-        current_api_key['requests_remaining'] = active_key.get('requests_remaining')
-        return active_key['key']
-    
-    # Fallback to default key from env
-    if DEFAULT_ODDS_API_KEY:
-        current_api_key['key'] = DEFAULT_ODDS_API_KEY
-        current_api_key['key_id'] = 'default'
-        return DEFAULT_ODDS_API_KEY
-    
-    return None
-
 async def create_notification(notif_type: str, title: str, message: str, data: Dict = None):
     """Create a notification and store in database"""
     notification = Notification(
@@ -238,96 +187,24 @@ async def create_notification(notif_type: str, title: str, message: str, data: D
     notification_queue.append(notification.model_dump())
     return notification
 
-# Helper function to fetch from Odds API with auto key rotation
-async def fetch_odds_api(endpoint: str, params: dict = None):
-    global current_api_key
-    
-    api_key = await get_active_api_key()
-    if not api_key:
-        logger.warning("No ODDS_API_KEY configured")
-        return None
-    
-    if params is None:
-        params = {}
-    params['apiKey'] = api_key
-    
-    async with httpx.AsyncClient() as http_client:
-        try:
-            response = await http_client.get(f"{ODDS_API_BASE}{endpoint}", params=params, timeout=30.0)
-            response.raise_for_status()
-            
-            # Track API usage from response headers
-            requests_remaining = response.headers.get('x-requests-remaining')
-            requests_used = response.headers.get('x-requests-used')
-            
-            now = datetime.now(timezone.utc).isoformat()
-            
-            if requests_remaining:
-                current_api_key['requests_remaining'] = int(requests_remaining)
-            if requests_used:
-                current_api_key['requests_used'] = int(requests_used)
-            current_api_key['last_updated'] = now
-            
-            # Update database record if we have a key_id
-            if current_api_key['key_id'] != 'default':
-                await db.api_keys.update_one(
-                    {"id": current_api_key['key_id']},
-                    {"$set": {
-                        "requests_remaining": current_api_key['requests_remaining'],
-                        "requests_used": current_api_key['requests_used'],
-                        "last_used_at": now
-                    }}
-                )
-            
-            # Check for low API alerts
-            if current_api_key['requests_remaining'] and current_api_key['requests_remaining'] <= 50:
-                settings = await db.settings.find_one({})
-                if not settings or settings.get('notification_preferences', {}).get('low_api_alerts', True):
-                    existing_alert = await db.notifications.find_one({
-                        "type": "api_low",
-                        "created_at": {"$gte": (datetime.now(timezone.utc) - timedelta(hours=6)).isoformat()}
-                    })
-                    if not existing_alert:
-                        await create_notification(
-                            "api_low",
-                            "Low API Calls Warning",
-                            f"Only {current_api_key['requests_remaining']} API calls remaining!",
-                            {"remaining": current_api_key['requests_remaining']}
-                        )
-            
-            return response.json()
-        except httpx.HTTPError as e:
-            logger.error(f"Odds API error: {e}")
-            return None
+# ==================== SCRAPER STATUS ENDPOINT ====================
 
-# Get API usage endpoint
-@api_router.get("/api-usage")
-async def get_api_usage():
-    """Get current API usage statistics and system status"""
-    # Get all API keys summary
-    all_keys = await db.api_keys.find({}, {"_id": 0}).to_list(100)
-    total_remaining = sum(k.get('requests_remaining', 0) for k in all_keys if not k.get('is_exhausted'))
+@api_router.get("/scraper-status")
+async def get_scraper_status():
+    """Get OddsPortal scraper status"""
+    global last_scrape_time
+    
+    # Get cached events count
+    total_cached = sum(len(events) for events, _ in events_cache.values())
     
     return {
-        **current_api_key,
-        "total_remaining_all_keys": total_remaining,
-        "active_keys_count": len([k for k in all_keys if k.get('is_active') and not k.get('is_exhausted')]),
-        "monthly_limit": 500,
-        "cache_duration_minutes": CACHE_DURATION_MINUTES,
-        "background_tasks": {
-            "result_checker": "Active (every 2 hours)",
-            "line_movement_checker": "Active (every hour)",
-            "recommendation_generator": "Active (every 6 hours)"
-        }
+        "source": "oddsportal",
+        "status": "active",
+        "lastUpdate": last_scrape_time,
+        "cachedEvents": total_cached,
+        "cacheDuration": CACHE_DURATION_MINUTES,
+        "sports": list(events_cache.keys())
     }
-
-# ==================== API KEY MANAGEMENT ENDPOINTS ====================
-
-@api_router.get("/api-keys")
-async def list_api_keys():
-    """List all API keys (with masked values)"""
-    keys = await db.api_keys.find({}, {"_id": 0}).to_list(100)
-    # Mask the actual key values for security
     for key in keys:
         if key.get('key'):
             key['key_masked'] = key['key'][:8] + '...' + key['key'][-4:]
