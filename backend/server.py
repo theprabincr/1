@@ -729,7 +729,7 @@ def format_odds_comparison(event: dict) -> dict:
     return comparison
 
 def calculate_roi(predictions: list) -> float:
-    """Calculate ROI from predictions"""
+    """Calculate ROI from predictions (decimal odds format)"""
     if not predictions:
         return 0.0
     
@@ -738,12 +738,17 @@ def calculate_roi(predictions: list) -> float:
     
     for p in predictions:
         if p.get("result") == "win":
-            odds = p.get("odds_at_prediction", -110)
-            if odds > 0:
-                profit = 100 * (odds / 100)
+            odds = p.get("odds_at_prediction", 1.91)  # Default decimal odds
+            # Decimal odds: profit = stake * (odds - 1), return = stake * odds
+            if odds >= 1:  # Decimal format
+                total_returned += 100 * odds
             else:
-                profit = 100 * (100 / abs(odds))
-            total_returned += 100 + profit
+                # Handle legacy American odds format
+                if odds > 0:
+                    profit = 100 * (odds / 100)
+                else:
+                    profit = 100 * (100 / abs(odds))
+                total_returned += 100 + profit
         elif p.get("result") == "push":
             total_returned += 100
     
