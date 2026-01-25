@@ -66,10 +66,8 @@ const EventCard = ({ event, onAnalyze, onCompare }) => {
           <p className="text-text-primary font-semibold">{event.home_team}</p>
           <div className="mt-2">
             <p className="text-xs text-text-muted">Best ML</p>
-            <p className={`font-mono text-xl font-bold ${
-              bestOdds.home > 0 ? "text-semantic-success" : "text-text-primary"
-            }`}>
-              {bestOdds.home > 0 ? "+" : ""}{bestOdds.home}
+            <p className="font-mono text-xl font-bold text-brand-primary">
+              {bestOdds.home?.toFixed(2)}
             </p>
             <p className="text-xs text-text-muted">{bestOdds.homeBk}</p>
           </div>
@@ -85,10 +83,8 @@ const EventCard = ({ event, onAnalyze, onCompare }) => {
           <p className="text-text-primary font-semibold">{event.away_team}</p>
           <div className="mt-2">
             <p className="text-xs text-text-muted">Best ML</p>
-            <p className={`font-mono text-xl font-bold ${
-              bestOdds.away > 0 ? "text-semantic-success" : "text-text-primary"
-            }`}>
-              {bestOdds.away > 0 ? "+" : ""}{bestOdds.away}
+            <p className="font-mono text-xl font-bold text-brand-primary">
+              {bestOdds.away?.toFixed(2)}
             </p>
             <p className="text-xs text-text-muted">{bestOdds.awayBk}</p>
           </div>
