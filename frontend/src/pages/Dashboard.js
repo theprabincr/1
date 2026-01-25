@@ -239,14 +239,14 @@ const Dashboard = () => {
         <StatCard
           title="Total Picks"
           value={performance?.total_predictions || 0}
-          subtitle="All time predictions"
+          subtitle={`${performance?.wins || 0}W - ${performance?.losses || 0}L - ${recommendations.length} pending`}
           icon={Target}
           color="blue"
         />
         <StatCard
-          title="Pending"
+          title="Active Picks"
           value={recommendations.length}
-          subtitle="Active predictions"
+          subtitle="Awaiting results"
           icon={Clock}
           color="yellow"
         />
