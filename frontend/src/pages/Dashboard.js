@@ -175,7 +175,7 @@ const Dashboard = () => {
     try {
       const [perfRes, recsRes, eventsRes] = await Promise.all([
         axios.get(`${API}/performance`),
-        axios.get(`${API}/recommendations?limit=5`),
+        axios.get(`${API}/recommendations?limit=10`),
         axios.get(`${API}/events/${selectedSport}`)
       ]);
       
