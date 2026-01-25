@@ -195,6 +195,66 @@ backend:
         agent: "testing"
         comment: "✅ Export functionality working: JSON exports (200), CSV exports (200), Performance report (200). CSV returns proper text/csv content-type with 2859 chars of data."
 
+  - task: "ESPN Scores Integration"
+    implemented: true
+    working: true
+    file: "backend/espn_scores.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Implemented ESPN API integration for live and final scores. New file espn_scores.py with fetch_espn_scores, determine_bet_result, find_matching_game functions."
+
+  - task: "Automatic Result Tracking"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Updated auto_check_results to use ESPN API. Runs every 15 minutes. Successfully matched 5 predictions and updated their results (4 wins, 1 loss)."
+
+  - task: "70% Confidence Filter"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Added min_confidence parameter to /api/recommendations (default 0.70). Updated AI prompt to only recommend 7+/10 confidence picks. Filter skips low confidence predictions."
+
+  - task: "Time Window Filter"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Added time window filtering: only recommends pre-match bets starting later today through 3 days in future. Filters out past and far-future events."
+
+  - task: "Live Scores Endpoint"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "New endpoints: /api/scores/{sport_key}, /api/live-scores, /api/pending-results. Tested via curl - working correctly."
+
 frontend:
   - task: "API Keys Management Page"
     implemented: true
