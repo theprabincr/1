@@ -621,7 +621,7 @@ def create_event_with_estimated_odds(event_id: str, sport_key: str, home_team: s
                 round(base_away - variance * 0.7, 2)
             ))
     else:
-        bookmakers = generate_estimated_bookmaker_odds(home_team, away_team)
+        bookmakers = generate_estimated_bookmaker_odds(home_team, away_team, sport_key)
     
     return {
         "id": event_id,
