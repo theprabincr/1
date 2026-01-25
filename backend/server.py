@@ -1710,7 +1710,6 @@ def get_best_odds(bookmakers: list) -> dict:
             if market.get("key") == "h2h":
                 for outcome in market.get("outcomes", []):
                     price = outcome.get("price", 0)
-                    name = outcome.get("name", "")
                     if price > best_home["price"]:
                         best_home = {"price": price, "bookmaker": bm.get("title")}
     
