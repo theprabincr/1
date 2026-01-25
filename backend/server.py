@@ -164,14 +164,31 @@ async def fetch_odds_api(endpoint: str, params: dict = None):
         params = {}
     params['apiKey'] = ODDS_API_KEY
     
+    global api_usage
     async with httpx.AsyncClient() as http_client:
         try:
             response = await http_client.get(f"{ODDS_API_BASE}{endpoint}", params=params, timeout=30.0)
             response.raise_for_status()
+            
+            # Track API usage from response headers
+            requests_remaining = response.headers.get('x-requests-remaining')
+            requests_used = response.headers.get('x-requests-used')
+            if requests_remaining:
+                api_usage['requests_remaining'] = int(requests_remaining)
+            if requests_used:
+                api_usage['requests_used'] = int(requests_used)
+            api_usage['last_updated'] = datetime.now(timezone.utc).isoformat()
+            
             return response.json()
         except httpx.HTTPError as e:
             logger.error(f"Odds API error: {e}")
             return None
+
+# Get API usage endpoint
+@api_router.get("/api-usage")
+async def get_api_usage():
+    """Get current API usage statistics"""
+    return api_usage
 
 # AI Analysis function
 async def get_ai_analysis(prompt: str, model: str = "gpt-5.2") -> str:
@@ -182,13 +199,13 @@ async def get_ai_analysis(prompt: str, model: str = "gpt-5.2") -> str:
         from emergentintegrations.llm.chat import LlmChat, UserMessage
         
         session_id = str(uuid.uuid4())
-        system_message = """You are an expert sports betting analyst. Analyze the provided game data, odds, and line movements to provide actionable insights. 
-        Focus on:
-        1. Why lines are moving
-        2. Sharp money indicators
-        3. Value opportunities
-        4. Key factors affecting the game
-        Be concise but thorough."""
+        system_message = """You are an expert sports betting analyst. Provide concise, actionable betting recommendations.
+        Format your response as:
+        PICK: [Team/Side]
+        CONFIDENCE: [1-10]
+        REASONING: [2-3 sentences max]
+        
+        Focus on: line value, sharp money indicators, and key matchup factors."""
         
         chat = LlmChat(
             api_key=EMERGENT_LLM_KEY,
