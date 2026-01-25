@@ -351,7 +351,15 @@ def main():
     print("\n📡 Testing Core API Endpoints...")
     tester.test_root_endpoint()
     tester.test_sports_endpoint()
-    tester.test_api_usage()  # Test the API usage endpoint specifically
+    tester.test_enhanced_api_usage()  # Test the enhanced API usage endpoint
+    
+    print("\n🔑 Testing New BetPredictor Enhancements...")
+    tester.test_api_key_management()
+    tester.test_bankroll_management()
+    tester.test_notifications()
+    tester.test_settings()
+    tester.test_analytics()
+    tester.test_export_functionality()
     
     print("\n🏀 Testing Events & Odds...")
     tester.test_events_endpoints()
