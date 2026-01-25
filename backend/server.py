@@ -475,52 +475,9 @@ async def get_line_movement(event_id: str, sport_key: str = "basketball_nba"):
         {"_id": 0}
     ).sort("timestamp", 1).to_list(500)
     
-    # Group snapshots by bookmaker for better visualization
-    by_bookmaker = {}
-    all_timestamps = set()
-    
-    for snap in snapshots:
-        bm = snap.get("bookmaker", "average")
-        if bm not in by_bookmaker:
-            by_bookmaker[bm] = {
-                "bookmaker": bm,
-                "bookmaker_title": snap.get("bookmaker_title", bm),
-                "snapshots": []
-            }
-        
-        by_bookmaker[bm]["snapshots"].append({
-            "timestamp": snap.get("timestamp"),
-            "home_odds": snap.get("home_odds"),
-            "away_odds": snap.get("away_odds")
-        })
-        all_timestamps.add(snap.get("timestamp"))
-    
-    # Calculate average odds across all bookmakers at each timestamp
-    chart_data = []
-    for snap in snapshots:
-        ts = snap.get("timestamp")
-        home = snap.get("home_odds")
-        away = snap.get("away_odds")
-        
-        if home and away:
-            # Check if we already have this timestamp
-            existing = next((c for c in chart_data if c["timestamp"] == ts), None)
-            if existing:
-                # Average with existing
-                existing["home_odds"] = (existing["home_odds"] + home) / 2
-                existing["away_odds"] = (existing["away_odds"] + away) / 2
-            else:
-                chart_data.append({
-                    "timestamp": ts,
-                    "home_odds": home,
-                    "away_odds": away
-                })
-    
-    # Sort chart data by timestamp
-    chart_data.sort(key=lambda x: x["timestamp"])
-    
-    # Get event info
+    # Get event info first
     event_info = None
+    current_odds = None
     events = await get_events(sport_key)
     for event in events:
         if event.get("id") == event_id:
@@ -529,12 +486,98 @@ async def get_line_movement(event_id: str, sport_key: str = "basketball_nba"):
                 "away_team": event.get("away_team"),
                 "commence_time": event.get("commence_time")
             }
+            # Get current odds from bookmakers
+            bookmakers = event.get("bookmakers", [])
+            if bookmakers:
+                home_prices = []
+                away_prices = []
+                for bm in bookmakers:
+                    for market in bm.get("markets", []):
+                        if market.get("key") == "h2h":
+                            outcomes = market.get("outcomes", [])
+                            if len(outcomes) >= 2:
+                                home_prices.append(outcomes[0].get("price", 0))
+                                away_prices.append(outcomes[1].get("price", 0))
+                if home_prices and away_prices:
+                    current_odds = {
+                        "home": round(sum(home_prices) / len(home_prices), 2),
+                        "away": round(sum(away_prices) / len(away_prices), 2)
+                    }
             break
+    
+    # Build chart data from snapshots
+    chart_data = []
+    seen_hours = set()
+    
+    for snap in snapshots:
+        ts = snap.get("timestamp")
+        hour_key = snap.get("hour_key", ts[:13] if ts else None)  # YYYY-MM-DD-HH
+        
+        if hour_key and hour_key not in seen_hours:
+            seen_hours.add(hour_key)
+            home = snap.get("home_odds")
+            away = snap.get("away_odds")
+            
+            if home and away:
+                chart_data.append({
+                    "timestamp": ts,
+                    "home_odds": round(home, 2),
+                    "away_odds": round(away, 2),
+                    "num_bookmakers": snap.get("num_bookmakers", 1)
+                })
+    
+    # If we have opening odds but no chart data, create initial point
+    if opening and not chart_data:
+        chart_data.append({
+            "timestamp": opening.get("timestamp"),
+            "home_odds": opening.get("home_odds"),
+            "away_odds": opening.get("away_odds"),
+            "num_bookmakers": len(opening.get("bookmakers", []))
+        })
+    
+    # Add current odds as latest point if different from last snapshot
+    if current_odds and chart_data:
+        last = chart_data[-1]
+        if abs(last["home_odds"] - current_odds["home"]) > 0.01 or abs(last["away_odds"] - current_odds["away"]) > 0.01:
+            chart_data.append({
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "home_odds": current_odds["home"],
+                "away_odds": current_odds["away"],
+                "num_bookmakers": 0  # Current snapshot
+            })
+    elif current_odds and not chart_data:
+        chart_data.append({
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "home_odds": current_odds["home"],
+            "away_odds": current_odds["away"],
+            "num_bookmakers": 0
+        })
+    
+    # Group by bookmaker for detailed view
+    by_bookmaker = {}
+    for snap in snapshots:
+        for bm_snap in snap.get("bookmakers", []):
+            bm_key = bm_snap.get("bookmaker", "unknown")
+            if bm_key not in by_bookmaker:
+                by_bookmaker[bm_key] = {
+                    "bookmaker": bm_key,
+                    "bookmaker_title": bm_snap.get("bookmaker_title", bm_key),
+                    "snapshots": []
+                }
+            by_bookmaker[bm_key]["snapshots"].append({
+                "timestamp": snap.get("timestamp"),
+                "home_odds": bm_snap.get("home_odds"),
+                "away_odds": bm_snap.get("away_odds")
+            })
+    
+    # Sort chart data by timestamp
+    chart_data.sort(key=lambda x: x["timestamp"] if x.get("timestamp") else "")
     
     return {
         "event_id": event_id,
         "event_info": event_info,
         "opening_odds": opening,
+        "current_odds": current_odds,
         "bookmakers": list(by_bookmaker.values()),
         "chart_data": chart_data,
         "total_snapshots": len(snapshots)
