@@ -324,12 +324,12 @@ async def export_predictions(format: str = "csv"):
 async def export_performance_report():
     """Generate comprehensive performance report"""
     performance = await get_performance()
-    api_usage_data = await get_api_usage()
+    scraper_status = await get_scraper_status()
     
     report = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "performance": performance,
-        "api_usage": api_usage_data
+        "scraper_status": scraper_status
     }
     
     return report
