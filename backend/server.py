@@ -1033,21 +1033,6 @@ async def get_scores(sport_key: str, days_from: int = 3):
         "message": "Scores tracking coming soon. Use the predictions page to manually update results.",
         "scores": []
     }
-        
-        async with httpx.AsyncClient() as http_client:
-            response = await http_client.get(
-                f"{ODDS_API_BASE}/sports/{sport_key}/scores",
-                params=params,
-                timeout=30.0
-            )
-            
-            if response.status_code == 200:
-                return response.json()
-            return {"error": f"API returned {response.status_code}", "scores": []}
-    except Exception as e:
-        logger.error(f"Error fetching scores: {e}")
-        return {"error": str(e), "scores": []}
-
 @api_router.get("/odds-comparison/{event_id}")
 async def get_odds_comparison(event_id: str, sport_key: str = "basketball_nba"):
     """Get odds comparison across all sportsbooks for an event"""
