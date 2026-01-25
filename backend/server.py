@@ -860,8 +860,10 @@ async def generate_smart_recommendation(event: dict, sport_key: str, odds_data: 
         best_over = max(all_markets['totals']['over'], key=lambda x: x['price'], default={'price': 1, 'point': 0, 'book': 'N/A'})
         best_under = max(all_markets['totals']['under'], key=lambda x: x['price'], default={'price': 1, 'point': 0, 'book': 'N/A'})
         
-        # Build comprehensive prompt for AI analyzing ALL markets
-        prompt = f"""Analyze this {sport_key.replace('_', ' ')} matchup and recommend the BEST VALUE bet across all markets:
+        # Build comprehensive prompt for AI analyzing ALL markets - SELECTIVE for 70%+ confidence
+        prompt = f"""You are a highly selective sports betting expert. Only recommend bets with HIGH confidence (7+/10).
+        
+Analyze this {sport_key.replace('_', ' ')} matchup:
 
 {home_team} vs {away_team}
 
@@ -877,12 +879,15 @@ TOTALS:
 - Over {best_over.get('point', 0)}: {best_over['price']:.2f} ({best_over['book']})
 - Under {best_under.get('point', 0)}: {best_under['price']:.2f} ({best_under['book']})
 
-Analyze ALL markets and provide:
-MARKET: [moneyline/spread/total]
+IMPORTANT: Only recommend if you have HIGH confidence (7-10). If no strong edge exists, say "NO_BET".
+Consider: team form, injuries, home advantage, line value, historical matchups.
+
+Response format:
+MARKET: [moneyline/spread/total or NO_BET]
 PICK: [Exact selection - e.g., "Team Name" or "Over 45.5"]
 ODDS: [Best odds available]
-CONFIDENCE: [1-10]
-REASONING: [2-3 sentences on why this is the best value bet]"""
+CONFIDENCE: [7-10 only, or skip if below 7]
+REASONING: [2-3 sentences on why this has 70%+ win probability]"""
 
         # Get AI analysis
         analysis_text = await get_ai_analysis(prompt, "gpt-5.2")
