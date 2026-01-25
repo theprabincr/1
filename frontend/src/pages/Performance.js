@@ -248,7 +248,6 @@ const Performance = () => {
           subtitle="Overall accuracy"
           icon={Trophy}
           color={performance?.win_rate >= 55 ? "green" : performance?.win_rate >= 45 ? "yellow" : "red"}
-          trend={performance?.win_rate > 50 ? 2.5 : -1.2}
         />
         <StatCard
           title="ROI"
