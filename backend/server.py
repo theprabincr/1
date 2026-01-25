@@ -513,67 +513,158 @@ async def auto_generate_recommendations():
     logger.info("Auto-recommendation generation complete")
 
 async def generate_smart_recommendation(event: dict, sport_key: str, odds_data: dict) -> Optional[dict]:
-    """Generate a smart recommendation with AI analysis"""
+    """Generate a smart recommendation analyzing ALL markets (moneyline, spreads, totals)"""
     try:
         home_team = event.get("home_team")
         away_team = event.get("away_team")
         bookmakers = odds_data.get("bookmakers", [])
         
-        # Get best odds
-        best_home = 1.0
-        best_away = 1.0
-        best_home_book = ""
-        best_away_book = ""
+        # Collect all market data
+        all_markets = {
+            'h2h': {'home': [], 'away': []},
+            'spreads': {'home': [], 'away': []},
+            'totals': {'over': [], 'under': []}
+        }
         
         for bm in bookmakers:
+            bm_name = SPORTSBOOK_NAMES.get(bm.get("key"), bm.get("title"))
             for market in bm.get("markets", []):
-                if market.get("key") == "h2h":
+                market_key = market.get("key")
+                
+                if market_key == "h2h":
                     for outcome in market.get("outcomes", []):
-                        if outcome.get("name") == home_team and outcome.get("price", 1) > best_home:
-                            best_home = outcome.get("price")
-                            best_home_book = SPORTSBOOK_NAMES.get(bm.get("key"), bm.get("title"))
-                        elif outcome.get("name") == away_team and outcome.get("price", 1) > best_away:
-                            best_away = outcome.get("price")
-                            best_away_book = SPORTSBOOK_NAMES.get(bm.get("key"), bm.get("title"))
+                        if outcome.get("name") == home_team:
+                            all_markets['h2h']['home'].append({
+                                'price': outcome.get("price", 1),
+                                'book': bm_name
+                            })
+                        elif outcome.get("name") == away_team:
+                            all_markets['h2h']['away'].append({
+                                'price': outcome.get("price", 1),
+                                'book': bm_name
+                            })
+                
+                elif market_key == "spreads":
+                    for outcome in market.get("outcomes", []):
+                        point = outcome.get("point", 0)
+                        if outcome.get("name") == home_team:
+                            all_markets['spreads']['home'].append({
+                                'price': outcome.get("price", 1),
+                                'point': point,
+                                'book': bm_name
+                            })
+                        elif outcome.get("name") == away_team:
+                            all_markets['spreads']['away'].append({
+                                'price': outcome.get("price", 1),
+                                'point': point,
+                                'book': bm_name
+                            })
+                
+                elif market_key == "totals":
+                    for outcome in market.get("outcomes", []):
+                        point = outcome.get("point", 0)
+                        if outcome.get("name") == "Over":
+                            all_markets['totals']['over'].append({
+                                'price': outcome.get("price", 1),
+                                'point': point,
+                                'book': bm_name
+                            })
+                        elif outcome.get("name") == "Under":
+                            all_markets['totals']['under'].append({
+                                'price': outcome.get("price", 1),
+                                'point': point,
+                                'book': bm_name
+                            })
         
-        # Build prompt for AI
-        prompt = f"""Analyze this {sport_key.replace('_', ' ')} matchup:
-{home_team} (Home) @ {best_home:.2f} vs {away_team} (Away) @ {best_away:.2f}
+        # Find best odds for each market
+        best_h2h_home = max(all_markets['h2h']['home'], key=lambda x: x['price'], default={'price': 1, 'book': 'N/A'})
+        best_h2h_away = max(all_markets['h2h']['away'], key=lambda x: x['price'], default={'price': 1, 'book': 'N/A'})
+        best_spread_home = max(all_markets['spreads']['home'], key=lambda x: x['price'], default={'price': 1, 'point': 0, 'book': 'N/A'})
+        best_spread_away = max(all_markets['spreads']['away'], key=lambda x: x['price'], default={'price': 1, 'point': 0, 'book': 'N/A'})
+        best_over = max(all_markets['totals']['over'], key=lambda x: x['price'], default={'price': 1, 'point': 0, 'book': 'N/A'})
+        best_under = max(all_markets['totals']['under'], key=lambda x: x['price'], default={'price': 1, 'point': 0, 'book': 'N/A'})
+        
+        # Build comprehensive prompt for AI analyzing ALL markets
+        prompt = f"""Analyze this {sport_key.replace('_', ' ')} matchup and recommend the BEST VALUE bet across all markets:
 
-Best odds: {home_team} @ {best_home:.2f} ({best_home_book}), {away_team} @ {best_away:.2f} ({best_away_book})
+{home_team} vs {away_team}
 
-Provide your betting recommendation with pick, confidence (1-10), and brief reasoning."""
+MONEYLINE:
+- {home_team}: {best_h2h_home['price']:.2f} ({best_h2h_home['book']})
+- {away_team}: {best_h2h_away['price']:.2f} ({best_h2h_away['book']})
+
+SPREAD:
+- {home_team} {best_spread_home.get('point', 0):+.1f}: {best_spread_home['price']:.2f} ({best_spread_home['book']})
+- {away_team} {best_spread_away.get('point', 0):+.1f}: {best_spread_away['price']:.2f} ({best_spread_away['book']})
+
+TOTALS:
+- Over {best_over.get('point', 0)}: {best_over['price']:.2f} ({best_over['book']})
+- Under {best_under.get('point', 0)}: {best_under['price']:.2f} ({best_under['book']})
+
+Analyze ALL markets and provide:
+MARKET: [moneyline/spread/total]
+PICK: [Exact selection - e.g., "Team Name" or "Over 45.5"]
+ODDS: [Best odds available]
+CONFIDENCE: [1-10]
+REASONING: [2-3 sentences on why this is the best value bet]"""
 
         # Get AI analysis
         analysis_text = await get_ai_analysis(prompt, "gpt-5.2")
         
-        # Parse confidence from analysis (default to 6 if not found)
+        # Parse the response
         confidence = 0.6
-        predicted_team = home_team
+        predicted_outcome = home_team
+        prediction_type = "moneyline"
+        odds_at_prediction = best_h2h_home['price']
         
         analysis_lower = analysis_text.lower()
-        if "confidence:" in analysis_lower or "confidence" in analysis_lower:
-            try:
-                # Extract confidence number
-                import re
-                conf_match = re.search(r'confidence[:\s]*(\d+)', analysis_lower)
-                if conf_match:
-                    confidence = int(conf_match.group(1)) / 10
-            except:
-                pass
         
-        # Determine predicted team from analysis
-        if away_team.lower() in analysis_lower and "pick:" in analysis_lower:
-            pick_section = analysis_lower.split("pick:")[1][:100] if "pick:" in analysis_lower else ""
-            if away_team.lower() in pick_section:
-                predicted_team = away_team
+        # Extract confidence
+        try:
+            import re
+            conf_match = re.search(r'confidence[:\s]*(\d+)', analysis_lower)
+            if conf_match:
+                confidence = int(conf_match.group(1)) / 10
+        except:
+            pass
         
-        # Determine best odds for predicted team
-        odds_at_prediction = best_home if predicted_team == home_team else best_away
+        # Determine market type and pick
+        if "market:" in analysis_lower:
+            market_section = analysis_lower.split("market:")[1][:50]
+            if "spread" in market_section:
+                prediction_type = "spread"
+            elif "total" in market_section or "over" in market_section or "under" in market_section:
+                prediction_type = "total"
         
-        # Skip if odds are unreasonable (likely futures/outrights)
-        if odds_at_prediction < 1.01 or odds_at_prediction > 50:
-            logger.info(f"Skipping {home_team} vs {away_team} - unusual odds: {odds_at_prediction}")
+        # Extract pick
+        if "pick:" in analysis_lower:
+            pick_section = analysis_lower.split("pick:")[1][:100]
+            
+            if prediction_type == "total":
+                if "over" in pick_section:
+                    predicted_outcome = f"Over {best_over.get('point', 0)}"
+                    odds_at_prediction = best_over['price']
+                elif "under" in pick_section:
+                    predicted_outcome = f"Under {best_under.get('point', 0)}"
+                    odds_at_prediction = best_under['price']
+            elif prediction_type == "spread":
+                if away_team.lower() in pick_section:
+                    predicted_outcome = f"{away_team} {best_spread_away.get('point', 0):+.1f}"
+                    odds_at_prediction = best_spread_away['price']
+                else:
+                    predicted_outcome = f"{home_team} {best_spread_home.get('point', 0):+.1f}"
+                    odds_at_prediction = best_spread_home['price']
+            else:  # moneyline
+                if away_team.lower() in pick_section:
+                    predicted_outcome = away_team
+                    odds_at_prediction = best_h2h_away['price']
+                else:
+                    predicted_outcome = home_team
+                    odds_at_prediction = best_h2h_home['price']
+        
+        # Skip if odds below 1.5 or above 20 (unreasonable)
+        if odds_at_prediction < 1.5 or odds_at_prediction > 20:
+            logger.info(f"Skipping {home_team} vs {away_team} - odds outside 1.5-20 range: {odds_at_prediction}")
             return None
         
         # Create prediction
@@ -583,9 +674,9 @@ Provide your betting recommendation with pick, confidence (1-10), and brief reas
             home_team=home_team,
             away_team=away_team,
             commence_time=event.get("commence_time"),
-            prediction_type="moneyline",
-            predicted_outcome=predicted_team,
-            confidence=min(confidence, 0.95),  # Cap at 95%
+            prediction_type=prediction_type,
+            predicted_outcome=predicted_outcome,
+            confidence=min(max(confidence, 0.3), 0.95),  # Between 30-95%
             analysis=analysis_text,
             ai_model="gpt-5.2",
             odds_at_prediction=odds_at_prediction
