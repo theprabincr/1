@@ -16,6 +16,16 @@ import hashlib
 import csv
 import io
 import json
+import re
+
+# Import ESPN scores integration
+from espn_scores import (
+    fetch_espn_scores, 
+    find_matching_game, 
+    determine_bet_result,
+    get_live_games,
+    get_final_games
+)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
