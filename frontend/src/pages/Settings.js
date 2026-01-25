@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { 
   Settings as SettingsIcon, Bell, Clock, Save, RefreshCw,
-  Zap, TrendingUp, AlertTriangle, Check
+  Zap, TrendingUp, AlertTriangle, Check, Database, Globe
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -21,6 +21,7 @@ const Settings = () => {
       daily_summary: true
     }
   });
+  const [dataSource, setDataSource] = useState({ current_source: 'oddsportal' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -38,8 +39,12 @@ const Settings = () => {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const response = await axios.get(`${API}/settings`);
-        setSettings(response.data);
+        const [settingsRes, dataSourceRes] = await Promise.all([
+          axios.get(`${API}/settings`),
+          axios.get(`${API}/data-source`)
+        ]);
+        setSettings(settingsRes.data);
+        setDataSource(dataSourceRes.data);
       } catch (error) {
         console.error("Error fetching settings:", error);
       } finally {
