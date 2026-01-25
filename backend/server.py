@@ -446,6 +446,78 @@ async def reset_api_key(key_id: str):
     
     return {"message": "API key usage reset"}
 
+# ==================== DATA SOURCE ENDPOINTS ====================
+
+class DataSourceUpdate(BaseModel):
+    source: str  # 'oddsportal' or 'oddsapi'
+
+@api_router.get("/data-source")
+async def get_data_source():
+    """Get current data source configuration"""
+    return {
+        "current_source": DATA_SOURCE,
+        "available_sources": ["oddsportal", "oddsapi"],
+        "oddsportal_info": {
+            "description": "Free odds scraping from OddsPortal.com",
+            "pros": ["Free - no API limits", "Multiple bookmakers", "Opening & current odds"],
+            "cons": ["Depends on website availability", "May be slower"]
+        },
+        "oddsapi_info": {
+            "description": "Paid Odds API with 500 free calls/month",
+            "pros": ["Reliable API", "Fast response", "Official data"],
+            "cons": ["Limited to 500 calls/month", "Costs money for more"]
+        }
+    }
+
+@api_router.put("/data-source")
+async def update_data_source(update: DataSourceUpdate):
+    """Switch between OddsPortal (free) and Odds API (paid)"""
+    global DATA_SOURCE, events_cache
+    
+    if update.source not in ['oddsportal', 'oddsapi']:
+        raise HTTPException(status_code=400, detail="Invalid data source. Use 'oddsportal' or 'oddsapi'")
+    
+    DATA_SOURCE = update.source
+    events_cache = {}  # Clear cache when switching sources
+    
+    await create_notification(
+        "data_source_changed",
+        "Data Source Changed",
+        f"Now using {'OddsPortal (free scraping)' if update.source == 'oddsportal' else 'Odds API (paid)'}",
+        {"source": update.source}
+    )
+    
+    return {"message": f"Data source changed to {update.source}", "current_source": DATA_SOURCE}
+
+@api_router.post("/scrape-odds")
+async def manual_scrape_odds(sport_key: str = "basketball_nba"):
+    """Manually trigger OddsPortal scraping for a sport"""
+    global events_cache
+    
+    try:
+        from oddsportal_scraper import scrape_oddsportal
+        events = await scrape_oddsportal(sport_key)
+        
+        if events:
+            # Store in cache
+            cache_key = f"{sport_key}_h2h,spreads,totals"
+            events_cache[cache_key] = (events, datetime.now(timezone.utc))
+            
+            # Store odds snapshots
+            for event in events:
+                await store_odds_snapshot(event)
+            
+            return {
+                "message": f"Successfully scraped {len(events)} events",
+                "events": events
+            }
+        else:
+            return {"message": "No events found", "events": []}
+            
+    except Exception as e:
+        logger.error(f"Manual scrape failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Scraping failed: {str(e)}")
+
 # ==================== NOTIFICATIONS ENDPOINTS ====================
 
 @api_router.get("/notifications")
