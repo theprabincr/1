@@ -656,7 +656,7 @@ async def store_odds_snapshot(event: dict):
             await db.odds_history.insert_one(snapshot)
 
 def format_odds_for_analysis(odds_data: dict) -> str:
-    """Format odds data for AI analysis"""
+    """Format odds data for AI analysis (decimal format)"""
     output = []
     for bookmaker in odds_data.get("bookmakers", [])[:5]:
         output.append(f"\n{bookmaker.get('title', 'Unknown')}:")
@@ -667,7 +667,8 @@ def format_odds_for_analysis(odds_data: dict) -> str:
                 price = outcome.get("price", 0)
                 point = outcome.get("point", "")
                 point_str = f" ({point})" if point else ""
-                output.append(f"  {market_name}: {outcome.get('name')} {price:+d}{point_str}")
+                # Format as decimal odds
+                output.append(f"  {market_name}: {outcome.get('name')} @ {price:.2f}{point_str}")
     return "\n".join(output)
 
 def get_best_odds(bookmakers: list) -> dict:
