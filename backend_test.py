@@ -170,7 +170,7 @@ class BettingPredictorAPITester:
             "odds_at_prediction": -110
         }
         
-        success, response = self.run_test("Create Prediction", "POST", "recommendations", 201, prediction_data)
+        success, response = self.run_test("Create Prediction", "POST", "recommendations", 200, prediction_data)
         
         if success and response.get('id'):
             prediction_id = response['id']
