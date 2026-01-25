@@ -80,10 +80,21 @@ const Sidebar = () => {
         </nav>
       </div>
       
-      <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-zinc-800">
-        <div className="flex items-center gap-3 text-text-muted text-sm">
+      <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-zinc-800 space-y-3">
+        <div className="flex items-center gap-3 text-sm">
           <Activity className="w-4 h-4 text-semantic-success" />
-          <span>API Status: Online</span>
+          <span className="text-text-muted">API Status: <span className="text-semantic-success">Online</span></span>
+        </div>
+        <div className="flex items-center gap-3 text-sm" data-testid="api-usage">
+          <Wifi className="w-4 h-4 text-brand-primary" />
+          <span className="text-text-muted">
+            Calls Left: <span className={`font-mono font-bold ${
+              apiUsage.requests_remaining > 100 ? 'text-semantic-success' :
+              apiUsage.requests_remaining > 20 ? 'text-semantic-warning' : 'text-semantic-danger'
+            }`}>
+              {apiUsage.requests_remaining !== null ? apiUsage.requests_remaining : '---'}
+            </span>
+          </span>
         </div>
       </div>
     </aside>
