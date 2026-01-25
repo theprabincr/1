@@ -217,18 +217,6 @@ const Predictions = () => {
     }
   };
 
-  const handleUpdateResult = async (predictionId, result) => {
-    try {
-      await axios.put(`${API}/result`, {
-        prediction_id: predictionId,
-        result: result
-      });
-      await fetchPredictions();
-    } catch (error) {
-      console.error("Error updating result:", error);
-    }
-  };
-
   return (
     <div className="space-y-6" data-testid="predictions-page">
       {/* Header */}
