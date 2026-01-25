@@ -54,14 +54,26 @@ const PredictionCard = ({ prediction, onUpdateResult }) => {
 
   const StatusIcon = statusIcons[prediction.result] || Clock;
 
+  // Get market type badge
+  const marketBadge = {
+    'moneyline': { label: 'Moneyline', color: 'bg-blue-500/20 text-blue-400' },
+    'spread': { label: 'Spread', color: 'bg-purple-500/20 text-purple-400' },
+    'total': { label: 'Total', color: 'bg-orange-500/20 text-orange-400' }
+  }[prediction.prediction_type] || { label: 'Moneyline', color: 'bg-blue-500/20 text-blue-400' };
+
   return (
     <div className="event-card" data-testid={`prediction-${prediction.id}`}>
       <div className="flex items-start justify-between mb-3">
         <div>
-          <span className="text-xs font-mono text-text-muted uppercase">
-            {prediction.sport_key?.replace(/_/g, ' ')}
-          </span>
-          <h4 className="text-text-primary font-semibold mt-1">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-mono text-text-muted uppercase">
+              {prediction.sport_key?.replace(/_/g, ' ')}
+            </span>
+            <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${marketBadge.color}`}>
+              {marketBadge.label}
+            </span>
+          </div>
+          <h4 className="text-text-primary font-semibold">
             {prediction.home_team} vs {prediction.away_team}
           </h4>
         </div>
