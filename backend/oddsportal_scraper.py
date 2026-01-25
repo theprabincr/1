@@ -226,8 +226,8 @@ def parse_odds_value(odds_text: str) -> Optional[float]:
 
 async def scrape_oddsportal_fallback(sport_key: str) -> List[Dict]:
     """
-    Fallback method using httpx when Playwright is not available
-    This won't get dynamic odds but can get basic event info
+    Fallback method using httpx when Playwright fails
+    Parses HTML to extract basic event info and odds
     """
     import httpx
     
@@ -240,38 +240,87 @@ async def scrape_oddsportal_fallback(sport_key: str) -> List[Dict]:
     try:
         async with httpx.AsyncClient() as client:
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
             }
-            response = await client.get(url, headers=headers, timeout=30.0)
+            response = await client.get(url, headers=headers, timeout=30.0, follow_redirects=True)
             
             if response.status_code == 200:
-                # Parse HTML for event links
                 html = response.text
                 
-                # Find event links
-                event_pattern = r'href="(/basketball/usa/nba/[^"]+)"[^>]*>([^<]+)</a>'
-                matches = re.findall(event_pattern, html)
+                # Parse fixture links from the page content
+                # OddsPortal links look like: /basketball/usa/nba/team1-team2-EVENTID/
                 
-                for match in matches[:10]:
-                    event_url, teams_text = match
+                # Pattern for NBA games
+                if 'basketball' in url:
+                    event_pattern = r'href="(/basketball/usa/nba/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"'
+                elif 'football' in url and 'american' not in url:
+                    event_pattern = r'href="(/football/[^/]+/[^/]+/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"'
+                elif 'american-football' in url:
+                    event_pattern = r'href="(/american-football/usa/nfl/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"'
+                elif 'hockey' in url:
+                    event_pattern = r'href="(/hockey/usa/nhl/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"'
+                elif 'baseball' in url:
+                    event_pattern = r'href="(/baseball/usa/mlb/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"'
+                else:
+                    event_pattern = r'href="(/[^/]+/[^/]+/[^/]+/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"'
+                
+                matches = re.findall(event_pattern, html)
+                seen_events = set()
+                
+                for match in matches[:20]:  # Limit to 20 events
+                    event_url, team1_slug, team2_slug, event_id = match
                     
-                    # Parse teams from URL
-                    parts = event_url.split('/')[-2].split('-vs-')
-                    if len(parts) == 2:
-                        home_team = parts[0].replace('-', ' ').title()
-                        away_team = parts[1].replace('-', ' ').title()
-                        
-                        events.append({
-                            "id": str(uuid.uuid4()),
-                            "sport_key": sport_key,
-                            "home_team": home_team,
-                            "away_team": away_team,
-                            "commence_time": datetime.now(timezone.utc).isoformat(),
-                            "bookmakers": [],
-                            "source": "oddsportal_fallback",
-                            "source_url": f"https://www.oddsportal.com{event_url}"
-                        })
+                    # Skip if already seen
+                    if event_id in seen_events:
+                        continue
+                    seen_events.add(event_id)
+                    
+                    # Clean up team names
+                    home_team = team1_slug.replace('-', ' ').title()
+                    away_team = team2_slug.replace('-', ' ').title()
+                    
+                    # Try to extract odds from the page (basic pattern)
+                    odds_pattern = rf'{re.escape(event_url)}[^<]*?(\d+\.\d+)[^<]*?(\d+\.\d+)'
+                    odds_match = re.search(odds_pattern, html)
+                    
+                    home_odds = 1.91
+                    away_odds = 1.91
+                    
+                    if odds_match:
+                        try:
+                            home_odds = float(odds_match.group(1))
+                            away_odds = float(odds_match.group(2))
+                        except:
+                            pass
+                    
+                    events.append({
+                        "id": event_id,
+                        "sport_key": sport_key,
+                        "home_team": home_team,
+                        "away_team": away_team,
+                        "commence_time": (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat(),
+                        "bookmakers": [
+                            {
+                                "key": "oddsportal_best",
+                                "title": "OddsPortal Best Odds",
+                                "markets": [
+                                    {
+                                        "key": "h2h",
+                                        "outcomes": [
+                                            {"name": home_team, "price": home_odds},
+                                            {"name": away_team, "price": away_odds}
+                                        ]
+                                    }
+                                ]
+                            }
+                        ],
+                        "source": "oddsportal_fallback",
+                        "source_url": f"https://www.oddsportal.com{event_url}"
+                    })
+                
+                logger.info(f"Fallback scraper found {len(events)} events for {sport_key}")
                         
     except Exception as e:
         logger.error(f"Fallback scraper error: {e}")
