@@ -9,29 +9,24 @@ import { format, parseISO } from "date-fns";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+// Active sportsbooks only
 const SPORTSBOOK_COLORS = {
-  'bet365': '#007B5B',
   'draftkings': '#61B510',
   'fanduel': '#1493FF',
   'betmgm': '#BFA165',
-  'williamhill_us': '#003366',
   'pinnacle': '#D22630',
   'unibet': '#147B45',
   'betway': '#00A826',
-  'pointsbetus': '#E4002B',
   'betonlineag': '#FF6600'
 };
 
 const SPORTSBOOK_NAMES = {
-  'bet365': 'Bet365',
   'draftkings': 'DraftKings',
   'fanduel': 'FanDuel',
   'betmgm': 'BetMGM',
-  'williamhill_us': 'Caesars',
   'pinnacle': 'Pinnacle',
   'unibet': 'Unibet',
   'betway': 'Betway',
-  'pointsbetus': 'PointsBet',
   'betonlineag': 'BetOnline'
 };
 
