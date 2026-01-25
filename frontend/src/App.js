@@ -5,7 +5,7 @@ import axios from "axios";
 import { 
   Home, TrendingUp, BarChart3, Trophy, 
   Activity, Settings, ChevronRight, RefreshCw,
-  Calendar, Clock, Zap, Target, DollarSign
+  Calendar, Clock, Zap, Target, DollarSign, Wifi
 } from "lucide-react";
 
 // Pages
@@ -29,8 +29,26 @@ const navItems = [
   { path: "/performance", icon: Trophy, label: "Performance" },
 ];
 
-// Sidebar Component
+// Sidebar Component with API Usage
 const Sidebar = () => {
+  const [apiUsage, setApiUsage] = useState({ requests_remaining: null });
+
+  useEffect(() => {
+    const fetchApiUsage = async () => {
+      try {
+        const response = await axios.get(`${API}/api-usage`);
+        setApiUsage(response.data);
+      } catch (error) {
+        console.error("Error fetching API usage:", error);
+      }
+    };
+    
+    fetchApiUsage();
+    // Refresh every 5 minutes
+    const interval = setInterval(fetchApiUsage, 300000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <aside className="sidebar" data-testid="sidebar">
       <div className="p-6">
