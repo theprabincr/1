@@ -506,10 +506,6 @@ def filter_prematch_events(events: List[dict], now: datetime) -> List[dict]:
             # If we can't parse time, include the event
             prematch.append(event)
     return prematch
-        # Return cached if available
-        if cache_key in events_cache:
-            return events_cache[cache_key][0]
-        return []
 
 @api_router.get("/event/{event_id}")
 async def get_event_details(event_id: str, sport_key: str = "basketball_nba"):
