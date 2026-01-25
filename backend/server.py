@@ -740,9 +740,12 @@ async def generate_recommendations(sport_key: str):
 
 # Auto-generate recommendations for dashboard
 async def auto_generate_recommendations():
-    """Automatically generate recommendations for top events across sports"""
+    """Automatically generate recommendations for top events across sports - only 70%+ confidence within 3 day window"""
     logger.info("Starting auto-recommendation generation...")
     sports_to_analyze = ["basketball_nba", "americanfootball_nfl", "baseball_mlb", "icehockey_nhl", "soccer_epl"]
+    
+    now = datetime.now(timezone.utc)
+    three_days_later = now + timedelta(days=3)
     
     for sport_key in sports_to_analyze:
         try:
@@ -750,8 +753,21 @@ async def auto_generate_recommendations():
             if not events:
                 continue
             
-            # Analyze top 2 events per sport
-            for event in events[:2]:
+            # Filter events within time window (later today to 3 days from now)
+            valid_events = []
+            for event in events:
+                try:
+                    commence_str = event.get("commence_time", "")
+                    if commence_str:
+                        commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
+                        # Must start in the future and within 3 days
+                        if now < commence_time <= three_days_later:
+                            valid_events.append(event)
+                except Exception:
+                    continue
+            
+            # Analyze top 3 valid events per sport
+            for event in valid_events[:3]:
                 event_id = event.get("id")
                 
                 # Check if we already have a recommendation for this event
