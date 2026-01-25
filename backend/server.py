@@ -446,6 +446,195 @@ async def generate_recommendations(sport_key: str):
     
     return {"message": f"Generated {len(recommendations)} recommendations", "recommendations": recommendations}
 
+# Auto-generate recommendations for dashboard
+async def auto_generate_recommendations():
+    """Automatically generate recommendations for top events across sports"""
+    logger.info("Starting auto-recommendation generation...")
+    sports_to_analyze = ["basketball_nba", "americanfootball_nfl", "baseball_mlb", "icehockey_nhl", "soccer_epl"]
+    
+    for sport_key in sports_to_analyze:
+        try:
+            events = await get_events(sport_key)
+            if not events:
+                continue
+            
+            # Analyze top 2 events per sport
+            for event in events[:2]:
+                event_id = event.get("id")
+                
+                # Check if we already have a recommendation for this event
+                existing = await db.predictions.find_one({"event_id": event_id, "result": "pending"})
+                if existing:
+                    logger.info(f"Skipping {event_id} - already has prediction")
+                    continue
+                
+                # Generate AI analysis
+                odds_data = {"bookmakers": event.get("bookmakers", [])}
+                analysis = await generate_smart_recommendation(event, sport_key, odds_data)
+                
+                if analysis:
+                    logger.info(f"Generated recommendation for {event.get('home_team')} vs {event.get('away_team')}")
+                    
+        except Exception as e:
+            logger.error(f"Error generating recommendations for {sport_key}: {e}")
+    
+    logger.info("Auto-recommendation generation complete")
+
+async def generate_smart_recommendation(event: dict, sport_key: str, odds_data: dict) -> Optional[dict]:
+    """Generate a smart recommendation with AI analysis"""
+    try:
+        home_team = event.get("home_team")
+        away_team = event.get("away_team")
+        bookmakers = odds_data.get("bookmakers", [])
+        
+        # Get best odds
+        best_home = 1.0
+        best_away = 1.0
+        best_home_book = ""
+        best_away_book = ""
+        
+        for bm in bookmakers:
+            for market in bm.get("markets", []):
+                if market.get("key") == "h2h":
+                    for outcome in market.get("outcomes", []):
+                        if outcome.get("name") == home_team and outcome.get("price", 1) > best_home:
+                            best_home = outcome.get("price")
+                            best_home_book = SPORTSBOOK_NAMES.get(bm.get("key"), bm.get("title"))
+                        elif outcome.get("name") == away_team and outcome.get("price", 1) > best_away:
+                            best_away = outcome.get("price")
+                            best_away_book = SPORTSBOOK_NAMES.get(bm.get("key"), bm.get("title"))
+        
+        # Build prompt for AI
+        prompt = f"""Analyze this {sport_key.replace('_', ' ')} matchup:
+{home_team} (Home) @ {best_home:.2f} vs {away_team} (Away) @ {best_away:.2f}
+
+Best odds: {home_team} @ {best_home:.2f} ({best_home_book}), {away_team} @ {best_away:.2f} ({best_away_book})
+
+Provide your betting recommendation with pick, confidence (1-10), and brief reasoning."""
+
+        # Get AI analysis
+        analysis_text = await get_ai_analysis(prompt, "gpt-5.2")
+        
+        # Parse confidence from analysis (default to 6 if not found)
+        confidence = 0.6
+        predicted_team = home_team
+        
+        analysis_lower = analysis_text.lower()
+        if "confidence:" in analysis_lower or "confidence" in analysis_lower:
+            try:
+                # Extract confidence number
+                import re
+                conf_match = re.search(r'confidence[:\s]*(\d+)', analysis_lower)
+                if conf_match:
+                    confidence = int(conf_match.group(1)) / 10
+            except:
+                pass
+        
+        # Determine predicted team from analysis
+        if away_team.lower() in analysis_lower and "pick:" in analysis_lower:
+            pick_section = analysis_lower.split("pick:")[1][:100] if "pick:" in analysis_lower else ""
+            if away_team.lower() in pick_section:
+                predicted_team = away_team
+        
+        # Determine best odds for predicted team
+        odds_at_prediction = best_home if predicted_team == home_team else best_away
+        
+        # Create prediction
+        prediction = PredictionCreate(
+            event_id=event.get("id"),
+            sport_key=sport_key,
+            home_team=home_team,
+            away_team=away_team,
+            commence_time=event.get("commence_time"),
+            prediction_type="moneyline",
+            predicted_outcome=predicted_team,
+            confidence=min(confidence, 0.95),  # Cap at 95%
+            analysis=analysis_text,
+            ai_model="gpt-5.2",
+            odds_at_prediction=odds_at_prediction
+        )
+        
+        # Save to database
+        await create_recommendation(prediction)
+        return prediction.model_dump()
+        
+    except Exception as e:
+        logger.error(f"Error in generate_smart_recommendation: {e}")
+        return None
+
+# Update recommendations based on line movement
+async def update_recommendations_on_line_movement():
+    """Check line movement and update recommendations if significant change"""
+    logger.info("Checking line movements and updating recommendations...")
+    
+    try:
+        # Get pending predictions
+        pending = await db.predictions.find({"result": "pending"}, {"_id": 0}).to_list(50)
+        
+        for prediction in pending:
+            event_id = prediction.get("event_id")
+            sport_key = prediction.get("sport_key")
+            original_odds = prediction.get("odds_at_prediction", 0)
+            
+            if not event_id or not sport_key:
+                continue
+            
+            # Fetch current odds
+            events = await get_events(sport_key)
+            current_event = None
+            for e in events:
+                if e.get("id") == event_id:
+                    current_event = e
+                    break
+            
+            if not current_event:
+                continue
+            
+            # Get current best odds for predicted outcome
+            predicted_team = prediction.get("predicted_outcome")
+            current_best = 1.0
+            
+            for bm in current_event.get("bookmakers", []):
+                for market in bm.get("markets", []):
+                    if market.get("key") == "h2h":
+                        for outcome in market.get("outcomes", []):
+                            if outcome.get("name") == predicted_team and outcome.get("price", 1) > current_best:
+                                current_best = outcome.get("price")
+            
+            # Check for significant line movement (>5% change)
+            if original_odds > 0:
+                change_pct = abs(current_best - original_odds) / original_odds * 100
+                
+                if change_pct > 5:
+                    # Line moved significantly - add note to analysis
+                    new_analysis = prediction.get("analysis", "") + f"\n\n[LINE MOVEMENT UPDATE: Odds moved from {original_odds:.2f} to {current_best:.2f} ({change_pct:.1f}% change)]"
+                    
+                    # Adjust confidence based on movement direction
+                    new_confidence = prediction.get("confidence", 0.6)
+                    if current_best > original_odds:
+                        # Line moving in our favor (better value)
+                        new_confidence = min(new_confidence + 0.05, 0.95)
+                        new_analysis += " [Favorable movement - increased confidence]"
+                    else:
+                        # Line moving against us
+                        new_confidence = max(new_confidence - 0.1, 0.3)
+                        new_analysis += " [Adverse movement - decreased confidence]"
+                    
+                    await db.predictions.update_one(
+                        {"id": prediction.get("id")},
+                        {"$set": {
+                            "analysis": new_analysis,
+                            "confidence": new_confidence,
+                            "current_odds": current_best,
+                            "line_movement_pct": change_pct,
+                            "last_updated": datetime.now(timezone.utc).isoformat()
+                        }}
+                    )
+                    logger.info(f"Updated prediction {prediction.get('id')} - line moved {change_pct:.1f}%")
+                    
+    except Exception as e:
+        logger.error(f"Error in update_recommendations_on_line_movement: {e}")
+
 @api_router.put("/result")
 async def update_result(update: ResultUpdate):
     """Update the result of a prediction"""
