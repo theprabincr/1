@@ -75,7 +75,6 @@ const MovementChart = ({ chartData, homeTeam, awayTeam, openingOdds }) => {
           <Tooltip content={<CustomTooltip />} />
           <Legend 
             wrapperStyle={{ paddingTop: '10px' }}
-            formatter={(value) => <span className="text-text-secondary text-sm">{value}</span>}
           />
           {/* Opening odds reference lines */}
           {openingOdds?.home_odds && (
