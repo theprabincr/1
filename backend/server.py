@@ -681,6 +681,12 @@ async def get_mock_events(sport_key: str):
             "bookmakers": bookmakers
         })
     
+    # Reset random seed
+    random.seed()
+    
+    # Cache the result
+    mock_events_cache[cache_key] = (events, datetime.now(timezone.utc))
+    
     return events
 
 def generate_mock_line_movement(event_id: str):
