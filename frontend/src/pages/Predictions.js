@@ -105,36 +105,18 @@ const PredictionCard = ({ prediction, onUpdateResult }) => {
         </div>
       </div>
 
-      <div className="p-3 bg-zinc-800/50 rounded-lg mb-4">
+      <div className="p-3 bg-zinc-800/50 rounded-lg">
         <p className="text-xs text-text-muted mb-1">AI Model: {prediction.ai_model}</p>
         <p className="text-sm text-text-secondary line-clamp-3">{prediction.analysis}</p>
       </div>
 
-      {prediction.result === 'pending' && (
-        <div className="flex gap-2">
-          <button
-            onClick={() => onUpdateResult(prediction.id, 'win')}
-            className="flex-1 btn-outline text-semantic-success border-semantic-success/30 hover:bg-semantic-success/10 text-sm"
-            data-testid={`mark-win-${prediction.id}`}
-          >
-            <CheckCircle className="w-4 h-4 inline mr-1" />
-            Won
-          </button>
-          <button
-            onClick={() => onUpdateResult(prediction.id, 'loss')}
-            className="flex-1 btn-outline text-semantic-danger border-semantic-danger/30 hover:bg-semantic-danger/10 text-sm"
-            data-testid={`mark-loss-${prediction.id}`}
-          >
-            <XCircle className="w-4 h-4 inline mr-1" />
-            Lost
-          </button>
-          <button
-            onClick={() => onUpdateResult(prediction.id, 'push')}
-            className="flex-1 btn-outline text-text-muted text-sm"
-            data-testid={`mark-push-${prediction.id}`}
-          >
-            Push
-          </button>
+      {/* Show line movement if available */}
+      {prediction.line_movement_pct && (
+        <div className="mt-3 p-2 bg-zinc-800 rounded text-xs">
+          <span className="text-text-muted">Line Movement: </span>
+          <span className={prediction.line_movement_pct > 0 ? 'text-semantic-success' : 'text-semantic-danger'}>
+            {prediction.line_movement_pct > 0 ? '+' : ''}{prediction.line_movement_pct.toFixed(1)}%
+          </span>
         </div>
       )}
     </div>
