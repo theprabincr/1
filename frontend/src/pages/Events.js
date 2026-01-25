@@ -172,9 +172,9 @@ const EventCard = ({ event, onAnalyze, onCompare }) => {
   );
 };
 
-// Helper to get best odds
+// Helper to get best odds (decimal format)
 const getBestOdds = (bookmakers, homeTeam, awayTeam) => {
-  let bestHome = -9999, bestAway = -9999;
+  let bestHome = 1, bestAway = 1;
   let homeBk = '', awayBk = '';
   let spread = null, total = null;
 
@@ -204,8 +204,8 @@ const getBestOdds = (bookmakers, homeTeam, awayTeam) => {
   });
 
   return { 
-    home: bestHome !== -9999 ? bestHome : -110, 
-    away: bestAway !== -9999 ? bestAway : -110,
+    home: bestHome > 1 ? bestHome : 1.91, 
+    away: bestAway > 1 ? bestAway : 1.91,
     homeBk: homeBk || 'N/A',
     awayBk: awayBk || 'N/A',
     spread,
