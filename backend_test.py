@@ -128,6 +128,17 @@ class BettingPredictorAPITester:
         self.run_test("Get Recommendations", "GET", "recommendations?limit=5", 200)
         self.run_test("Generate Recommendations", "POST", "generate-recommendations?sport_key=basketball_nba", 200, timeout=60)
 
+    def test_api_usage(self):
+        """Test API usage endpoint - key requirement"""
+        success, data = self.run_test("API Usage", "GET", "api-usage", 200)
+        if success and data:
+            # Check if requests_remaining is present
+            if 'requests_remaining' in data:
+                print(f"   ✅ API Usage tracking working - Requests remaining: {data['requests_remaining']}")
+            else:
+                print(f"   ⚠️  API Usage response missing 'requests_remaining' field")
+                print(f"   Response: {data}")
+
     def test_performance(self):
         """Test performance endpoint"""
         self.run_test("Performance Stats", "GET", "performance", 200)
