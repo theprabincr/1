@@ -179,8 +179,6 @@ function App() {
               <Route path="/odds-comparison" element={<OddsComparison />} />
               <Route path="/predictions" element={<Predictions />} />
               <Route path="/performance" element={<Performance />} />
-              <Route path="/analytics" element={<Analytics />} />
-              <Route path="/bankroll" element={<Bankroll />} />
               <Route path="/api-keys" element={<ApiKeys />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/notifications" element={<Notifications />} />
