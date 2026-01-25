@@ -33,20 +33,20 @@ const navItems = [
   { path: "/settings", icon: Settings, label: "Settings" },
 ];
 
-// Sidebar Component with API Usage and Notifications
+// Sidebar Component
 const Sidebar = () => {
-  const [apiUsage, setApiUsage] = useState({ requests_remaining: null, total_remaining_all_keys: null });
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [dataStatus, setDataStatus] = useState({ source: 'oddsportal', lastUpdate: null });
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [usageRes, notifRes] = await Promise.all([
-          axios.get(`${API}/api-usage`),
-          axios.get(`${API}/notifications?unread_only=true&limit=1`)
+        const [notifRes, statusRes] = await Promise.all([
+          axios.get(`${API}/notifications?unread_only=true&limit=1`),
+          axios.get(`${API}/scraper-status`)
         ]);
-        setApiUsage(usageRes.data);
         setUnreadNotifications(notifRes.data.unread_count);
+        setDataStatus(statusRes.data);
       } catch (error) {
         console.error("Error fetching sidebar data:", error);
       }
@@ -90,7 +90,7 @@ const Sidebar = () => {
           )}
         </NavLink>
         
-        <nav className="space-y-1 max-h-[calc(100vh-380px)] overflow-y-auto">
+        <nav className="space-y-1 max-h-[calc(100vh-320px)] overflow-y-auto">
           {navItems.map((item) => (
             <NavLink
               key={item.path}
@@ -110,24 +110,23 @@ const Sidebar = () => {
       
       <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-zinc-800 space-y-2">
         <div className="flex items-center gap-3 text-sm">
+          <Globe className="w-4 h-4 text-brand-primary" />
+          <span className="text-text-muted">Source: <span className="text-brand-primary font-medium">OddsPortal</span></span>
+        </div>
+        <div className="flex items-center gap-3 text-sm">
           <Activity className="w-4 h-4 text-semantic-success" />
-          <span className="text-text-muted">API: <span className="text-semantic-success">Online</span></span>
+          <span className="text-text-muted">Status: <span className="text-semantic-success">Live</span></span>
         </div>
-        <div className="flex items-center gap-3 text-sm" data-testid="api-usage">
-          <Wifi className="w-4 h-4 text-brand-primary" />
-          <span className="text-text-muted">
-            Active: <span className={`font-mono font-bold ${
-              apiUsage.requests_remaining > 100 ? 'text-semantic-success' :
-              apiUsage.requests_remaining > 20 ? 'text-semantic-warning' : 'text-semantic-danger'
-            }`}>
-              {apiUsage.requests_remaining !== null ? apiUsage.requests_remaining : '---'}
-            </span>
-          </span>
-        </div>
-        {apiUsage.total_remaining_all_keys > 0 && (
+        {dataStatus.lastUpdate && (
           <div className="flex items-center gap-3 text-sm">
-            <Key className="w-4 h-4 text-brand-secondary" />
-            <span className="text-text-muted">
+            <Clock className="w-4 h-4 text-text-muted" />
+            <span className="text-text-muted text-xs">
+              Updated: {new Date(dataStatus.lastUpdate).toLocaleTimeString()}
+            </span>
+          </div>
+        )}
+      </div>
+    </aside>
               Total: <span className="font-mono text-brand-secondary">
                 {apiUsage.total_remaining_all_keys}
               </span>
