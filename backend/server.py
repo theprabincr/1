@@ -257,8 +257,27 @@ async def get_sports():
     return [Sport(**s) for s in data if s.get('active', False)]
 
 @api_router.get("/events/{sport_key}")
-async def get_events(sport_key: str, markets: str = "h2h,spreads,totals"):
-    """Get events with odds for a specific sport - only upcoming events"""
+async def get_events(sport_key: str, markets: str = "h2h,spreads,totals", force_refresh: bool = False):
+    """Get events with odds for a specific sport - uses 30min cache to save API calls"""
+    global events_cache
+    
+    cache_key = f"{sport_key}_{markets}"
+    now = datetime.now(timezone.utc)
+    
+    # Check cache first (unless force refresh)
+    if not force_refresh and cache_key in events_cache:
+        cached_data, cached_time = events_cache[cache_key]
+        cache_age_minutes = (now - cached_time).total_seconds() / 60
+        if cache_age_minutes < CACHE_DURATION_MINUTES:
+            logger.info(f"Using cached data for {sport_key} (age: {cache_age_minutes:.1f} min)")
+            return cached_data
+    
+    # Check if we should conserve API calls (below 50 remaining)
+    if api_usage.get('requests_remaining') and api_usage['requests_remaining'] < 50:
+        logger.warning(f"Low API calls remaining: {api_usage['requests_remaining']}. Using cache if available.")
+        if cache_key in events_cache:
+            return events_cache[cache_key][0]
+    
     bookmaker_keys = ",".join(SPORTSBOOKS.values())
     params = {
         "regions": "us,eu,uk,au",
@@ -270,11 +289,12 @@ async def get_events(sport_key: str, markets: str = "h2h,spreads,totals"):
     data = await fetch_odds_api(f"/sports/{sport_key}/odds", params)
     
     if data is None:
-        # Return mock data
+        # Return cached data if available, else mock
+        if cache_key in events_cache:
+            return events_cache[cache_key][0]
         return await get_mock_events(sport_key)
     
     # Filter to only show upcoming events (not past)
-    now = datetime.now(timezone.utc)
     upcoming_events = []
     for event in data:
         commence_time_str = event.get('commence_time', '')
@@ -287,6 +307,10 @@ async def get_events(sport_key: str, markets: str = "h2h,spreads,totals"):
                     await store_odds_snapshot(event)
             except:
                 upcoming_events.append(event)
+    
+    # Cache the results
+    events_cache[cache_key] = (upcoming_events, now)
+    logger.info(f"Cached {len(upcoming_events)} events for {sport_key}")
     
     return upcoming_events
 
