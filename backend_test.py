@@ -173,6 +173,174 @@ class BettingPredictorAPITester:
             }
             self.run_test("Update Prediction Result", "PUT", "result", 200, update_data)
 
+    def test_api_key_management(self):
+        """Test API Key Management CRUD operations"""
+        print("\n🔑 Testing API Key Management...")
+        
+        # 1. List existing API keys
+        success, keys_data = self.run_test("List API Keys", "GET", "api-keys", 200)
+        
+        # 2. Add new API key
+        new_key_data = {
+            "key": "test123abc",
+            "name": "Test Key"
+        }
+        success, add_response = self.run_test("Add API Key", "POST", "api-keys", 200, new_key_data)
+        
+        if success and add_response.get('id'):
+            key_id = add_response['id']
+            print(f"   ✅ Created API key with ID: {key_id}")
+            
+            # 3. Activate the key
+            self.run_test("Activate API Key", "PUT", f"api-keys/{key_id}/activate", 200)
+            
+            # 4. Reset key usage
+            self.run_test("Reset API Key", "PUT", f"api-keys/{key_id}/reset", 200)
+            
+            # 5. Delete the key
+            self.run_test("Delete API Key", "DELETE", f"api-keys/{key_id}", 200)
+        else:
+            print("   ⚠️  Skipping key operations - failed to create test key")
+
+    def test_bankroll_management(self):
+        """Test Bankroll Management operations"""
+        print("\n💰 Testing Bankroll Management...")
+        
+        # 1. Get current bankroll status
+        success, bankroll_data = self.run_test("Get Bankroll", "GET", "bankroll", 200)
+        if success:
+            print(f"   Current balance: ${bankroll_data.get('current_balance', 0)}")
+        
+        # 2. Make a deposit
+        deposit_data = {
+            "amount": 1000,
+            "description": "Initial deposit"
+        }
+        success, deposit_response = self.run_test("Deposit Funds", "POST", "bankroll/deposit", 200, deposit_data)
+        if success:
+            print(f"   New balance after deposit: ${deposit_response.get('new_balance', 0)}")
+        
+        # 3. Make a withdrawal
+        withdrawal_data = {
+            "amount": 100,
+            "description": "Test withdrawal"
+        }
+        success, withdrawal_response = self.run_test("Withdraw Funds", "POST", "bankroll/withdraw", 200, withdrawal_data)
+        if success:
+            print(f"   New balance after withdrawal: ${withdrawal_response.get('new_balance', 0)}")
+        
+        # 4. Get transactions
+        self.run_test("Get Transactions", "GET", "bankroll/transactions", 200)
+
+    def test_notifications(self):
+        """Test Notifications system"""
+        print("\n🔔 Testing Notifications...")
+        
+        # 1. Get all notifications
+        success, notifications_data = self.run_test("Get Notifications", "GET", "notifications", 200)
+        if success:
+            notifications = notifications_data.get('notifications', [])
+            unread_count = notifications_data.get('unread_count', 0)
+            print(f"   Found {len(notifications)} notifications, {unread_count} unread")
+            
+            # 2. Mark a notification as read (if any exist)
+            if notifications and len(notifications) > 0:
+                notif_id = notifications[0].get('id')
+                if notif_id:
+                    self.run_test("Mark Notification Read", "PUT", f"notifications/{notif_id}/read", 200)
+        
+        # 3. Mark all notifications as read
+        self.run_test("Mark All Notifications Read", "PUT", "notifications/read-all", 200)
+
+    def test_settings(self):
+        """Test Settings management"""
+        print("\n⚙️ Testing Settings...")
+        
+        # 1. Get current settings
+        success, settings_data = self.run_test("Get Settings", "GET", "settings", 200)
+        
+        # 2. Update settings
+        updated_settings = {
+            "cache_duration_minutes": 45,
+            "auto_rotate_keys": True,
+            "priority_sports": ["basketball_nba", "americanfootball_nfl"],
+            "notification_preferences": {
+                "line_movement_alerts": True,
+                "line_movement_threshold": 7.5,
+                "low_api_alerts": True,
+                "low_api_threshold": 25,
+                "result_alerts": True,
+                "daily_summary": False
+            }
+        }
+        self.run_test("Update Settings", "PUT", "settings", 200, updated_settings)
+
+    def test_analytics(self):
+        """Test Analytics endpoints"""
+        print("\n📈 Testing Analytics...")
+        
+        # 1. Get trends for last 30 days
+        self.run_test("Analytics Trends (30 days)", "GET", "analytics/trends?days=30", 200)
+        
+        # 2. Get trends for last 7 days
+        self.run_test("Analytics Trends (7 days)", "GET", "analytics/trends?days=7", 200)
+        
+        # 3. Get streaks
+        success, streaks_data = self.run_test("Analytics Streaks", "GET", "analytics/streaks", 200)
+        if success:
+            current_streak = streaks_data.get('current_streak', 0)
+            streak_type = streaks_data.get('streak_type', 'none')
+            print(f"   Current streak: {current_streak} {streak_type}")
+
+    def test_export_functionality(self):
+        """Test Export endpoints"""
+        print("\n📤 Testing Export Functionality...")
+        
+        # 1. Export predictions as JSON
+        self.run_test("Export Predictions (JSON)", "GET", "export/predictions?format=json", 200)
+        
+        # 2. Export predictions as CSV
+        self.run_test("Export Predictions (CSV)", "GET", "export/predictions?format=csv", 200)
+        
+        # 3. Export bankroll as JSON
+        self.run_test("Export Bankroll (JSON)", "GET", "export/bankroll?format=json", 200)
+        
+        # 4. Export bankroll as CSV
+        self.run_test("Export Bankroll (CSV)", "GET", "export/bankroll?format=csv", 200)
+        
+        # 5. Export performance report
+        success, report_data = self.run_test("Export Performance Report", "GET", "export/performance-report", 200)
+        if success:
+            print(f"   Performance report generated at: {report_data.get('generated_at', 'N/A')}")
+
+    def test_enhanced_api_usage(self):
+        """Test enhanced API usage endpoint with new fields"""
+        print("\n📊 Testing Enhanced API Usage...")
+        
+        success, data = self.run_test("Enhanced API Usage", "GET", "api-usage", 200)
+        if success and data:
+            # Check for new required fields
+            required_fields = ['total_remaining_all_keys', 'active_keys_count']
+            missing_fields = []
+            
+            for field in required_fields:
+                if field in data:
+                    print(f"   ✅ {field}: {data[field]}")
+                else:
+                    missing_fields.append(field)
+                    print(f"   ❌ Missing field: {field}")
+            
+            # Check other important fields
+            optional_fields = ['requests_remaining', 'requests_used', 'monthly_limit']
+            for field in optional_fields:
+                if field in data:
+                    print(f"   ℹ️  {field}: {data[field]}")
+            
+            if missing_fields:
+                print(f"   ⚠️  API Usage endpoint missing required fields: {missing_fields}")
+            else:
+                print(f"   ✅ All required fields present in API Usage response")
+
 def main():
     print("🚀 Starting BetPredictor API Testing...")
     print("=" * 60)
