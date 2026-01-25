@@ -128,7 +128,7 @@ const PredictionRow = ({ prediction }) => {
         <span className={`font-mono text-sm ${
           prediction.odds_at_prediction > 0 ? 'text-semantic-success' : 'text-text-primary'
         }`}>
-          {prediction.odds_at_prediction > 0 ? '+' : ''}{prediction.odds_at_prediction}
+          {typeof prediction.odds_at_prediction === 'number' ? prediction.odds_at_prediction.toFixed(2) : prediction.odds_at_prediction}
         </span>
       </td>
       <td className="py-3 px-4">
