@@ -1005,11 +1005,12 @@ async def get_line_movement(event_id: str, sport_key: str = "basketball_nba"):
         return history
     
     # Try to fetch historical odds from API (if available)
-    if ODDS_API_KEY:
+    api_key = await get_active_api_key()
+    if api_key:
         try:
             # Fetch historical odds - The Odds API provides event odds endpoint
             params = {
-                "apiKey": ODDS_API_KEY,
+                "apiKey": api_key,
                 "regions": "us,eu,uk,au",
                 "markets": "h2h,spreads,totals",
                 "oddsFormat": "decimal"
