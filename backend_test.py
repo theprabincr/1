@@ -183,6 +183,7 @@ def main():
     print("\n📡 Testing Core API Endpoints...")
     tester.test_root_endpoint()
     tester.test_sports_endpoint()
+    tester.test_api_usage()  # Test the API usage endpoint specifically
     
     print("\n🏀 Testing Events & Odds...")
     tester.test_events_endpoints()
