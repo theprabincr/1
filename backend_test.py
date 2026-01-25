@@ -350,6 +350,189 @@ class BettingPredictorAPITester:
             else:
                 print(f"   ✅ All required fields present in API Usage response")
 
+    def test_espn_scores_integration(self):
+        """Test ESPN Scores Integration endpoints"""
+        print("\n🏆 Testing ESPN Scores Integration...")
+        
+        # Test scores for basketball_nba
+        success, data = self.run_test("ESPN Scores - NBA", "GET", "scores/basketball_nba", 200)
+        if success and data:
+            games_count = data.get('games_count', 0)
+            games = data.get('games', [])
+            print(f"   Found {games_count} NBA games")
+            
+            # Verify response structure
+            if games and len(games) > 0:
+                game = games[0]
+                required_fields = ['espn_id', 'home_team', 'away_team', 'home_score', 'away_score', 'status']
+                missing_fields = []
+                for field in required_fields:
+                    if field not in game:
+                        missing_fields.append(field)
+                
+                if missing_fields:
+                    print(f"   ⚠️  Game data missing fields: {missing_fields}")
+                else:
+                    print(f"   ✅ Game data structure correct")
+                    if game.get('winner'):
+                        print(f"   Winner: {game.get('winner')}")
+        
+        # Test with status filter - final games
+        success, data = self.run_test("ESPN Scores - Final Games", "GET", "scores/basketball_nba?status=final", 200)
+        if success and data:
+            final_games = data.get('games', [])
+            print(f"   Found {len(final_games)} final games")
+            
+        # Test with status filter - live games
+        success, data = self.run_test("ESPN Scores - Live Games", "GET", "scores/basketball_nba?status=live", 200)
+        if success and data:
+            live_games = data.get('games', [])
+            print(f"   Found {len(live_games)} live games")
+
+    def test_live_scores(self):
+        """Test Live Scores endpoint"""
+        print("\n🔴 Testing Live Scores...")
+        
+        success, data = self.run_test("Live Scores - All Sports", "GET", "live-scores", 200)
+        if success and data:
+            live_games_count = data.get('live_games_count', 0)
+            games = data.get('games', [])
+            print(f"   Found {live_games_count} live games across all sports")
+            
+            # Verify each game has sport_key
+            if games:
+                for i, game in enumerate(games[:3]):  # Check first 3 games
+                    if 'sport_key' in game:
+                        print(f"   Game {i+1}: {game.get('home_team')} vs {game.get('away_team')} ({game.get('sport_key')})")
+                    else:
+                        print(f"   ⚠️  Game {i+1} missing sport_key")
+
+    def test_pending_results(self):
+        """Test Pending Results endpoint"""
+        print("\n⏳ Testing Pending Results...")
+        
+        success, data = self.run_test("Pending Results", "GET", "pending-results", 200)
+        if success and data:
+            total_pending = data.get('total_pending', 0)
+            awaiting_start = data.get('awaiting_start', [])
+            in_progress = data.get('in_progress', [])
+            awaiting_result = data.get('awaiting_result', [])
+            
+            print(f"   Total pending predictions: {total_pending}")
+            print(f"   Awaiting start: {len(awaiting_start)}")
+            print(f"   In progress: {len(in_progress)}")
+            print(f"   Awaiting result: {len(awaiting_result)}")
+            
+            # Verify structure
+            required_fields = ['total_pending', 'awaiting_start', 'in_progress', 'awaiting_result']
+            missing_fields = []
+            for field in required_fields:
+                if field not in data:
+                    missing_fields.append(field)
+            
+            if missing_fields:
+                print(f"   ⚠️  Response missing fields: {missing_fields}")
+            else:
+                print(f"   ✅ Response structure correct")
+
+    def test_recommendations_70_percent_filter(self):
+        """Test Recommendations with 70% confidence filter"""
+        print("\n🎯 Testing 70% Confidence Filter...")
+        
+        # Test with 70% minimum confidence (default)
+        success, data = self.run_test("Recommendations - 70% Filter", "GET", "recommendations?min_confidence=0.70&limit=10", 200)
+        if success and isinstance(data, list):
+            print(f"   Found {len(data)} recommendations with 70%+ confidence")
+            
+            # Verify all recommendations meet confidence threshold
+            low_confidence_count = 0
+            for rec in data:
+                confidence = rec.get('confidence', 0)
+                if confidence < 0.70:
+                    low_confidence_count += 1
+            
+            if low_confidence_count > 0:
+                print(f"   ⚠️  Found {low_confidence_count} recommendations below 70% confidence")
+            else:
+                print(f"   ✅ All recommendations meet 70% confidence threshold")
+        
+        # Test with include_all=true (should include all confidence levels)
+        success, data = self.run_test("Recommendations - All Confidence", "GET", "recommendations?include_all=true", 200)
+        if success and isinstance(data, list):
+            print(f"   Found {len(data)} recommendations (all confidence levels)")
+            
+            # Check confidence distribution
+            if data:
+                confidences = [rec.get('confidence', 0) for rec in data]
+                min_conf = min(confidences) if confidences else 0
+                max_conf = max(confidences) if confidences else 0
+                print(f"   Confidence range: {min_conf:.2f} - {max_conf:.2f}")
+
+    def test_check_results_trigger(self):
+        """Test Check Results Trigger endpoint"""
+        print("\n🔄 Testing Check Results Trigger...")
+        
+        success, data = self.run_test("Check Results Trigger", "POST", "check-results", 200)
+        if success and data:
+            message = data.get('message', '')
+            if 'background' in message.lower() or 'started' in message.lower():
+                print(f"   ✅ Background task triggered successfully")
+                print(f"   Message: {message}")
+            else:
+                print(f"   ⚠️  Unexpected response: {message}")
+
+    def test_performance_stats_updated(self):
+        """Test Performance Stats with updated fields"""
+        print("\n📈 Testing Updated Performance Stats...")
+        
+        success, data = self.run_test("Performance Stats", "GET", "performance", 200)
+        if success and data:
+            # Check for required fields
+            required_fields = ['wins', 'losses', 'pushes', 'win_rate', 'roi']
+            missing_fields = []
+            
+            for field in required_fields:
+                if field in data:
+                    value = data[field]
+                    print(f"   ✅ {field}: {value}")
+                else:
+                    missing_fields.append(field)
+            
+            if missing_fields:
+                print(f"   ⚠️  Performance stats missing fields: {missing_fields}")
+            else:
+                print(f"   ✅ All required performance fields present")
+            
+            # Check calculations
+            total_predictions = data.get('total_predictions', 0)
+            wins = data.get('wins', 0)
+            losses = data.get('losses', 0)
+            pushes = data.get('pushes', 0)
+            
+            if total_predictions > 0:
+                calculated_total = wins + losses + pushes
+                if calculated_total == total_predictions:
+                    print(f"   ✅ Win/Loss/Push totals match total predictions")
+                else:
+                    print(f"   ⚠️  Total mismatch: {calculated_total} vs {total_predictions}")
+
+    def test_existing_endpoints_still_work(self):
+        """Test that existing endpoints still work after updates"""
+        print("\n🔧 Testing Existing Endpoints...")
+        
+        # Test core endpoints that should still work
+        endpoints_to_test = [
+            ("Sports List", "GET", "sports"),
+            ("Events NBA", "GET", "events/basketball_nba"),
+            ("Notifications", "GET", "notifications"),
+            ("Settings", "GET", "settings")
+        ]
+        
+        for name, method, endpoint in endpoints_to_test:
+            success, data = self.run_test(f"Existing - {name}", method, endpoint, 200)
+            if not success:
+                print(f"   ❌ CRITICAL: Existing endpoint {endpoint} is broken!")
+
 def main():
     print("🚀 Starting BetPredictor API Testing...")
     print("=" * 60)
