@@ -78,10 +78,8 @@ const PredictionCard = ({ prediction, onUpdateResult }) => {
         </div>
         <div>
           <p className="text-xs text-text-muted">Odds</p>
-          <p className={`font-mono font-bold ${
-            prediction.odds_at_prediction > 0 ? 'text-semantic-success' : 'text-text-primary'
-          }`}>
-            {prediction.odds_at_prediction > 0 ? '+' : ''}{prediction.odds_at_prediction}
+          <p className="font-mono font-bold text-brand-primary">
+            {typeof prediction.odds_at_prediction === 'number' ? prediction.odds_at_prediction.toFixed(2) : prediction.odds_at_prediction}
           </p>
         </div>
         <div>
