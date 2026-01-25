@@ -34,10 +34,8 @@ const SPORTSBOOK_NAMES = {
   'betonlineag': 'BetOnline'
 };
 
-// Odds Cell Component
+// Odds Cell Component (Decimal format)
 const OddsCell = ({ value, isBest, point }) => {
-  const isPositive = value > 0;
-  
   return (
     <div className={`text-center py-3 px-2 rounded-lg transition-all ${
       isBest ? 'bg-brand-primary/10 ring-1 ring-brand-primary' : 'hover:bg-zinc-800'
@@ -48,10 +46,9 @@ const OddsCell = ({ value, isBest, point }) => {
         </p>
       )}
       <p className={`font-mono font-bold text-lg ${
-        isBest ? 'text-brand-primary' : 
-        isPositive ? 'text-semantic-success' : 'text-text-primary'
+        isBest ? 'text-brand-primary' : 'text-text-primary'
       }`}>
-        {isPositive ? '+' : ''}{value}
+        {typeof value === 'number' ? value.toFixed(2) : value}
       </p>
       {isBest && (
         <div className="flex items-center justify-center gap-1 mt-1">
@@ -67,10 +64,10 @@ const OddsCell = ({ value, isBest, point }) => {
 const MarketTable = ({ title, data, homeTeam, awayTeam, marketKey }) => {
   if (!data || data.length === 0) return null;
 
-  // Find best odds for each outcome
+  // Find best odds for each outcome (decimal - higher is better)
   const findBestOdds = () => {
-    let bestHome = { price: -9999, book: '' };
-    let bestAway = { price: -9999, book: '' };
+    let bestHome = { price: 1, book: '' };
+    let bestAway = { price: 1, book: '' };
 
     data.forEach(bm => {
       bm.outcomes?.forEach(outcome => {
