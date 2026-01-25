@@ -34,19 +34,24 @@ Build a betting predictor application that fetches data from all future and in-p
 - [x] GET /api/line-movement/{event_id} - Line movement history with opening/current odds
 - [x] GET /api/odds-comparison/{event_id} - Compare odds across books
 - [x] POST /api/analyze - AI analysis using GPT-5.2
-- [x] GET /api/recommendations - Get auto-generated AI picks
+- [x] GET /api/recommendations - Get auto-generated AI picks (70%+ confidence filter, 3-day window)
 - [x] PUT /api/result - Track win/loss/push
 - [x] GET /api/performance - Performance statistics
 - [x] GET /api/scraper-status - OddsPortal scraper status
 - [x] POST /api/scrape-odds - Manual scrape trigger
+- [x] GET /api/scores/{sport_key} - Real-time scores from ESPN API (NEW)
+- [x] GET /api/live-scores - All in-progress games across sports (NEW)
+- [x] GET /api/pending-results - Pending predictions by status (NEW)
+- [x] POST /api/check-results - Trigger result checking (NEW)
 
 ### Background Tasks (Automatic)
 - [x] Auto-scrape OddsPortal every hour for odds updates
 - [x] Store opening odds when event first seen
 - [x] Store hourly odds snapshots for line movement
-- [x] Auto-generate recommendations every 4 hours
+- [x] Auto-generate recommendations every 4 hours (70%+ confidence, 3-day window)
 - [x] Check line movements hourly and update confidence
-- [x] Auto-check results every 2 hours for completed events
+- [x] **Auto-check results every 15 MINUTES using ESPN API** (UPDATED)
+- [x] **Automatic win/loss calculation based on final scores** (NEW)
 
 ### Frontend (React + Tailwind)
 - [x] Dashboard with auto-generated Top Picks
