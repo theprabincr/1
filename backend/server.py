@@ -1061,19 +1061,69 @@ async def get_odds_comparison(event_id: str, sport_key: str = "basketball_nba"):
 
 # Helper functions
 async def store_odds_snapshot(event: dict):
-    """Store odds snapshot for line movement tracking"""
+    """Store odds snapshot for line movement tracking - stores opening odds and hourly snapshots"""
     event_id = event.get("id")
     timestamp = datetime.now(timezone.utc).isoformat()
+    home_team = event.get("home_team", "home")
+    away_team = event.get("away_team", "away")
+    
+    # Check if we have opening odds stored for this event
+    existing_opening = await db.opening_odds.find_one({"event_id": event_id})
     
     for bookmaker in event.get("bookmakers", []):
+        bm_key = bookmaker.get("key")
+        bm_title = bookmaker.get("title", bm_key)
+        
         for market in bookmaker.get("markets", []):
+            market_key = market.get("key", "h2h")
+            outcomes = market.get("outcomes", [])
+            
+            # Extract home and away odds
+            home_odds = None
+            away_odds = None
+            
+            for outcome in outcomes:
+                name = outcome.get("name", "").lower()
+                price = outcome.get("price")
+                
+                if name == "home" or name == home_team.lower():
+                    home_odds = price
+                elif name == "away" or name == away_team.lower():
+                    away_odds = price
+            
+            # If not found by name, use position
+            if home_odds is None and len(outcomes) >= 1:
+                home_odds = outcomes[0].get("price")
+            if away_odds is None and len(outcomes) >= 2:
+                away_odds = outcomes[1].get("price")
+            
+            # Store opening odds if this is first time seeing this event
+            if not existing_opening and home_odds and away_odds:
+                await db.opening_odds.insert_one({
+                    "event_id": event_id,
+                    "home_team": home_team,
+                    "away_team": away_team,
+                    "bookmaker": bm_key,
+                    "bookmaker_title": bm_title,
+                    "market": market_key,
+                    "home_odds": home_odds,
+                    "away_odds": away_odds,
+                    "timestamp": timestamp
+                })
+                logger.info(f"Stored opening odds for {home_team} vs {away_team}: {home_odds}/{away_odds}")
+            
+            # Store hourly snapshot for line movement tracking
             snapshot = {
                 "event_id": event_id,
+                "home_team": home_team,
+                "away_team": away_team,
                 "timestamp": timestamp,
-                "bookmaker": bookmaker.get("key"),
-                "bookmaker_title": bookmaker.get("title"),
-                "market": market.get("key"),
-                "outcomes": market.get("outcomes", [])
+                "bookmaker": bm_key,
+                "bookmaker_title": bm_title,
+                "market": market_key,
+                "home_odds": home_odds,
+                "away_odds": away_odds,
+                "outcomes": outcomes
             }
             await db.odds_history.insert_one(snapshot)
 
