@@ -345,16 +345,12 @@ frontend:
 
 metadata:
   created_by: "main_agent"
-  version: "3.0"
-  test_sequence: 2
+  version: "3.1"
+  test_sequence: 3
   run_ui: false
 
 test_plan:
-  current_focus:
-    - "ESPN Scores Integration"
-    - "Automatic Result Tracking"
-    - "70% Confidence Filter"
-    - "Time Window Filter"
+  current_focus: []
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
