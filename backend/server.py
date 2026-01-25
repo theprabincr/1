@@ -31,11 +31,16 @@ EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 # Cache for mock events (to keep IDs consistent)
 mock_events_cache = {}
 
+# Events cache to reduce API calls (cache for 30 minutes)
+events_cache = {}
+CACHE_DURATION_MINUTES = 30
+
 # API usage tracking
 api_usage = {
     "requests_remaining": None,
     "requests_used": None,
-    "last_updated": None
+    "last_updated": None,
+    "monthly_limit": 500
 }
 
 # Active sportsbooks (only ones that return data from API)
@@ -58,6 +63,9 @@ SPORTSBOOK_NAMES = {
     'betway': 'Betway',
     'betonlineag': 'BetOnline'
 }
+
+# Market types to analyze
+MARKET_TYPES = ['h2h', 'spreads', 'totals']
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
