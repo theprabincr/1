@@ -936,8 +936,8 @@ async def get_events(sport_key: str, markets: str = "h2h,spreads,totals", force_
             return cached_data
     
     # Check if we should conserve API calls (below 50 remaining)
-    if api_usage.get('requests_remaining') and api_usage['requests_remaining'] < 50:
-        logger.warning(f"Low API calls remaining: {api_usage['requests_remaining']}. Using cache if available.")
+    if current_api_key.get('requests_remaining') and current_api_key['requests_remaining'] < 50:
+        logger.warning(f"Low API calls remaining: {current_api_key['requests_remaining']}. Using cache if available.")
         if cache_key in events_cache:
             return events_cache[cache_key][0]
     
