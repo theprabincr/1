@@ -223,7 +223,7 @@ const LineMovement = () => {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [lineMovement, setLineMovement] = useState([]);
   const [selectedSport, setSelectedSport] = useState("basketball_nba");
-  const [selectedBooks, setSelectedBooks] = useState(['bet365', 'draftkings', 'fanduel', 'pinnacle']);
+  const [selectedBooks, setSelectedBooks] = useState(['draftkings', 'fanduel', 'pinnacle', 'betmgm']);
 
   const sports = [
     { key: "basketball_nba", label: "NBA" },
