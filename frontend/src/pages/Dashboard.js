@@ -227,7 +227,7 @@ const Dashboard = () => {
           subtitle={`${performance?.wins || 0}W - ${performance?.losses || 0}L`}
           icon={Trophy}
           color="lime"
-          trend={performance?.win_rate > 50 ? 5.2 : -2.1}
+          onClick={() => navigate('/performance')}
         />
         <StatCard
           title="ROI"
@@ -235,6 +235,7 @@ const Dashboard = () => {
           subtitle="Return on investment"
           icon={DollarSign}
           color={performance?.roi >= 0 ? "green" : "red"}
+          onClick={() => navigate('/performance')}
         />
         <StatCard
           title="Completed"
@@ -242,15 +243,79 @@ const Dashboard = () => {
           subtitle={`${performance?.wins || 0}W - ${performance?.losses || 0}L`}
           icon={Target}
           color="blue"
+          onClick={() => navigate('/predictions')}
         />
         <StatCard
           title="Active Picks"
           value={recommendations.length}
-          subtitle="Awaiting results"
+          subtitle="Click to view all"
           icon={Clock}
           color="yellow"
+          onClick={() => setShowActivePicksModal(true)}
         />
       </div>
+
+      {/* Active Picks Modal */}
+      {showActivePicksModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-zinc-900 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+              <h2 className="font-mono font-bold text-lg text-text-primary flex items-center gap-2">
+                <Clock className="w-5 h-5 text-semantic-warning" />
+                Active Picks ({recommendations.length})
+              </h2>
+              <button 
+                onClick={() => setShowActivePicksModal(false)}
+                className="p-2 rounded-lg hover:bg-zinc-800 text-text-muted hover:text-text-primary"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto max-h-[60vh] space-y-3">
+              {recommendations.length === 0 ? (
+                <p className="text-text-muted text-center py-8">No active picks at the moment.</p>
+              ) : (
+                recommendations.map((pick, i) => (
+                  <div key={pick.id || i} className="bg-zinc-800 rounded-lg p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <p className="text-text-primary font-semibold">{pick.home_team} vs {pick.away_team}</p>
+                        <p className="text-text-muted text-sm">
+                          {new Date(pick.commence_time).toLocaleDateString()} at {new Date(pick.commence_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className={`px-2 py-1 rounded text-xs font-bold ${
+                          pick.confidence >= 0.7 ? 'bg-semantic-success/20 text-semantic-success' :
+                          pick.confidence >= 0.5 ? 'bg-semantic-warning/20 text-semantic-warning' :
+                          'bg-text-muted/20 text-text-muted'
+                        }`}>
+                          {(pick.confidence * 100).toFixed(0)}% Confidence
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-zinc-700">
+                      <div>
+                        <p className="text-brand-primary font-bold">{pick.predicted_outcome}</p>
+                        <p className="text-text-muted text-xs">{pick.prediction_type}</p>
+                      </div>
+                      <p className="font-mono text-lg text-text-primary">@ {pick.odds_at_prediction?.toFixed(2)}</p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="p-4 border-t border-zinc-800">
+              <button 
+                onClick={() => { setShowActivePicksModal(false); navigate('/predictions'); }}
+                className="btn-primary w-full"
+              >
+                View All Predictions
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sport Filters */}
       <div className="flex gap-2 overflow-x-auto pb-2">
