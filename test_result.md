@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Enhance BetPredictor app with multi-API key management, bankroll tracking, notifications, settings, and analytics features."
+user_problem_statement: "Enhance BetPredictor app with real-time score tracking, automatic win/loss calculation, 70%+ confidence filtering, and time window (today to 3 days) for recommendations."
 
 backend:
   - task: "API Key Management System"
