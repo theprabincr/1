@@ -1255,10 +1255,10 @@ app.add_middleware(
 
 # Background task scheduler for auto-checking results
 async def scheduled_result_checker():
-    """Background task that runs every hour to check for completed events"""
+    """Background task that runs every 2 hours to check for completed events (to save API calls)"""
     while True:
         try:
-            await asyncio.sleep(3600)  # Run every hour
+            await asyncio.sleep(7200)  # Run every 2 hours
             logger.info("Running scheduled result check...")
             await auto_check_results()
         except Exception as e:
@@ -1277,36 +1277,41 @@ async def scheduled_line_movement_checker():
             logger.error(f"Scheduled line movement checker error: {e}")
             await asyncio.sleep(60)
 
-# Background task for auto-generating recommendations
+# Background task for auto-generating recommendations (reduced frequency to save API calls)
 async def scheduled_recommendation_generator():
-    """Background task that generates recommendations periodically"""
-    # Wait 30 seconds on startup to let services initialize
-    await asyncio.sleep(30)
+    """Background task that generates recommendations every 6 hours (to conserve API calls)"""
+    # Wait 60 seconds on startup to let services initialize
+    await asyncio.sleep(60)
     
     while True:
         try:
+            # Check API usage before generating
+            if api_usage.get('requests_remaining') and api_usage['requests_remaining'] < 30:
+                logger.warning(f"Low API calls ({api_usage['requests_remaining']}). Skipping recommendation generation.")
+                await asyncio.sleep(21600)  # Wait 6 hours
+                continue
+            
             logger.info("Running scheduled recommendation generation...")
             await auto_generate_recommendations()
-            await asyncio.sleep(7200)  # Run every 2 hours
+            await asyncio.sleep(21600)  # Run every 6 hours (4 times per day)
         except Exception as e:
             logger.error(f"Scheduled recommendation generator error: {e}")
-            await asyncio.sleep(120)
+            await asyncio.sleep(300)
 
 @app.on_event("startup")
 async def startup_event():
     """Start background tasks on app startup"""
     # Start the scheduled result checker
     asyncio.create_task(scheduled_result_checker())
-    logger.info("Started background result checker - runs every hour")
+    logger.info("Started background result checker - runs every 2 hours")
     
-    # Start line movement checker
+    # Start line movement checker  
     asyncio.create_task(scheduled_line_movement_checker())
     logger.info("Started line movement checker - runs every hour")
     
     # Start recommendation generator
     asyncio.create_task(scheduled_recommendation_generator())
-    logger.info("Started recommendation generator - runs every 2 hours")
-    logger.info("Started background result checker - will run every hour")
+    logger.info("Started recommendation generator - runs every 6 hours")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
