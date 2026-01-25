@@ -1021,73 +1021,18 @@ async def auto_check_results():
         logger.error(f"Error in auto_check_results: {e}")
 
 async def fetch_event_result(sport_key: str, event_id: str, home_team: str, away_team: str, predicted_outcome: str, prediction_type: str) -> Optional[str]:
-    """Fetch event result from The Odds API scores endpoint"""
-    api_key = await get_active_api_key()
-    if not api_key:
-        return None
-    
-    try:
-        params = {
-            "apiKey": api_key,
-            "daysFrom": 3  # Look back 3 days for completed events
-        }
-        
-        async with httpx.AsyncClient() as http_client:
-            response = await http_client.get(
-                f"{ODDS_API_BASE}/sports/{sport_key}/scores",
-                params=params,
-                timeout=30.0
-            )
-            
-            if response.status_code == 200:
-                scores_data = response.json()
-                
-                # Find the matching event
-                for event in scores_data:
-                    if event.get("id") == event_id or (
-                        event.get("home_team") == home_team and 
-                        event.get("away_team") == away_team
-                    ):
-                        if event.get("completed"):
-                            scores = event.get("scores", [])
-                            if scores and len(scores) >= 2:
-                                home_score = None
-                                away_score = None
-                                
-                                for score in scores:
-                                    if score.get("name") == home_team:
-                                        home_score = int(score.get("score", 0))
-                                    elif score.get("name") == away_team:
-                                        away_score = int(score.get("score", 0))
-                                
-                                if home_score is not None and away_score is not None:
-                                    # Determine if prediction was correct
-                                    if prediction_type == "moneyline":
-                                        winner = home_team if home_score > away_score else away_team
-                                        if home_score == away_score:
-                                            return "push"
-                                        return "win" if predicted_outcome == winner else "loss"
-                                    
-                                    # For now, mark as needs manual review
-                                    return None
-                        return None
-            return None
-    except Exception as e:
-        logger.error(f"Error fetching scores: {e}")
-        return None
+    """Fetch event result - currently requires manual update as OddsPortal doesn't provide scores"""
+    # OddsPortal doesn't provide live scores, results need to be updated manually
+    # or we could integrate a free scores API in the future
+    return None
 
 @api_router.get("/scores/{sport_key}")
 async def get_scores(sport_key: str, days_from: int = 3):
-    """Get recent scores for completed events"""
-    api_key = await get_active_api_key()
-    if not api_key:
-        return {"error": "API key not configured", "scores": []}
-    
-    try:
-        params = {
-            "apiKey": api_key,
-            "daysFrom": days_from
-        }
+    """Get recent scores - placeholder for future integration"""
+    return {
+        "message": "Scores tracking coming soon. Use the predictions page to manually update results.",
+        "scores": []
+    }
         
         async with httpx.AsyncClient() as http_client:
             response = await http_client.get(
