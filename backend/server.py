@@ -2031,9 +2031,9 @@ async def scheduled_oddsportal_scraper():
 @app.on_event("startup")
 async def startup_event():
     """Start background tasks on app startup"""
-    # Start the scheduled result checker - now every 15 minutes
+    # Start the scheduled result checker - now every 2 MINUTES for real-time sync
     asyncio.create_task(scheduled_result_checker())
-    logger.info("Started background result checker - runs every 15 MINUTES with ESPN API")
+    logger.info("Started continuous score sync - runs every 2 MINUTES with ESPN API")
     
     # Start line movement checker  
     asyncio.create_task(scheduled_line_movement_checker())
@@ -2043,9 +2043,13 @@ async def startup_event():
     asyncio.create_task(scheduled_recommendation_generator())
     logger.info("Started recommendation generator - runs every 4 hours (70%+ confidence only)")
     
-    # Start OddsPortal scraper
+    # Start OddsPortal scraper (pre-match only)
     asyncio.create_task(scheduled_oddsportal_scraper())
-    logger.info("Started OddsPortal scraper - runs every hour")
+    logger.info("Started OddsPortal scraper - runs every hour (pre-match events only)")
+    
+    # Start line movement data cleanup
+    asyncio.create_task(scheduled_line_movement_cleanup())
+    logger.info("Started line movement cleanup - runs every 30 minutes (deletes data for started events)")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
