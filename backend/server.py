@@ -394,8 +394,8 @@ async def get_sports():
 
 @api_router.get("/events/{sport_key}")
 async def get_events(sport_key: str, markets: str = "h2h,spreads,totals", force_refresh: bool = False):
-    """Get events with odds for a specific sport - uses OddsPortal scraping (free) or Odds API (paid)"""
-    global events_cache
+    """Get events with odds for a specific sport from OddsPortal (free scraping)"""
+    global events_cache, last_scrape_time
     
     cache_key = f"{sport_key}_{markets}"
     now = datetime.now(timezone.utc)
@@ -408,66 +408,34 @@ async def get_events(sport_key: str, markets: str = "h2h,spreads,totals", force_
             logger.info(f"Using cached data for {sport_key} (age: {cache_age_minutes:.1f} min)")
             return cached_data
     
-    # Try OddsPortal first (free scraping)
-    if DATA_SOURCE == 'oddsportal':
-        try:
-            from oddsportal_scraper import scrape_oddsportal
-            events = await scrape_oddsportal(sport_key)
+    # Scrape from OddsPortal
+    try:
+        from oddsportal_scraper import scrape_oddsportal_events
+        events = await scrape_oddsportal_events(sport_key)
+        
+        if events:
+            # Store odds snapshots for line movement tracking
+            for event in events:
+                await store_odds_snapshot(event)
             
-            if events:
-                # Store odds snapshots for line movement
-                for event in events:
-                    await store_odds_snapshot(event)
-                
-                # Cache the results
-                events_cache[cache_key] = (events, now)
-                logger.info(f"Cached {len(events)} events from OddsPortal for {sport_key}")
-                return events
-            else:
-                logger.warning(f"OddsPortal returned no events for {sport_key}, falling back to Odds API")
-        except Exception as e:
-            logger.error(f"OddsPortal scraping failed: {e}, falling back to Odds API")
-    
-    # Fallback to Odds API if OddsPortal fails or DATA_SOURCE is 'oddsapi'
-    # Check if we should conserve API calls (below 50 remaining)
-    if current_api_key.get('requests_remaining') and current_api_key['requests_remaining'] < 50:
-        logger.warning(f"Low API calls remaining: {current_api_key['requests_remaining']}. Using cache if available.")
+            # Cache the results
+            events_cache[cache_key] = (events, now)
+            last_scrape_time = now.isoformat()
+            logger.info(f"Cached {len(events)} events from OddsPortal for {sport_key}")
+            return events
+        else:
+            logger.warning(f"OddsPortal returned no events for {sport_key}")
+            # Return cached if available
+            if cache_key in events_cache:
+                return events_cache[cache_key][0]
+            return []
+            
+    except Exception as e:
+        logger.error(f"OddsPortal scraping failed: {e}")
+        # Return cached if available
         if cache_key in events_cache:
             return events_cache[cache_key][0]
-    
-    bookmaker_keys = ",".join(SPORTSBOOKS.values())
-    params = {
-        "regions": "us,eu,uk,au",
-        "markets": markets,
-        "bookmakers": bookmaker_keys,
-        "oddsFormat": "decimal"  # European format
-    }
-    
-    data = await fetch_odds_api(f"/sports/{sport_key}/odds", params)
-    
-    if data is None:
-        # Return cached data if available, else mock
-        if cache_key in events_cache:
-            return events_cache[cache_key][0]
-        return await get_mock_events(sport_key)
-    
-    # Filter to only show upcoming events (not past)
-    upcoming_events = []
-    for event in data:
-        commence_time_str = event.get('commence_time', '')
-        if commence_time_str:
-            try:
-                commence_time = datetime.fromisoformat(commence_time_str.replace('Z', '+00:00'))
-                if commence_time > now:
-                    upcoming_events.append(event)
-                    # Store odds history for line movement tracking
-                    await store_odds_snapshot(event)
-            except Exception:
-                upcoming_events.append(event)
-    
-    # Cache the results
-    events_cache[cache_key] = (upcoming_events, now)
-    logger.info(f"Cached {len(upcoming_events)} events for {sport_key}")
+        return []
     
     return upcoming_events
 
