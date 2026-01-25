@@ -968,7 +968,7 @@ async def get_events(sport_key: str, markets: str = "h2h,spreads,totals", force_
                     upcoming_events.append(event)
                     # Store odds history for line movement tracking
                     await store_odds_snapshot(event)
-            except:
+            except Exception:
                 upcoming_events.append(event)
     
     # Cache the results
