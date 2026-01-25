@@ -121,72 +121,46 @@ const Settings = () => {
         </button>
       </div>
 
-      {/* Data Source Settings */}
+      {/* OddsPortal Scraper Status */}
       <div className="stat-card">
         <h2 className="font-mono font-bold text-lg text-text-primary mb-4 flex items-center gap-2">
-          <Database className="w-5 h-5 text-brand-primary" />
-          Data Source
+          <Globe className="w-5 h-5 text-brand-primary" />
+          Data Source: OddsPortal
         </h2>
-        <p className="text-text-muted text-sm mb-4">
-          Choose where to get odds data from
-        </p>
-        
-        <div className="grid md:grid-cols-2 gap-4">
-          <button
-            onClick={() => handleDataSourceChange('oddsportal')}
-            className={`p-4 rounded-lg border text-left transition-all ${
-              dataSource.current_source === 'oddsportal'
-                ? 'bg-brand-primary/20 border-brand-primary'
-                : 'bg-zinc-800 border-zinc-700 hover:border-zinc-600'
-            }`}
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <Globe className={`w-5 h-5 ${dataSource.current_source === 'oddsportal' ? 'text-brand-primary' : 'text-text-muted'}`} />
-              <span className="font-bold text-text-primary">OddsPortal</span>
-              {dataSource.current_source === 'oddsportal' && (
-                <span className="ml-auto px-2 py-0.5 rounded text-xs bg-semantic-success/20 text-semantic-success font-bold">ACTIVE</span>
-              )}
+        <div className="p-4 bg-zinc-800 rounded-lg">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-text-primary font-medium">Status</span>
+            <span className="px-2 py-1 rounded text-xs bg-semantic-success/20 text-semantic-success font-bold">
+              {scraperStatus.status?.toUpperCase() || 'ACTIVE'}
+            </span>
+          </div>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-text-muted">Cached Events</span>
+              <span className="text-text-primary font-mono">{scraperStatus.cachedEvents || 0}</span>
             </div>
-            <p className="text-text-muted text-sm mb-2">Free web scraping - No API limits!</p>
-            <ul className="text-xs text-text-secondary space-y-1">
-              <li>✓ Unlimited requests</li>
-              <li>✓ Multiple bookmakers</li>
-              <li>✓ Opening &amp; current odds</li>
-              <li>✓ Hourly auto-updates</li>
-            </ul>
-          </button>
-          
-          <button
-            onClick={() => handleDataSourceChange('oddsapi')}
-            className={`p-4 rounded-lg border text-left transition-all ${
-              dataSource.current_source === 'oddsapi'
-                ? 'bg-brand-primary/20 border-brand-primary'
-                : 'bg-zinc-800 border-zinc-700 hover:border-zinc-600'
-            }`}
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <Zap className={`w-5 h-5 ${dataSource.current_source === 'oddsapi' ? 'text-brand-primary' : 'text-text-muted'}`} />
-              <span className="font-bold text-text-primary">Odds API</span>
-              {dataSource.current_source === 'oddsapi' && (
-                <span className="ml-auto px-2 py-0.5 rounded text-xs bg-semantic-success/20 text-semantic-success font-bold">ACTIVE</span>
-              )}
+            <div className="flex justify-between">
+              <span className="text-text-muted">Cache Duration</span>
+              <span className="text-text-primary font-mono">{scraperStatus.cacheDuration || 60} min</span>
             </div>
-            <p className="text-text-muted text-sm mb-2">Paid API - 500 free calls/month</p>
-            <ul className="text-xs text-text-secondary space-y-1">
-              <li>✓ Fast &amp; reliable</li>
-              <li>✓ Official API</li>
-              <li>⚠ Limited to 500 calls/month</li>
-              <li>⚠ Requires API keys</li>
-            </ul>
-          </button>
+            {scraperStatus.lastUpdate && (
+              <div className="flex justify-between">
+                <span className="text-text-muted">Last Update</span>
+                <span className="text-text-primary text-xs">{new Date(scraperStatus.lastUpdate).toLocaleString()}</span>
+              </div>
+            )}
+          </div>
+          <p className="text-text-muted text-xs mt-3 pt-3 border-t border-zinc-700">
+            Free unlimited odds data from OddsPortal.com with hourly automatic updates.
+          </p>
         </div>
       </div>
 
-      {/* API & Caching Settings */}
+      {/* Caching Settings */}
       <div className="stat-card">
         <h2 className="font-mono font-bold text-lg text-text-primary mb-4 flex items-center gap-2">
           <Zap className="w-5 h-5 text-brand-primary" />
-          API & Performance
+          Performance
         </h2>
         
         <div className="space-y-6">
