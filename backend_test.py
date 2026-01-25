@@ -553,6 +553,14 @@ def main():
     tester.test_analytics()
     tester.test_export_functionality()
     
+    print("\n🏆 Testing NEW Real-Time Score Features...")
+    tester.test_espn_scores_integration()
+    tester.test_live_scores()
+    tester.test_pending_results()
+    tester.test_recommendations_70_percent_filter()
+    tester.test_check_results_trigger()
+    tester.test_performance_stats_updated()
+    
     print("\n🏀 Testing Events & Odds...")
     tester.test_events_endpoints()
     tester.test_line_movement()
@@ -565,6 +573,9 @@ def main():
     print("\n📊 Testing Performance & Predictions...")
     tester.test_performance()
     tester.test_prediction_workflow()
+    
+    print("\n🔧 Testing Backward Compatibility...")
+    tester.test_existing_endpoints_still_work()
     
     # Print final results
     print("\n" + "=" * 60)
