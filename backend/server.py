@@ -418,8 +418,15 @@ async def list_sports():
     ]
 
 @api_router.get("/events/{sport_key}")
-async def get_events(sport_key: str, markets: str = "h2h,spreads,totals", force_refresh: bool = False):
-    """Get events with odds for a specific sport from OddsPortal (free scraping)"""
+async def get_events(sport_key: str, markets: str = "h2h,spreads,totals", force_refresh: bool = False, pre_match_only: bool = True):
+    """Get events with odds for a specific sport from OddsPortal (free scraping)
+    
+    Args:
+        sport_key: Sport identifier
+        markets: Comma-separated market types
+        force_refresh: Force refresh from OddsPortal
+        pre_match_only: Only return events that haven't started yet (default True)
+    """
     global events_cache, last_scrape_time
     
     cache_key = f"{sport_key}_{markets}"
@@ -431,7 +438,11 @@ async def get_events(sport_key: str, markets: str = "h2h,spreads,totals", force_
         cache_age_minutes = (now - cached_time).total_seconds() / 60
         if cache_age_minutes < CACHE_DURATION_MINUTES:
             logger.info(f"Using cached data for {sport_key} (age: {cache_age_minutes:.1f} min)")
-            return cached_data
+            events = cached_data
+            # Filter to pre-match only if requested
+            if pre_match_only:
+                events = filter_prematch_events(events, now)
+            return events
     
     # Scrape from OddsPortal
     try:
@@ -439,24 +450,62 @@ async def get_events(sport_key: str, markets: str = "h2h,spreads,totals", force_
         events = await scrape_oddsportal_events(sport_key)
         
         if events:
-            # Store odds snapshots for line movement tracking
+            # Store odds snapshots for line movement tracking (only for pre-match events)
             for event in events:
-                await store_odds_snapshot(event)
+                try:
+                    commence_str = event.get("commence_time", "")
+                    if commence_str:
+                        commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
+                        # Only store odds for events that haven't started
+                        if commence_time > now:
+                            await store_odds_snapshot(event)
+                except Exception:
+                    pass
             
-            # Cache the results
+            # Cache the results (all events - we filter on retrieval)
             events_cache[cache_key] = (events, now)
             last_scrape_time = now.isoformat()
             logger.info(f"Cached {len(events)} events from OddsPortal for {sport_key}")
+            
+            # Filter to pre-match only if requested
+            if pre_match_only:
+                events = filter_prematch_events(events, now)
             return events
         else:
             logger.warning(f"OddsPortal returned no events for {sport_key}")
             # Return cached if available
             if cache_key in events_cache:
-                return events_cache[cache_key][0]
+                events = events_cache[cache_key][0]
+                if pre_match_only:
+                    events = filter_prematch_events(events, now)
+                return events
             return []
             
     except Exception as e:
         logger.error(f"OddsPortal scraping failed: {e}")
+        # Return cached if available
+        if cache_key in events_cache:
+            events = events_cache[cache_key][0]
+            if pre_match_only:
+                events = filter_prematch_events(events, now)
+            return events
+        return []
+
+
+def filter_prematch_events(events: List[dict], now: datetime) -> List[dict]:
+    """Filter events to only include pre-match (not started yet)"""
+    prematch = []
+    for event in events:
+        try:
+            commence_str = event.get("commence_time", "")
+            if commence_str:
+                commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
+                if commence_time > now:
+                    prematch.append(event)
+        except Exception:
+            # If we can't parse time, include the event
+            prematch.append(event)
+    return prematch
         # Return cached if available
         if cache_key in events_cache:
             return events_cache[cache_key][0]
