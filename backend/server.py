@@ -525,49 +525,21 @@ async def export_predictions(format: str = "csv"):
         headers={"Content-Disposition": "attachment; filename=predictions_export.csv"}
     )
 
-@api_router.get("/export/bankroll")
-async def export_bankroll(format: str = "csv"):
-    """Export bankroll transactions"""
-    transactions = await db.bankroll.find({}, {"_id": 0}).to_list(10000)
-    
-    if format == "json":
-        return transactions
-    
-    if not transactions:
-        return {"message": "No transactions to export"}
-    
-    output = io.StringIO()
-    fieldnames = ['id', 'type', 'amount', 'description', 'prediction_id', 'balance_after', 'created_at']
-    
-    writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction='ignore')
-    writer.writeheader()
-    for trans in transactions:
-        writer.writerow(trans)
-    
-    output.seek(0)
-    return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=bankroll_export.csv"}
-    )
-
 @api_router.get("/export/performance-report")
 async def export_performance_report():
     """Generate comprehensive performance report"""
     performance = await get_performance()
-    bankroll = await get_bankroll()
-    api_usage = await get_api_usage()
+    api_usage_data = await get_api_usage()
     
     report = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "performance": performance,
-        "bankroll": bankroll,
-        "api_usage": api_usage
+        "api_usage": api_usage_data
     }
     
     return report
 
-# ==================== ANALYTICS ENDPOINTS ====================
+# ==================== EXISTING ROUTES ====================
 
 @api_router.get("/analytics/trends")
 async def get_analytics_trends(days: int = 30):
