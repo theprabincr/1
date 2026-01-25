@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException, BackgroundTasks
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -6,10 +6,11 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional, Dict, Any
 import uuid
-from datetime import datetime
-
+from datetime import datetime, timezone
+import httpx
+import asyncio
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -19,38 +20,675 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Create the main app without a prefix
-app = FastAPI()
+# The Odds API config
+ODDS_API_KEY = os.environ.get('ODDS_API_KEY', '')
+ODDS_API_BASE = "https://api.the-odds-api.com/v4"
 
-# Create a router with the /api prefix
+# Emergent LLM Key
+EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
+
+# Sportsbook mapping for The Odds API
+SPORTSBOOKS = {
+    'bet365': 'bet365',
+    'draftkings': 'draftkings',
+    'fanduel': 'fanduel',
+    'betmgm': 'betmgm',
+    'caesars': 'williamhill_us',  # Caesars was William Hill
+    'pinnacle': 'pinnacle',
+    'unibet': 'unibet',
+    'betway': 'betway',
+    'pointsbet': 'pointsbetus',
+    'betonline': 'betonlineag'
+}
+
+SPORTSBOOK_NAMES = {
+    'bet365': 'Bet365',
+    'draftkings': 'DraftKings',
+    'fanduel': 'FanDuel',
+    'betmgm': 'BetMGM',
+    'williamhill_us': 'Caesars',
+    'pinnacle': 'Pinnacle',
+    'unibet': 'Unibet',
+    'betway': 'Betway',
+    'pointsbetus': 'PointsBet',
+    'betonlineag': 'BetOnline'
+}
+
+app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
-# Define Models
-class StatusCheck(BaseModel):
+# Pydantic Models
+class Sport(BaseModel):
+    key: str
+    group: str
+    title: str
+    description: str
+    active: bool
+    has_outrights: bool
+
+class Outcome(BaseModel):
+    name: str
+    price: float
+    point: Optional[float] = None
+
+class Market(BaseModel):
+    key: str
+    last_update: Optional[str] = None
+    outcomes: List[Outcome]
+
+class Bookmaker(BaseModel):
+    key: str
+    title: str
+    last_update: Optional[str] = None
+    markets: List[Market]
+
+class Event(BaseModel):
+    id: str
+    sport_key: str
+    sport_title: str
+    commence_time: str
+    home_team: str
+    away_team: str
+    bookmakers: Optional[List[Bookmaker]] = []
+
+class LineMovement(BaseModel):
+    event_id: str
+    timestamp: str
+    bookmaker: str
+    market: str
+    home_price: float
+    away_price: float
+    home_point: Optional[float] = None
+    away_point: Optional[float] = None
+
+class Prediction(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    event_id: str
+    sport_key: str
+    home_team: str
+    away_team: str
+    commence_time: str
+    prediction_type: str  # 'moneyline', 'spread', 'total'
+    predicted_outcome: str
+    confidence: float
+    analysis: str
+    ai_model: str
+    odds_at_prediction: float
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    result: Optional[str] = None  # 'win', 'loss', 'push', 'pending'
 
-class StatusCheckCreate(BaseModel):
-    client_name: str
+class PredictionCreate(BaseModel):
+    event_id: str
+    sport_key: str
+    home_team: str
+    away_team: str
+    commence_time: str
+    prediction_type: str
+    predicted_outcome: str
+    confidence: float
+    analysis: str
+    ai_model: str
+    odds_at_prediction: float
 
-# Add your routes to the router instead of directly to app
+class AnalysisRequest(BaseModel):
+    event_id: str
+    home_team: str
+    away_team: str
+    sport_key: str
+    odds_data: Dict[str, Any]
+    line_movement: Optional[List[Dict]] = None
+
+class ResultUpdate(BaseModel):
+    prediction_id: str
+    result: str  # 'win', 'loss', 'push'
+
+# Helper function to fetch from Odds API
+async def fetch_odds_api(endpoint: str, params: dict = None):
+    if not ODDS_API_KEY:
+        logger.warning("No ODDS_API_KEY configured")
+        return None
+    
+    if params is None:
+        params = {}
+    params['apiKey'] = ODDS_API_KEY
+    
+    async with httpx.AsyncClient() as http_client:
+        try:
+            response = await http_client.get(f"{ODDS_API_BASE}{endpoint}", params=params, timeout=30.0)
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPError as e:
+            logger.error(f"Odds API error: {e}")
+            return None
+
+# AI Analysis function
+async def get_ai_analysis(prompt: str, model: str = "gpt-5.2") -> str:
+    if not EMERGENT_LLM_KEY:
+        return "AI analysis unavailable - no API key configured"
+    
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        
+        session_id = str(uuid.uuid4())
+        system_message = """You are an expert sports betting analyst. Analyze the provided game data, odds, and line movements to provide actionable insights. 
+        Focus on:
+        1. Why lines are moving
+        2. Sharp money indicators
+        3. Value opportunities
+        4. Key factors affecting the game
+        Be concise but thorough."""
+        
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=session_id,
+            system_message=system_message
+        )
+        
+        if model == "claude":
+            chat.with_model("anthropic", "claude-sonnet-4-5-20250929")
+        else:
+            chat.with_model("openai", "gpt-5.2")
+        
+        user_message = UserMessage(text=prompt)
+        response = await chat.send_message(user_message)
+        return response
+    except Exception as e:
+        logger.error(f"AI analysis error: {e}")
+        return f"AI analysis error: {str(e)}"
+
+# Routes
 @api_router.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "BetPredictor API v1.0", "status": "running"}
 
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.dict()
-    status_obj = StatusCheck(**status_dict)
-    _ = await db.status_checks.insert_one(status_obj.dict())
-    return status_obj
+@api_router.get("/sports", response_model=List[Sport])
+async def get_sports():
+    """Get list of available sports"""
+    data = await fetch_odds_api("/sports")
+    if data is None:
+        # Return mock data if API unavailable
+        return [
+            {"key": "americanfootball_nfl", "group": "American Football", "title": "NFL", "description": "US Football", "active": True, "has_outrights": False},
+            {"key": "basketball_nba", "group": "Basketball", "title": "NBA", "description": "US Basketball", "active": True, "has_outrights": False},
+            {"key": "baseball_mlb", "group": "Baseball", "title": "MLB", "description": "US Baseball", "active": True, "has_outrights": False},
+            {"key": "icehockey_nhl", "group": "Ice Hockey", "title": "NHL", "description": "US Ice Hockey", "active": True, "has_outrights": False},
+            {"key": "soccer_epl", "group": "Soccer", "title": "EPL", "description": "English Premier League", "active": True, "has_outrights": False},
+            {"key": "soccer_spain_la_liga", "group": "Soccer", "title": "La Liga", "description": "Spanish La Liga", "active": True, "has_outrights": False},
+            {"key": "mma_mixed_martial_arts", "group": "MMA", "title": "MMA", "description": "Mixed Martial Arts", "active": True, "has_outrights": False},
+            {"key": "tennis_atp_french_open", "group": "Tennis", "title": "ATP French Open", "description": "Tennis", "active": True, "has_outrights": False},
+        ]
+    return [Sport(**s) for s in data if s.get('active', False)]
 
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    status_checks = await db.status_checks.find().to_list(1000)
-    return [StatusCheck(**status_check) for status_check in status_checks]
+@api_router.get("/events/{sport_key}")
+async def get_events(sport_key: str, markets: str = "h2h,spreads,totals"):
+    """Get events with odds for a specific sport"""
+    bookmaker_keys = ",".join(SPORTSBOOKS.values())
+    params = {
+        "regions": "us,eu,uk,au",
+        "markets": markets,
+        "bookmakers": bookmaker_keys,
+        "oddsFormat": "american"
+    }
+    
+    data = await fetch_odds_api(f"/sports/{sport_key}/odds", params)
+    
+    if data is None:
+        # Return mock data
+        return await get_mock_events(sport_key)
+    
+    # Store odds history for line movement tracking
+    for event in data:
+        await store_odds_snapshot(event)
+    
+    return data
+
+@api_router.get("/event/{event_id}")
+async def get_event_details(event_id: str, sport_key: str):
+    """Get detailed odds for a specific event"""
+    events = await get_events(sport_key)
+    for event in events:
+        if event.get('id') == event_id:
+            return event
+    raise HTTPException(status_code=404, detail="Event not found")
+
+@api_router.get("/line-movement/{event_id}")
+async def get_line_movement(event_id: str):
+    """Get line movement history for an event"""
+    history = await db.odds_history.find(
+        {"event_id": event_id},
+        {"_id": 0}
+    ).sort("timestamp", -1).limit(100).to_list(100)
+    
+    if not history:
+        # Return mock line movement
+        return generate_mock_line_movement(event_id)
+    
+    return history
+
+@api_router.post("/analyze")
+async def analyze_game(request: AnalysisRequest):
+    """Get AI analysis for a game"""
+    prompt = f"""Analyze this {request.sport_key} game:
+    
+{request.home_team} vs {request.away_team}
+
+Current Odds Data:
+{format_odds_for_analysis(request.odds_data)}
+
+{"Line Movement History:" + str(request.line_movement) if request.line_movement else ""}
+
+Provide analysis on:
+1. Which side has value based on odds comparison
+2. Why lines may be moving (if applicable)
+3. Sharp vs public money indicators
+4. Your recommended bet with reasoning
+5. Confidence level (1-10)"""
+
+    # Get analysis from both models
+    gpt_analysis = await get_ai_analysis(prompt, "gpt-5.2")
+    claude_analysis = await get_ai_analysis(prompt, "claude")
+    
+    return {
+        "event_id": request.event_id,
+        "home_team": request.home_team,
+        "away_team": request.away_team,
+        "gpt_analysis": gpt_analysis,
+        "claude_analysis": claude_analysis,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+@api_router.get("/recommendations")
+async def get_recommendations(sport_key: Optional[str] = None, limit: int = 10):
+    """Get AI-generated bet recommendations"""
+    query = {"result": "pending"}
+    if sport_key:
+        query["sport_key"] = sport_key
+    
+    predictions = await db.predictions.find(
+        query,
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    return predictions
+
+@api_router.post("/recommendations")
+async def create_recommendation(prediction: PredictionCreate):
+    """Create a new bet recommendation"""
+    pred_dict = prediction.model_dump()
+    pred_obj = Prediction(**pred_dict)
+    pred_obj.result = "pending"
+    
+    await db.predictions.insert_one(pred_obj.model_dump())
+    return pred_obj
+
+@api_router.post("/generate-recommendations")
+async def generate_recommendations(sport_key: str):
+    """Generate AI recommendations for upcoming events"""
+    events = await get_events(sport_key)
+    
+    if not events:
+        return {"message": "No events found", "recommendations": []}
+    
+    recommendations = []
+    
+    # Analyze top 3 events
+    for event in events[:3]:
+        odds_data = {
+            "bookmakers": event.get("bookmakers", []),
+            "home_team": event.get("home_team"),
+            "away_team": event.get("away_team")
+        }
+        
+        analysis_request = AnalysisRequest(
+            event_id=event.get("id"),
+            home_team=event.get("home_team"),
+            away_team=event.get("away_team"),
+            sport_key=sport_key,
+            odds_data=odds_data
+        )
+        
+        analysis = await analyze_game(analysis_request)
+        
+        # Parse AI recommendation and create prediction
+        # This is simplified - in production you'd parse the AI response more carefully
+        best_odds = get_best_odds(event.get("bookmakers", []))
+        
+        prediction = PredictionCreate(
+            event_id=event.get("id"),
+            sport_key=sport_key,
+            home_team=event.get("home_team"),
+            away_team=event.get("away_team"),
+            commence_time=event.get("commence_time"),
+            prediction_type="moneyline",
+            predicted_outcome=event.get("home_team"),  # Simplified
+            confidence=0.65,
+            analysis=analysis.get("gpt_analysis", ""),
+            ai_model="gpt-5.2",
+            odds_at_prediction=best_odds.get("home_price", 0)
+        )
+        
+        saved = await create_recommendation(prediction)
+        recommendations.append(saved)
+    
+    return {"message": f"Generated {len(recommendations)} recommendations", "recommendations": recommendations}
+
+@api_router.put("/result")
+async def update_result(update: ResultUpdate):
+    """Update the result of a prediction"""
+    result = await db.predictions.update_one(
+        {"id": update.prediction_id},
+        {"$set": {"result": update.result}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Prediction not found")
+    
+    return {"message": "Result updated successfully"}
+
+@api_router.get("/performance")
+async def get_performance(sport_key: Optional[str] = None, days: int = 30):
+    """Get performance statistics"""
+    query = {"result": {"$ne": "pending"}}
+    if sport_key:
+        query["sport_key"] = sport_key
+    
+    predictions = await db.predictions.find(query, {"_id": 0}).to_list(1000)
+    
+    total = len(predictions)
+    wins = len([p for p in predictions if p.get("result") == "win"])
+    losses = len([p for p in predictions if p.get("result") == "loss"])
+    pushes = len([p for p in predictions if p.get("result") == "push"])
+    
+    win_rate = (wins / total * 100) if total > 0 else 0
+    
+    # Calculate ROI (simplified)
+    roi = calculate_roi(predictions)
+    
+    # Get by sport breakdown
+    by_sport = {}
+    for p in predictions:
+        sk = p.get("sport_key", "unknown")
+        if sk not in by_sport:
+            by_sport[sk] = {"wins": 0, "losses": 0, "pushes": 0, "total": 0}
+        by_sport[sk]["total"] += 1
+        if p.get("result") == "win":
+            by_sport[sk]["wins"] += 1
+        elif p.get("result") == "loss":
+            by_sport[sk]["losses"] += 1
+        else:
+            by_sport[sk]["pushes"] += 1
+    
+    # Recent predictions
+    recent = sorted(predictions, key=lambda x: x.get("created_at", ""), reverse=True)[:20]
+    
+    return {
+        "total_predictions": total,
+        "wins": wins,
+        "losses": losses,
+        "pushes": pushes,
+        "win_rate": round(win_rate, 2),
+        "roi": round(roi, 2),
+        "by_sport": by_sport,
+        "recent_predictions": recent
+    }
+
+@api_router.get("/odds-comparison/{event_id}")
+async def get_odds_comparison(event_id: str, sport_key: str):
+    """Get odds comparison across all sportsbooks for an event"""
+    events = await get_events(sport_key)
+    
+    for event in events:
+        if event.get("id") == event_id:
+            comparison = format_odds_comparison(event)
+            return comparison
+    
+    raise HTTPException(status_code=404, detail="Event not found")
+
+# Helper functions
+async def store_odds_snapshot(event: dict):
+    """Store odds snapshot for line movement tracking"""
+    event_id = event.get("id")
+    timestamp = datetime.now(timezone.utc).isoformat()
+    
+    for bookmaker in event.get("bookmakers", []):
+        for market in bookmaker.get("markets", []):
+            snapshot = {
+                "event_id": event_id,
+                "timestamp": timestamp,
+                "bookmaker": bookmaker.get("key"),
+                "bookmaker_title": bookmaker.get("title"),
+                "market": market.get("key"),
+                "outcomes": market.get("outcomes", [])
+            }
+            await db.odds_history.insert_one(snapshot)
+
+def format_odds_for_analysis(odds_data: dict) -> str:
+    """Format odds data for AI analysis"""
+    output = []
+    for bookmaker in odds_data.get("bookmakers", [])[:5]:
+        output.append(f"\n{bookmaker.get('title', 'Unknown')}:")
+        for market in bookmaker.get("markets", []):
+            market_name = market.get("key", "")
+            outcomes = market.get("outcomes", [])
+            for outcome in outcomes:
+                price = outcome.get("price", 0)
+                point = outcome.get("point", "")
+                point_str = f" ({point})" if point else ""
+                output.append(f"  {market_name}: {outcome.get('name')} {price:+d}{point_str}")
+    return "\n".join(output)
+
+def get_best_odds(bookmakers: list) -> dict:
+    """Get best odds from all bookmakers"""
+    best_home = {"price": -99999, "bookmaker": ""}
+    best_away = {"price": -99999, "bookmaker": ""}
+    
+    for bm in bookmakers:
+        for market in bm.get("markets", []):
+            if market.get("key") == "h2h":
+                for outcome in market.get("outcomes", []):
+                    price = outcome.get("price", 0)
+                    name = outcome.get("name", "")
+                    if price > best_home["price"]:
+                        best_home = {"price": price, "bookmaker": bm.get("title")}
+    
+    return {"home_price": best_home["price"], "away_price": best_away["price"]}
+
+def format_odds_comparison(event: dict) -> dict:
+    """Format odds comparison across sportsbooks"""
+    comparison = {
+        "event_id": event.get("id"),
+        "home_team": event.get("home_team"),
+        "away_team": event.get("away_team"),
+        "commence_time": event.get("commence_time"),
+        "h2h": [],
+        "spreads": [],
+        "totals": []
+    }
+    
+    for bm in event.get("bookmakers", []):
+        bm_data = {
+            "bookmaker": bm.get("key"),
+            "title": SPORTSBOOK_NAMES.get(bm.get("key"), bm.get("title")),
+            "last_update": bm.get("last_update")
+        }
+        
+        for market in bm.get("markets", []):
+            market_key = market.get("key")
+            outcomes = market.get("outcomes", [])
+            
+            if market_key == "h2h":
+                comparison["h2h"].append({
+                    **bm_data,
+                    "outcomes": outcomes
+                })
+            elif market_key == "spreads":
+                comparison["spreads"].append({
+                    **bm_data,
+                    "outcomes": outcomes
+                })
+            elif market_key == "totals":
+                comparison["totals"].append({
+                    **bm_data,
+                    "outcomes": outcomes
+                })
+    
+    return comparison
+
+def calculate_roi(predictions: list) -> float:
+    """Calculate ROI from predictions"""
+    if not predictions:
+        return 0.0
+    
+    total_wagered = len(predictions) * 100  # Assume $100 per bet
+    total_returned = 0
+    
+    for p in predictions:
+        if p.get("result") == "win":
+            odds = p.get("odds_at_prediction", -110)
+            if odds > 0:
+                profit = 100 * (odds / 100)
+            else:
+                profit = 100 * (100 / abs(odds))
+            total_returned += 100 + profit
+        elif p.get("result") == "push":
+            total_returned += 100
+    
+    roi = ((total_returned - total_wagered) / total_wagered) * 100 if total_wagered > 0 else 0
+    return roi
+
+async def get_mock_events(sport_key: str):
+    """Generate mock events when API is unavailable"""
+    import random
+    
+    teams = {
+        "americanfootball_nfl": [
+            ("Kansas City Chiefs", "Buffalo Bills"),
+            ("Philadelphia Eagles", "Dallas Cowboys"),
+            ("San Francisco 49ers", "Detroit Lions"),
+            ("Baltimore Ravens", "Cincinnati Bengals"),
+        ],
+        "basketball_nba": [
+            ("Boston Celtics", "Miami Heat"),
+            ("Denver Nuggets", "Los Angeles Lakers"),
+            ("Milwaukee Bucks", "Philadelphia 76ers"),
+            ("Golden State Warriors", "Phoenix Suns"),
+        ],
+        "baseball_mlb": [
+            ("New York Yankees", "Boston Red Sox"),
+            ("Los Angeles Dodgers", "San Francisco Giants"),
+            ("Houston Astros", "Texas Rangers"),
+            ("Atlanta Braves", "Philadelphia Phillies"),
+        ],
+        "icehockey_nhl": [
+            ("Edmonton Oilers", "Florida Panthers"),
+            ("Colorado Avalanche", "Dallas Stars"),
+            ("Vegas Golden Knights", "Los Angeles Kings"),
+            ("Toronto Maple Leafs", "Boston Bruins"),
+        ],
+        "soccer_epl": [
+            ("Manchester City", "Liverpool"),
+            ("Arsenal", "Chelsea"),
+            ("Manchester United", "Tottenham"),
+            ("Newcastle", "Brighton"),
+        ],
+    }
+    
+    sport_teams = teams.get(sport_key, teams["basketball_nba"])
+    events = []
+    
+    for i, (home, away) in enumerate(sport_teams):
+        event_id = f"mock_{sport_key}_{i}_{uuid.uuid4().hex[:8]}"
+        
+        # Generate mock odds
+        bookmakers = []
+        for bm_key, bm_name in SPORTSBOOK_NAMES.items():
+            base_home = random.randint(-200, 200)
+            base_away = -base_home + random.randint(-20, 20)
+            spread = round(random.uniform(-10, 10) * 2) / 2
+            total = random.randint(40, 55) + 0.5
+            
+            bookmakers.append({
+                "key": bm_key,
+                "title": bm_name,
+                "last_update": datetime.now(timezone.utc).isoformat(),
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": datetime.now(timezone.utc).isoformat(),
+                        "outcomes": [
+                            {"name": home, "price": base_home + random.randint(-15, 15)},
+                            {"name": away, "price": base_away + random.randint(-15, 15)}
+                        ]
+                    },
+                    {
+                        "key": "spreads",
+                        "last_update": datetime.now(timezone.utc).isoformat(),
+                        "outcomes": [
+                            {"name": home, "price": -110 + random.randint(-5, 5), "point": spread},
+                            {"name": away, "price": -110 + random.randint(-5, 5), "point": -spread}
+                        ]
+                    },
+                    {
+                        "key": "totals",
+                        "last_update": datetime.now(timezone.utc).isoformat(),
+                        "outcomes": [
+                            {"name": "Over", "price": -110 + random.randint(-5, 5), "point": total},
+                            {"name": "Under", "price": -110 + random.randint(-5, 5), "point": total}
+                        ]
+                    }
+                ]
+            })
+        
+        events.append({
+            "id": event_id,
+            "sport_key": sport_key,
+            "sport_title": sport_key.replace("_", " ").title(),
+            "commence_time": (datetime.now(timezone.utc).replace(hour=19, minute=0, second=0)).isoformat(),
+            "home_team": home,
+            "away_team": away,
+            "bookmakers": bookmakers
+        })
+    
+    return events
+
+def generate_mock_line_movement(event_id: str):
+    """Generate mock line movement data"""
+    import random
+    
+    movements = []
+    base_time = datetime.now(timezone.utc)
+    base_home_price = random.randint(-200, 200)
+    
+    for i in range(24):
+        hour_offset = 24 - i
+        timestamp = (base_time.replace(hour=base_time.hour - hour_offset % 24)).isoformat()
+        
+        # Simulate line movement
+        home_drift = random.randint(-20, 20)
+        
+        for bm_key in list(SPORTSBOOK_NAMES.keys())[:5]:
+            movements.append({
+                "event_id": event_id,
+                "timestamp": timestamp,
+                "bookmaker": bm_key,
+                "bookmaker_title": SPORTSBOOK_NAMES[bm_key],
+                "market": "h2h",
+                "outcomes": [
+                    {"name": "Home", "price": base_home_price + home_drift + random.randint(-10, 10)},
+                    {"name": "Away", "price": -(base_home_price + home_drift) + random.randint(-10, 10)}
+                ]
+            })
+        
+        base_home_price += random.randint(-10, 10)
+    
+    return movements
 
 # Include the router in the main app
 app.include_router(api_router)
@@ -62,13 +700,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
