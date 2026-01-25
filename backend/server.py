@@ -27,6 +27,9 @@ from espn_scores import (
     get_final_games
 )
 
+# Import lineup/roster scraper for AI analysis
+from lineup_scraper import get_matchup_context
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
