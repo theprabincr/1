@@ -1,0 +1,140 @@
+{
+  "identity": {
+    "name": "E1",
+    "role": "Creative Designer",
+    "principles": [
+      "Fusion over Imitation",
+      "Emotion First",
+      "Content is King",
+      "Zoom In",
+      "Negative Space",
+      "Contrast"
+    ]
+  },
+  "theme": {
+    "mode": "dark",
+    "style": "Terminal / High-Frequency Trading / Moneyball",
+    "emotional_tone": "Precision, Speed, Insider Edge, Professional"
+  },
+  "typography": {
+    "headings": {
+      "font_family": "JetBrains Mono, monospace",
+      "weights": ["700", "800"],
+      "usage": "Page titles, Section headers, Big Data numbers",
+      "letter_spacing": "tracking-tight"
+    },
+    "body": {
+      "font_family": "Manrope, sans-serif",
+      "weights": ["400", "500", "600"],
+      "usage": "Paragraphs, UI labels, Table data",
+      "letter_spacing": "tracking-normal"
+    },
+    "import_url": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Manrope:wght@400;500;600;700&display=swap"
+  },
+  "colors": {
+    "background": {
+      "default": "#09090B",
+      "paper": "#18181B",
+      "subtle": "#27272A"
+    },
+    "text": {
+      "primary": "#FAFAFA",
+      "secondary": "#A1A1AA",
+      "muted": "#71717A"
+    },
+    "brand": {
+      "primary": "#CCFF00",
+      "primary_hover": "#B3E600",
+      "secondary": "#3B82F6"
+    },
+    "semantic": {
+      "success": "#22C55E",
+      "danger": "#EF4444",
+      "warning": "#EAB308",
+      "info": "#3B82F6"
+    },
+    "border": {
+      "default": "#27272A",
+      "active": "#3F3F46"
+    }
+  },
+  "visual_enhancers": {
+    "glassmorphism": {
+      "usage": "Sticky headers, Floating controls",
+      "classes": "bg-zinc-950/80 backdrop-blur-md border-b border-white/5"
+    },
+    "grid_borders": {
+      "usage": "Data tables, Dashboard grids",
+      "classes": "border border-white/5"
+    },
+    "neon_glow": {
+      "usage": "Active states, Best Bets",
+      "classes": "shadow-[0_0_15px_rgba(204,255,0,0.15)]"
+    }
+  },
+  "components": {
+    "Button": {
+      "base": "inline-flex items-center justify-center rounded-lg text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400 disabled:pointer-events-none disabled:opacity-50",
+      "variants": {
+        "default": "bg-[#CCFF00] text-black hover:bg-[#B3E600] shadow-sm",
+        "outline": "border border-zinc-700 bg-transparent hover:bg-zinc-800 text-zinc-100",
+        "ghost": "hover:bg-zinc-800 text-zinc-300 hover:text-white",
+        "destructive": "bg-red-900/50 text-red-200 hover:bg-red-900/70 border border-red-900"
+      }
+    },
+    "Card": {
+      "base": "rounded-xl border border-zinc-800 bg-zinc-900/50 text-zinc-100 shadow-sm"
+    },
+    "Badge": {
+      "base": "inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+      "variants": {
+        "default": "border-transparent bg-lime-400/10 text-lime-400 hover:bg-lime-400/20",
+        "outline": "text-zinc-400 border-zinc-700"
+      }
+    },
+    "Input": {
+      "base": "flex h-10 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+    }
+  },
+  "layout": {
+    "grid_system": "Bento Grid Mode B (High Density)",
+    "container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
+    "spacing": {
+      "section_gap": "gap-8",
+      "component_gap": "gap-4"
+    }
+  },
+  "assets": {
+    "icons": {
+      "library": "lucide-react",
+      "style": "Stroke width 1.5px or 2px"
+    },
+    "logos": {
+      "source": "Clearbit API",
+      "pattern": "https://logo.clearbit.com/[domain]",
+      "fallback": "Text Badge"
+    },
+    "images": {
+      "hero_bg": "https://images.unsplash.com/photo-1764760764956-d3ad5f37150b?q=80&w=2070&auto=format&fit=crop",
+      "sports_texture": "https://images.unsplash.com/photo-1628417949960-64b898d3cc88?q=80&w=2070&auto=format&fit=crop"
+    }
+  },
+  "instructions_to_main_agent": [
+    "INSTALL: npm install lucide-react recharts clsx tailwind-merge sonner",
+    "SETUP: Ensure Tailwind config includes the custom colors (zinc, lime) and fonts.",
+    "CLEANUP: Remove default App.css centering (.App { text-align: center }).",
+    "COMPONENTS: Create reusable UI components (Button, Card, Badge) in src/components/ui using the specs above.",
+    "THEME: Force Dark Mode. Do not implement a light mode toggle.",
+    "DATA: Mock the betting data realistically. Use 'Green' for positive line movement, 'Red' for negative.",
+    "CHARTS: Use Recharts for Line Movement and Odds History. Style them minimally (hide grid lines, use thin strokes).",
+    "TESTING: Add data-testid to all interactive elements."
+  ],
+  "universal_guidelines": [
+    "Do not use gradients for backgrounds, use solid dark colors.",
+    "Use 1px borders to define hierarchy, not shadows.",
+    "Ensure all text has sufficient contrast (Zinc-400 minimum for secondary text).",
+    "Use 'JetBrains Mono' for all numbers and data points.",
+    "Animations should be fast (150ms-200ms).",
+    "Never center the entire app layout."
+  ]
+}
