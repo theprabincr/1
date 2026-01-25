@@ -25,20 +25,23 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# The Odds API config
+# The Odds API config (fallback)
 ODDS_API_BASE = "https://api.the-odds-api.com/v4"
 
 # Emergent LLM Key
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 
+# Data source: 'oddsportal' (free scraping) or 'oddsapi' (paid API)
+DATA_SOURCE = os.environ.get('ODDS_DATA_SOURCE', 'oddsportal')
+
 # Cache for mock events (to keep IDs consistent)
 mock_events_cache = {}
 
-# Events cache to reduce API calls (configurable duration)
+# Events cache to reduce scraping/API calls (configurable duration)
 events_cache = {}
-CACHE_DURATION_MINUTES = 60  # Extended from 30 to 60 minutes for better API conservation
+CACHE_DURATION_MINUTES = 60  # Cache for 1 hour
 
-# Default API key from env (fallback)
+# Default API key from env (fallback for Odds API)
 DEFAULT_ODDS_API_KEY = os.environ.get('ODDS_API_KEY', '')
 
 # Current active API key (will be managed dynamically)
