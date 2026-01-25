@@ -576,8 +576,16 @@ def calculate_roi(predictions: list) -> float:
     return roi
 
 async def get_mock_events(sport_key: str):
-    """Generate mock events when API is unavailable"""
+    """Generate mock events when API is unavailable - with caching for consistent IDs"""
+    global mock_events_cache
     import random
+    
+    # Check cache first (cache for 5 minutes)
+    cache_key = sport_key
+    if cache_key in mock_events_cache:
+        cached_data, cached_time = mock_events_cache[cache_key]
+        if (datetime.now(timezone.utc) - cached_time).total_seconds() < 300:
+            return cached_data
     
     teams = {
         "americanfootball_nfl": [
@@ -615,8 +623,13 @@ async def get_mock_events(sport_key: str):
     sport_teams = teams.get(sport_key, teams["basketball_nba"])
     events = []
     
+    # Use deterministic seed based on sport key for consistent IDs
+    random.seed(hash(sport_key) % 10000)
+    
     for i, (home, away) in enumerate(sport_teams):
-        event_id = f"mock_{sport_key}_{i}_{uuid.uuid4().hex[:8]}"
+        # Create deterministic event ID based on sport and teams
+        event_hash = hashlib.md5(f"{sport_key}_{home}_{away}".encode()).hexdigest()[:8]
+        event_id = f"mock_{sport_key}_{i}_{event_hash}"
         
         # Generate mock odds
         bookmakers = []
