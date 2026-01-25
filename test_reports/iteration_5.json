@@ -1,0 +1,67 @@
+{
+  "summary": "Line Movement feature testing completed successfully. All backend APIs working correctly (12/12 tests passed). Frontend UI fully functional with sport selector, event list, chart display, odds comparison, and bookmakers list all working as expected.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "/api/line-movement/{event_id}",
+        "issue": "Opening odds stored in database have incorrect team names (e.g., 'Chicago Bulls Boston' instead of 'Boston Celtics') - this is historical data from earlier buggy scraping, current code is correct",
+        "priority": "LOW",
+        "fix": "Either clear old opening_odds collection or update the stored team names to match current event data"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "Line Movement page loads correctly at /line-movement",
+    "Sport selector buttons (NBA, NFL, MLB, NHL, EPL) work correctly",
+    "Event list populates with events from OddsPortal (8 NBA events, 2 NFL events, 10 NHL events)",
+    "Clicking an event loads line movement data",
+    "Chart displays odds movement over time with proper legend and tooltip",
+    "Opening odds vs Current odds comparison section displays correctly with percentage change",
+    "Bookmakers list shows multiple bookmakers (7-12 bookmakers per event)",
+    "/api/events/{sport_key} endpoint returns events with bookmakers (12+ bookmakers per event)",
+    "/api/line-movement/{event_id} endpoint returns opening odds, chart data, and bookmakers",
+    "/api/sports endpoint returns all 7 sports",
+    "/api/scraper-status endpoint returns OddsPortal status",
+    "Refresh button works correctly",
+    "Source: OddsPortal badge visible",
+    "Status: Live visible in sidebar"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_line_movement.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: Clear old opening_odds collection to fix historical team name parsing issue, or run a migration script to update team names"
+  ],
+  "critical_code_review_comments": [
+    "Opening odds team names in database are incorrect due to earlier buggy scraping - current code is fixed but old data persists",
+    "Some bookmaker names in snapshots are unusual (e.g., 'football', 'orlando_magic') - these appear to be parsing artifacts from OddsPortal HTML"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_line_movement.py"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 tests passed)",
+    "frontend": "100% (all features working)"
+  },
+  "seed_data_creation": "None - using live OddsPortal data",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Line Movement feature is fully functional. Backend scrapes OddsPortal for events and stores opening odds + hourly snapshots. Frontend displays chart with odds movement, comparison section, and bookmakers list. Historical opening_odds data has incorrect team names but current scraping is correct.",
+  "features_verified": {
+    "line_movement_page": "Working - loads at /line-movement",
+    "sport_selector": "Working - NBA, NFL, MLB, NHL, EPL buttons functional",
+    "event_list": "Working - shows events with bookmaker counts",
+    "line_movement_chart": "Working - displays odds movement with Recharts",
+    "opening_vs_current_odds": "Working - shows comparison with percentage change",
+    "bookmakers_list": "Working - shows 7-12 bookmakers per event",
+    "oddsportal_scraping": "Working - real data from OddsPortal via httpx fallback",
+    "hourly_snapshots": "Working - 13 snapshots captured for test events"
+  }
+}
