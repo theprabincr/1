@@ -539,6 +539,11 @@ Provide your betting recommendation with pick, confidence (1-10), and brief reas
         # Determine best odds for predicted team
         odds_at_prediction = best_home if predicted_team == home_team else best_away
         
+        # Skip if odds are unreasonable (likely futures/outrights)
+        if odds_at_prediction < 1.01 or odds_at_prediction > 50:
+            logger.info(f"Skipping {home_team} vs {away_team} - unusual odds: {odds_at_prediction}")
+            return None
+        
         # Create prediction
         prediction = PredictionCreate(
             event_id=event.get("id"),
