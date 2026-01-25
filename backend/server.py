@@ -1890,20 +1890,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Background task scheduler for auto-checking results - runs every 15 minutes for real-time updates
+# Background task scheduler for auto-checking results - runs every 2 minutes for real-time updates
 async def scheduled_result_checker():
-    """Background task that runs every 15 minutes to check for completed events using ESPN API"""
+    """Background task that runs every 2 MINUTES for continuous score sync using ESPN API"""
     # Initial delay to let services start
-    await asyncio.sleep(90)
+    await asyncio.sleep(60)
     
     while True:
         try:
-            logger.info("Running scheduled result check (every 15 minutes)...")
+            logger.info("Running continuous score sync (every 2 minutes)...")
             await auto_check_results()
-            await asyncio.sleep(900)  # Run every 15 minutes (900 seconds)
+            await asyncio.sleep(120)  # Run every 2 minutes (120 seconds) for real-time updates
         except Exception as e:
             logger.error(f"Scheduled result checker error: {e}")
-            await asyncio.sleep(60)  # Wait a minute before retrying
+            await asyncio.sleep(30)  # Wait 30 seconds before retrying
 
 # Background task for line movement checking and recommendation updates
 async def scheduled_line_movement_checker():
@@ -1932,9 +1932,51 @@ async def scheduled_recommendation_generator():
             logger.error(f"Scheduled recommendation generator error: {e}")
             await asyncio.sleep(300)
 
-# Background task for hourly OddsPortal odds scraping
+# Background task for line movement data cleanup
+async def scheduled_line_movement_cleanup():
+    """Background task that cleans up line movement data for events that have started"""
+    # Wait 5 minutes on startup
+    await asyncio.sleep(300)
+    
+    while True:
+        try:
+            logger.info("Running line movement cleanup for live/finished events...")
+            now = datetime.now(timezone.utc)
+            deleted_count = 0
+            
+            # Find events that have started and delete their line movement data
+            event_ids = await db.odds_history.distinct("event_id")
+            
+            for event_id in event_ids:
+                # Get opening odds to check commence time
+                opening = await db.opening_odds.find_one({"event_id": event_id}, {"_id": 0})
+                
+                if opening:
+                    # Check commence time
+                    prediction = await db.predictions.find_one({"event_id": event_id}, {"commence_time": 1})
+                    if prediction:
+                        commence_str = prediction.get("commence_time", "")
+                        if commence_str:
+                            try:
+                                commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
+                                if commence_time <= now:
+                                    result = await db.odds_history.delete_many({"event_id": event_id})
+                                    deleted_count += result.deleted_count
+                            except Exception:
+                                pass
+            
+            if deleted_count > 0:
+                logger.info(f"Cleaned up {deleted_count} line movement records for started events")
+            
+            await asyncio.sleep(1800)  # Run every 30 minutes
+            
+        except Exception as e:
+            logger.error(f"Line movement cleanup error: {e}")
+            await asyncio.sleep(300)
+
+# Background task for hourly OddsPortal odds scraping (only for pre-match events)
 async def scheduled_oddsportal_scraper():
-    """Background task that scrapes OddsPortal every hour for odds updates and line movement tracking"""
+    """Background task that scrapes OddsPortal every hour for pre-match odds and line movement tracking"""
     global last_scrape_time
     
     # Wait 2 minutes on startup
@@ -1944,7 +1986,8 @@ async def scheduled_oddsportal_scraper():
     
     while True:
         try:
-            logger.info("Running hourly OddsPortal scraping...")
+            logger.info("Running hourly OddsPortal scraping (pre-match only)...")
+            now = datetime.now(timezone.utc)
             
             for sport_key in sports_to_scrape:
                 try:
@@ -1952,16 +1995,25 @@ async def scheduled_oddsportal_scraper():
                     events = await scrape_oddsportal_events(sport_key)
                     
                     if events:
-                        # Store odds snapshots for line movement tracking
+                        # Only store odds snapshots for PRE-MATCH events (not started)
+                        prematch_count = 0
                         for event in events:
-                            await store_odds_snapshot(event)
+                            try:
+                                commence_str = event.get("commence_time", "")
+                                if commence_str:
+                                    commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
+                                    if commence_time > now:
+                                        await store_odds_snapshot(event)
+                                        prematch_count += 1
+                            except Exception:
+                                pass
                         
                         # Update cache
                         cache_key = f"{sport_key}_h2h,spreads,totals"
-                        events_cache[cache_key] = (events, datetime.now(timezone.utc))
-                        last_scrape_time = datetime.now(timezone.utc).isoformat()
+                        events_cache[cache_key] = (events, now)
+                        last_scrape_time = now.isoformat()
                         
-                        logger.info(f"Scraped {len(events)} events for {sport_key}")
+                        logger.info(f"Scraped {len(events)} events for {sport_key} ({prematch_count} pre-match odds stored)")
                     
                     await asyncio.sleep(10)  # Small delay between sports
                     
