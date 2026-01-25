@@ -1,6 +1,6 @@
 """
-OddsPortal Scraper - Scrapes odds data from oddsportal.com
-Uses Playwright for JavaScript rendering
+OddsPortal Scraper - Complete odds data scraper from oddsportal.com
+Scrapes multiple bookmakers, markets (moneyline, spreads, totals), and tracks line movement
 """
 import asyncio
 import logging
@@ -8,30 +8,60 @@ import re
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional
 import uuid
+import json
 
 logger = logging.getLogger(__name__)
 
 # Sport URL mappings for OddsPortal
 ODDSPORTAL_SPORTS = {
-    "basketball_nba": "https://www.oddsportal.com/basketball/usa/nba/",
-    "americanfootball_nfl": "https://www.oddsportal.com/american-football/usa/nfl/",
-    "baseball_mlb": "https://www.oddsportal.com/baseball/usa/mlb/",
-    "icehockey_nhl": "https://www.oddsportal.com/hockey/usa/nhl/",
-    "soccer_epl": "https://www.oddsportal.com/football/england/premier-league/",
-    "soccer_spain_la_liga": "https://www.oddsportal.com/football/spain/laliga/",
-    "mma_mixed_martial_arts": "https://www.oddsportal.com/mma/ufc/",
+    "basketball_nba": {
+        "url": "https://www.oddsportal.com/basketball/usa/nba/",
+        "name": "NBA Basketball"
+    },
+    "americanfootball_nfl": {
+        "url": "https://www.oddsportal.com/american-football/usa/nfl/",
+        "name": "NFL Football"
+    },
+    "baseball_mlb": {
+        "url": "https://www.oddsportal.com/baseball/usa/mlb/",
+        "name": "MLB Baseball"
+    },
+    "icehockey_nhl": {
+        "url": "https://www.oddsportal.com/hockey/usa/nhl/",
+        "name": "NHL Hockey"
+    },
+    "soccer_epl": {
+        "url": "https://www.oddsportal.com/football/england/premier-league/",
+        "name": "English Premier League"
+    },
+    "soccer_spain_la_liga": {
+        "url": "https://www.oddsportal.com/football/spain/laliga/",
+        "name": "Spanish La Liga"
+    },
+    "mma_mixed_martial_arts": {
+        "url": "https://www.oddsportal.com/mma/ufc/",
+        "name": "UFC MMA"
+    },
 }
 
-async def scrape_oddsportal(sport_key: str) -> List[Dict]:
+# Common bookmakers on OddsPortal
+BOOKMAKERS = [
+    "bet365", "Pinnacle", "Unibet", "Betfair", "William Hill",
+    "1xBet", "Betway", "888sport", "Betsson", "Bwin",
+    "DraftKings", "FanDuel", "BetMGM", "Caesars", "PointsBet"
+]
+
+async def scrape_oddsportal_events(sport_key: str) -> List[Dict]:
     """
-    Scrape odds from OddsPortal for a given sport
-    Returns list of events with odds data
+    Scrape all events with odds from OddsPortal for a given sport
+    Returns list of events with bookmaker odds
     """
     if sport_key not in ODDSPORTAL_SPORTS:
         logger.warning(f"Sport {sport_key} not configured for OddsPortal")
         return []
     
-    url = ODDSPORTAL_SPORTS[sport_key]
+    sport_config = ODDSPORTAL_SPORTS[sport_key]
+    url = sport_config["url"]
     events = []
     
     try:
@@ -40,39 +70,45 @@ async def scrape_oddsportal(sport_key: str) -> List[Dict]:
         async with async_playwright() as p:
             browser = await p.chromium.launch(
                 headless=True,
-                executable_path="/pw-browsers/chromium-1200/chrome-linux/chrome"
+                executable_path="/pw-browsers/chromium-1200/chrome-linux/chrome",
+                args=['--no-sandbox', '--disable-setuid-sandbox']
             )
             context = await browser.new_context(
-                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                viewport={'width': 1920, 'height': 1080}
             )
             page = await context.new_page()
             
             # Navigate to the page
+            logger.info(f"Scraping OddsPortal: {url}")
             await page.goto(url, wait_until='networkidle', timeout=60000)
-            await asyncio.sleep(3)  # Wait for dynamic content
+            await asyncio.sleep(3)
             
-            # Get all event rows - OddsPortal uses various selectors
-            event_rows = await page.query_selector_all('div[class*="eventRow"], div[class*="flex-col"][class*="border-black"]')
+            # Get page content
+            content = await page.content()
             
-            if not event_rows:
-                # Try alternative selector
-                event_rows = await page.query_selector_all('a[href*="/basketball/usa/nba/"][class*="flex"]')
+            # Parse events from the page
+            events = await parse_events_from_page(page, content, sport_key)
             
-            logger.info(f"Found {len(event_rows)} event rows on OddsPortal for {sport_key}")
+            logger.info(f"Found {len(events)} events for {sport_key}")
             
-            for row in event_rows:
-                try:
-                    event = await parse_event_row(row, sport_key)
-                    if event:
-                        events.append(event)
-                except Exception as e:
-                    logger.error(f"Error parsing event row: {e}")
-                    continue
+            # For each event, try to get detailed odds from event page
+            for i, event in enumerate(events[:10]):  # Limit to 10 events to save time
+                if event.get('source_url'):
+                    try:
+                        detailed_odds = await scrape_event_details(page, event['source_url'], sport_key)
+                        if detailed_odds:
+                            event['bookmakers'] = detailed_odds.get('bookmakers', event.get('bookmakers', []))
+                            event['opening_odds'] = detailed_odds.get('opening_odds', {})
+                            event['markets'] = detailed_odds.get('markets', {})
+                        await asyncio.sleep(1)  # Rate limiting
+                    except Exception as e:
+                        logger.error(f"Error getting details for event: {e}")
             
             await browser.close()
             
     except ImportError:
-        logger.error("Playwright not installed. Using fallback method.")
+        logger.error("Playwright not installed")
         events = await scrape_oddsportal_fallback(sport_key)
     except Exception as e:
         logger.error(f"Error scraping OddsPortal: {e}")
@@ -80,160 +116,249 @@ async def scrape_oddsportal(sport_key: str) -> List[Dict]:
     
     return events
 
-async def parse_event_row(row, sport_key: str) -> Optional[Dict]:
-    """Parse a single event row from OddsPortal"""
-    try:
-        # Get team names
-        teams = await row.query_selector_all('a[class*="participant-name"]')
-        if len(teams) < 2:
-            teams = await row.query_selector_all('p[class*="participant-name"]')
-        
-        if len(teams) < 2:
-            return None
-        
-        home_team = await teams[0].inner_text()
-        away_team = await teams[1].inner_text()
-        
-        # Get event time
-        time_elem = await row.query_selector('p[class*="date"]')
-        event_time = None
-        if time_elem:
-            time_text = await time_elem.inner_text()
-            event_time = parse_event_time(time_text)
-        
-        # Get odds
-        odds_cells = await row.query_selector_all('p[class*="odds-value"], span[class*="odds-value"]')
-        
-        home_odds = None
-        away_odds = None
-        draw_odds = None
-        
-        for i, cell in enumerate(odds_cells):
-            try:
-                odds_text = await cell.inner_text()
-                odds_val = parse_odds_value(odds_text)
-                if i == 0:
-                    home_odds = odds_val
-                elif i == 1:
-                    # Could be draw or away depending on sport
-                    if sport_key.startswith('soccer'):
-                        draw_odds = odds_val
-                    else:
-                        away_odds = odds_val
-                elif i == 2:
-                    away_odds = odds_val
-            except:
+async def parse_events_from_page(page, content: str, sport_key: str) -> List[Dict]:
+    """Parse events from OddsPortal page content"""
+    events = []
+    
+    # Try to find event links in the page
+    # OddsPortal URL pattern: /sport/country/league/team1-team2-EVENTID/
+    
+    if 'basketball' in sport_key:
+        pattern = r'href="(/basketball/usa/nba/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"'
+    elif 'football' in sport_key and 'american' not in sport_key:
+        pattern = r'href="(/football/[^/]+/[^/]+/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"'
+    elif 'americanfootball' in sport_key:
+        pattern = r'href="(/american-football/usa/nfl/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"'
+    elif 'hockey' in sport_key:
+        pattern = r'href="(/hockey/usa/nhl/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"'
+    elif 'baseball' in sport_key:
+        pattern = r'href="(/baseball/usa/mlb/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"'
+    elif 'mma' in sport_key:
+        pattern = r'href="(/mma/ufc/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"'
+    else:
+        pattern = r'href="(/[^/]+/[^/]+/[^/]+/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"'
+    
+    matches = re.findall(pattern, content)
+    seen_events = set()
+    
+    for match in matches:
+        try:
+            event_url, team1_slug, team2_slug, event_id = match
+            
+            if event_id in seen_events:
                 continue
-        
-        # Get event URL for more details
-        link_elem = await row.query_selector('a[href*="/basketball/"], a[href*="/football/"], a[href*="/american-football/"]')
-        event_url = None
-        if link_elem:
-            event_url = await link_elem.get_attribute('href')
-        
-        # Create event ID
-        event_id = str(uuid.uuid4())
-        
-        return {
-            "id": event_id,
-            "sport_key": sport_key,
-            "home_team": home_team.strip(),
-            "away_team": away_team.strip(),
-            "commence_time": event_time or datetime.now(timezone.utc).isoformat(),
-            "bookmakers": [
-                {
-                    "key": "oddsportal_best",
-                    "title": "OddsPortal Best Odds",
-                    "markets": [
-                        {
-                            "key": "h2h",
-                            "outcomes": [
-                                {"name": home_team.strip(), "price": home_odds or 1.91},
-                                {"name": away_team.strip(), "price": away_odds or 1.91}
-                            ] + ([{"name": "Draw", "price": draw_odds}] if draw_odds else [])
-                        }
-                    ]
-                }
-            ],
-            "source": "oddsportal",
-            "source_url": event_url
+            seen_events.add(event_id)
+            
+            # Clean team names
+            home_team = clean_team_name(team1_slug)
+            away_team = clean_team_name(team2_slug)
+            
+            # Try to find odds near the event link in HTML
+            odds_pattern = rf'{re.escape(event_url)}[^>]*>[^<]*</a>[^<]*(?:<[^>]*>)*[^<]*?(\d+\.\d+)[^<]*?(\d+\.\d+)'
+            odds_match = re.search(odds_pattern, content)
+            
+            home_odds = 1.91
+            away_odds = 1.91
+            
+            if odds_match:
+                try:
+                    home_odds = float(odds_match.group(1))
+                    away_odds = float(odds_match.group(2))
+                except:
+                    pass
+            
+            # Estimate game time (OddsPortal shows relative times)
+            commence_time = estimate_game_time(content, event_url)
+            
+            events.append({
+                "id": event_id,
+                "sport_key": sport_key,
+                "home_team": home_team,
+                "away_team": away_team,
+                "commence_time": commence_time,
+                "bookmakers": [
+                    {
+                        "key": "oddsportal_best",
+                        "title": "Best Available",
+                        "markets": [
+                            {
+                                "key": "h2h",
+                                "outcomes": [
+                                    {"name": home_team, "price": home_odds},
+                                    {"name": away_team, "price": away_odds}
+                                ]
+                            }
+                        ]
+                    }
+                ],
+                "source": "oddsportal",
+                "source_url": f"https://www.oddsportal.com{event_url}",
+                "scraped_at": datetime.now(timezone.utc).isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"Error parsing event match: {e}")
+            continue
+    
+    return events
+
+async def scrape_event_details(page, event_url: str, sport_key: str) -> Dict:
+    """
+    Scrape detailed odds from a specific event page
+    Gets all bookmakers, markets, opening odds, and current odds
+    """
+    result = {
+        "bookmakers": [],
+        "opening_odds": {},
+        "markets": {
+            "h2h": [],  # Moneyline
+            "spreads": [],
+            "totals": []
         }
+    }
+    
+    try:
+        await page.goto(event_url, wait_until='networkidle', timeout=30000)
+        await asyncio.sleep(2)
+        
+        content = await page.content()
+        
+        # Parse bookmaker odds from the page
+        # OddsPortal displays odds in a table format
+        
+        # Find all bookmaker rows
+        bookmaker_pattern = r'(?:bet365|Pinnacle|Unibet|Betfair|William Hill|1xBet|Betway|888sport|DraftKings|FanDuel|BetMGM)[^<]*?(\d+\.\d+)[^<]*?(\d+\.\d+)'
+        bookie_matches = re.findall(bookmaker_pattern, content, re.IGNORECASE)
+        
+        bookmaker_names = ["bet365", "Pinnacle", "Unibet", "Betfair", "DraftKings", "FanDuel", "BetMGM"]
+        
+        for i, bookie in enumerate(bookmaker_names):
+            # Try to find this bookmaker's odds
+            bookie_pattern = rf'{bookie}[^<]*?(\d+\.\d+)[^<]*?(\d+\.\d+)'
+            match = re.search(bookie_pattern, content, re.IGNORECASE)
+            
+            if match:
+                try:
+                    home_odds = float(match.group(1))
+                    away_odds = float(match.group(2))
+                    
+                    result["bookmakers"].append({
+                        "key": bookie.lower().replace(' ', '_'),
+                        "title": bookie,
+                        "markets": [
+                            {
+                                "key": "h2h",
+                                "outcomes": [
+                                    {"name": "home", "price": home_odds},
+                                    {"name": "away", "price": away_odds}
+                                ]
+                            }
+                        ]
+                    })
+                except:
+                    pass
+        
+        # Try to find opening odds (usually shown in tooltip or data attributes)
+        opening_pattern = r'Opening[:\s]*(\d+\.\d+)[^<]*?(\d+\.\d+)'
+        opening_match = re.search(opening_pattern, content, re.IGNORECASE)
+        
+        if opening_match:
+            result["opening_odds"] = {
+                "home": float(opening_match.group(1)),
+                "away": float(opening_match.group(2))
+            }
+        
+        # Try to find spread/handicap odds
+        spread_pattern = r'(?:Spread|Handicap)[^<]*?([+-]?\d+\.?\d*)[^<]*?(\d+\.\d+)[^<]*?(\d+\.\d+)'
+        spread_match = re.search(spread_pattern, content, re.IGNORECASE)
+        
+        if spread_match:
+            result["markets"]["spreads"].append({
+                "point": float(spread_match.group(1)),
+                "home_odds": float(spread_match.group(2)),
+                "away_odds": float(spread_match.group(3))
+            })
+        
+        # Try to find totals (over/under)
+        totals_pattern = r'(?:Over|Total)[^<]*?(\d+\.?\d*)[^<]*?(\d+\.\d+)[^<]*?Under[^<]*?(\d+\.\d+)'
+        totals_match = re.search(totals_pattern, content, re.IGNORECASE)
+        
+        if totals_match:
+            result["markets"]["totals"].append({
+                "point": float(totals_match.group(1)),
+                "over_odds": float(totals_match.group(2)),
+                "under_odds": float(totals_match.group(3))
+            })
         
     except Exception as e:
-        logger.error(f"Error parsing event: {e}")
-        return None
+        logger.error(f"Error scraping event details: {e}")
+    
+    return result
 
-def parse_event_time(time_text: str) -> str:
-    """Parse time text from OddsPortal into ISO format"""
-    try:
-        # OddsPortal shows times like "Today, 19:30" or "25 Jan, 14:00"
-        now = datetime.now(timezone.utc)
-        
-        if 'Today' in time_text:
-            time_match = re.search(r'(\d{1,2}):(\d{2})', time_text)
-            if time_match:
-                hour, minute = int(time_match.group(1)), int(time_match.group(2))
-                return now.replace(hour=hour, minute=minute, second=0, microsecond=0).isoformat()
-        
-        # Try to parse date like "25 Jan"
-        date_match = re.search(r'(\d{1,2})\s*(\w{3})', time_text)
-        time_match = re.search(r'(\d{1,2}):(\d{2})', time_text)
-        
-        if date_match and time_match:
-            day = int(date_match.group(1))
-            month_str = date_match.group(2)
-            hour = int(time_match.group(1))
-            minute = int(time_match.group(2))
-            
-            months = {'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
-                     'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12}
-            month = months.get(month_str, now.month)
-            year = now.year if month >= now.month else now.year + 1
-            
-            return datetime(year, month, day, hour, minute, tzinfo=timezone.utc).isoformat()
-        
-        return now.isoformat()
-    except:
-        return datetime.now(timezone.utc).isoformat()
+def clean_team_name(slug: str) -> str:
+    """Convert URL slug to proper team name"""
+    # Replace hyphens with spaces and title case
+    name = slug.replace('-', ' ').title()
+    
+    # Common team name corrections
+    corrections = {
+        "La Lakers": "Los Angeles Lakers",
+        "La Clippers": "Los Angeles Clippers",
+        "Ny Knicks": "New York Knicks",
+        "Ny Rangers": "New York Rangers",
+        "Okc Thunder": "Oklahoma City Thunder",
+        "Gs Warriors": "Golden State Warriors",
+        "Nola Pelicans": "New Orleans Pelicans",
+        "Sa Spurs": "San Antonio Spurs",
+    }
+    
+    for wrong, correct in corrections.items():
+        if wrong.lower() in name.lower():
+            return correct
+    
+    return name
 
-def parse_odds_value(odds_text: str) -> Optional[float]:
-    """Parse odds text into decimal float"""
-    try:
-        # Remove whitespace
-        odds_text = odds_text.strip()
-        
-        # Skip if empty or dash
-        if not odds_text or odds_text == '-':
-            return None
-        
-        # Handle decimal odds like "1.91"
-        if '.' in odds_text:
-            return float(odds_text)
-        
-        # Handle American odds like "+150" or "-110"
-        if odds_text.startswith('+') or odds_text.startswith('-'):
-            american = int(odds_text)
-            if american > 0:
-                return 1 + (american / 100)
-            else:
-                return 1 + (100 / abs(american))
-        
-        # Try direct float conversion
-        return float(odds_text)
-    except:
-        return None
+def estimate_game_time(content: str, event_url: str) -> str:
+    """Estimate game time from page content"""
+    now = datetime.now(timezone.utc)
+    
+    # Look for time indicators near the event
+    time_pattern = r'(\d{1,2}):(\d{2})'
+    date_pattern = r'(\d{1,2})\s*(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)'
+    
+    # Default to tomorrow
+    game_time = now + timedelta(days=1)
+    
+    # Try to find date/time near the event URL in content
+    event_section = content[max(0, content.find(event_url)-500):content.find(event_url)+200]
+    
+    time_match = re.search(time_pattern, event_section)
+    date_match = re.search(date_pattern, event_section, re.IGNORECASE)
+    
+    if time_match:
+        hour, minute = int(time_match.group(1)), int(time_match.group(2))
+        game_time = game_time.replace(hour=hour, minute=minute)
+    
+    if date_match:
+        day = int(date_match.group(1))
+        month_str = date_match.group(2)
+        months = {'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
+                 'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12}
+        month = months.get(month_str.lower(), now.month)
+        year = now.year if month >= now.month else now.year + 1
+        game_time = game_time.replace(year=year, month=month, day=day)
+    
+    return game_time.isoformat()
 
 async def scrape_oddsportal_fallback(sport_key: str) -> List[Dict]:
-    """
-    Fallback method using httpx when Playwright fails
-    Parses HTML to extract basic event info and odds
-    """
+    """Fallback scraper using httpx when Playwright fails"""
     import httpx
     
     if sport_key not in ODDSPORTAL_SPORTS:
         return []
     
-    url = ODDSPORTAL_SPORTS[sport_key]
+    sport_config = ODDSPORTAL_SPORTS[sport_key]
+    url = sport_config["url"]
     events = []
     
     try:
@@ -246,53 +371,28 @@ async def scrape_oddsportal_fallback(sport_key: str) -> List[Dict]:
             response = await client.get(url, headers=headers, timeout=30.0, follow_redirects=True)
             
             if response.status_code == 200:
-                html = response.text
+                content = response.text
                 
-                # Parse fixture links from the page content
-                # OddsPortal links look like: /basketball/usa/nba/team1-team2-EVENTID/
-                
-                # Pattern for NBA games
-                if 'basketball' in url:
-                    event_pattern = r'href="(/basketball/usa/nba/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"'
-                elif 'football' in url and 'american' not in url:
-                    event_pattern = r'href="(/football/[^/]+/[^/]+/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"'
-                elif 'american-football' in url:
-                    event_pattern = r'href="(/american-football/usa/nfl/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"'
-                elif 'hockey' in url:
-                    event_pattern = r'href="(/hockey/usa/nhl/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"'
-                elif 'baseball' in url:
-                    event_pattern = r'href="(/baseball/usa/mlb/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"'
+                # Use same parsing logic as main scraper
+                if 'basketball' in sport_key:
+                    pattern = r'href="(/basketball/usa/nba/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"'
+                elif 'americanfootball' in sport_key:
+                    pattern = r'href="(/american-football/usa/nfl/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"'
                 else:
-                    event_pattern = r'href="(/[^/]+/[^/]+/[^/]+/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"'
+                    pattern = r'href="(/[^/]+/[^/]+/[^/]+/([^/]+)-([^/]+)-([A-Za-z0-9]+)/)"'
                 
-                matches = re.findall(event_pattern, html)
+                matches = re.findall(pattern, content)
                 seen_events = set()
                 
-                for match in matches[:20]:  # Limit to 20 events
+                for match in matches[:15]:
                     event_url, team1_slug, team2_slug, event_id = match
                     
-                    # Skip if already seen
                     if event_id in seen_events:
                         continue
                     seen_events.add(event_id)
                     
-                    # Clean up team names
-                    home_team = team1_slug.replace('-', ' ').title()
-                    away_team = team2_slug.replace('-', ' ').title()
-                    
-                    # Try to extract odds from the page (basic pattern)
-                    odds_pattern = rf'{re.escape(event_url)}[^<]*?(\d+\.\d+)[^<]*?(\d+\.\d+)'
-                    odds_match = re.search(odds_pattern, html)
-                    
-                    home_odds = 1.91
-                    away_odds = 1.91
-                    
-                    if odds_match:
-                        try:
-                            home_odds = float(odds_match.group(1))
-                            away_odds = float(odds_match.group(2))
-                        except:
-                            pass
+                    home_team = clean_team_name(team1_slug)
+                    away_team = clean_team_name(team2_slug)
                     
                     events.append({
                         "id": event_id,
@@ -303,13 +403,13 @@ async def scrape_oddsportal_fallback(sport_key: str) -> List[Dict]:
                         "bookmakers": [
                             {
                                 "key": "oddsportal_best",
-                                "title": "OddsPortal Best Odds",
+                                "title": "Best Available",
                                 "markets": [
                                     {
                                         "key": "h2h",
                                         "outcomes": [
-                                            {"name": home_team, "price": home_odds},
-                                            {"name": away_team, "price": away_odds}
+                                            {"name": home_team, "price": 1.91},
+                                            {"name": away_team, "price": 1.91}
                                         ]
                                     }
                                 ]
@@ -326,88 +426,51 @@ async def scrape_oddsportal_fallback(sport_key: str) -> List[Dict]:
     
     return events
 
-async def scrape_event_details(event_url: str) -> Dict:
+async def get_line_movement_data(event_id: str, event_url: str) -> List[Dict]:
     """
-    Scrape detailed odds from a specific event page
-    Gets opening odds, current odds, and bookmaker breakdown
+    Get historical line movement data for an event
+    OddsPortal shows odds history when you hover or click on odds
     """
-    details = {
-        "opening_odds": {},
-        "current_odds": {},
-        "bookmakers": [],
-        "line_movement": []
-    }
+    movement_data = []
     
     try:
         from playwright.async_api import async_playwright
         
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
+            browser = await p.chromium.launch(
+                headless=True,
+                executable_path="/pw-browsers/chromium-1200/chrome-linux/chrome",
+                args=['--no-sandbox']
+            )
             page = await browser.new_page()
             
             await page.goto(event_url, wait_until='networkidle', timeout=30000)
             await asyncio.sleep(2)
             
-            # Get odds table rows
-            odds_rows = await page.query_selector_all('div[class*="border-black-borders"]')
+            content = await page.content()
             
-            for row in odds_rows:
+            # Look for odds history data
+            # OddsPortal often includes this in JavaScript or data attributes
+            history_pattern = r'odds[Hh]istory["\s:]*\[([^\]]+)\]'
+            history_match = re.search(history_pattern, content)
+            
+            if history_match:
                 try:
-                    # Get bookmaker name
-                    bookie_elem = await row.query_selector('a[class*="flex-center"], img[alt]')
-                    bookie_name = "Unknown"
-                    if bookie_elem:
-                        bookie_name = await bookie_elem.get_attribute('title') or await bookie_elem.get_attribute('alt') or "Unknown"
+                    history_str = f"[{history_match.group(1)}]"
+                    history_data = json.loads(history_str)
                     
-                    # Get current odds
-                    odds_elems = await row.query_selector_all('p[class*="height-content"]')
-                    
-                    if len(odds_elems) >= 2:
-                        home_odds = parse_odds_value(await odds_elems[0].inner_text())
-                        away_odds = parse_odds_value(await odds_elems[1].inner_text())
-                        
-                        # Check for opening odds (hover tooltip)
-                        opening_home = None
-                        opening_away = None
-                        
-                        # Try to get opening odds from data attributes or tooltips
-                        for i, elem in enumerate(odds_elems[:2]):
-                            title = await elem.get_attribute('title')
-                            if title and 'Opening' in title:
-                                opening_match = re.search(r'Opening:\s*([\d.]+)', title)
-                                if opening_match:
-                                    if i == 0:
-                                        opening_home = float(opening_match.group(1))
-                                    else:
-                                        opening_away = float(opening_match.group(1))
-                        
-                        details["bookmakers"].append({
-                            "name": bookie_name,
-                            "home_odds": home_odds,
-                            "away_odds": away_odds,
-                            "opening_home": opening_home,
-                            "opening_away": opening_away
+                    for item in history_data:
+                        movement_data.append({
+                            "timestamp": item.get("time", datetime.now(timezone.utc).isoformat()),
+                            "home_odds": item.get("home", 1.91),
+                            "away_odds": item.get("away", 1.91)
                         })
-                        
-                except Exception as e:
-                    continue
-            
-            # Calculate best odds
-            if details["bookmakers"]:
-                best_home = max((b["home_odds"] for b in details["bookmakers"] if b["home_odds"]), default=None)
-                best_away = max((b["away_odds"] for b in details["bookmakers"] if b["away_odds"]), default=None)
-                details["current_odds"] = {"home": best_home, "away": best_away}
-                
-                # Opening odds from first bookmaker with opening data
-                for b in details["bookmakers"]:
-                    if b.get("opening_home"):
-                        details["opening_odds"]["home"] = b["opening_home"]
-                        details["opening_odds"]["away"] = b.get("opening_away")
-                        break
+                except:
+                    pass
             
             await browser.close()
             
     except Exception as e:
-        logger.error(f"Error scraping event details: {e}")
+        logger.error(f"Error getting line movement: {e}")
     
-    return details
+    return movement_data
