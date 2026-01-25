@@ -205,79 +205,8 @@ async def get_scraper_status():
         "cacheDuration": CACHE_DURATION_MINUTES,
         "sports": list(events_cache.keys())
     }
-    for key in keys:
-        if key.get('key'):
-            key['key_masked'] = key['key'][:8] + '...' + key['key'][-4:]
-            del key['key']
-    return keys
 
-@api_router.post("/api-keys")
-async def add_api_key(key_data: ApiKeyCreate):
-    """Add a new API key"""
-    # Check if key already exists
-    existing = await db.api_keys.find_one({"key": key_data.key})
-    if existing:
-        raise HTTPException(status_code=400, detail="API key already exists")
-    
-    new_key = ApiKey(
-        key=key_data.key,
-        name=key_data.name
-    )
-    
-    await db.api_keys.insert_one(new_key.model_dump())
-    
-    # Create notification
-    await create_notification(
-        "api_key_added",
-        "New API Key Added",
-        f"API key '{key_data.name}' has been added with 500 calls available.",
-        {"key_name": key_data.name}
-    )
-    
-    return {"message": "API key added successfully", "id": new_key.id}
-
-@api_router.delete("/api-keys/{key_id}")
-async def delete_api_key(key_id: str):
-    """Delete an API key"""
-    result = await db.api_keys.delete_one({"id": key_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="API key not found")
-    return {"message": "API key deleted successfully"}
-
-@api_router.put("/api-keys/{key_id}/activate")
-async def activate_api_key(key_id: str):
-    """Activate a specific API key"""
-    # Deactivate all others first
-    await db.api_keys.update_many({}, {"$set": {"is_active": False}})
-    
-    result = await db.api_keys.update_one(
-        {"id": key_id},
-        {"$set": {"is_active": True, "is_exhausted": False}}
-    )
-    
-    if result.modified_count == 0:
-        raise HTTPException(status_code=404, detail="API key not found")
-    
-    return {"message": "API key activated"}
-
-@api_router.put("/api-keys/{key_id}/reset")
-async def reset_api_key(key_id: str):
-    """Reset an API key's usage (for when a new month starts)"""
-    result = await db.api_keys.update_one(
-        {"id": key_id},
-        {"$set": {
-            "requests_remaining": 500,
-            "requests_used": 0,
-            "is_exhausted": False
-        }}
-    )
-    
-    if result.modified_count == 0:
-        raise HTTPException(status_code=404, detail="API key not found")
-    
-    return {"message": "API key usage reset"}
-
-# ==================== DATA SOURCE ENDPOINTS ====================
+# ==================== MANUAL SCRAPE ENDPOINT ====================
 
 class DataSourceUpdate(BaseModel):
     source: str  # 'oddsportal' or 'oddsapi'
