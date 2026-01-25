@@ -3,14 +3,14 @@ import axios from "axios";
 import { 
   TrendingUp, TrendingDown, Trophy, Target, 
   DollarSign, Clock, ChevronRight, Zap,
-  Activity, AlertCircle, RefreshCw
+  Activity, AlertCircle, RefreshCw, X
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-// Stat Card Component
-const StatCard = ({ title, value, subtitle, icon: Icon, trend, color = "lime" }) => {
+// Stat Card Component - Now clickable
+const StatCard = ({ title, value, subtitle, icon: Icon, color = "lime", onClick }) => {
   const colorClasses = {
     lime: "text-brand-primary",
     green: "text-semantic-success",
@@ -20,18 +20,17 @@ const StatCard = ({ title, value, subtitle, icon: Icon, trend, color = "lime" })
   };
 
   return (
-    <div className="stat-card card-hover" data-testid={`stat-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+    <div 
+      className={`stat-card card-hover ${onClick ? 'cursor-pointer' : ''}`} 
+      data-testid={`stat-${title.toLowerCase().replace(/\s+/g, '-')}`}
+      onClick={onClick}
+    >
       <div className="flex items-start justify-between mb-3">
         <div className={`p-2 rounded-lg bg-zinc-800 ${colorClasses[color]}`}>
           <Icon className="w-5 h-5" />
         </div>
-        {trend && (
-          <span className={`flex items-center gap-1 text-sm font-mono ${
-            trend > 0 ? "text-semantic-success" : "text-semantic-danger"
-          }`}>
-            {trend > 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-            {Math.abs(trend)}%
-          </span>
+        {onClick && (
+          <ChevronRight className="w-5 h-5 text-text-muted" />
         )}
       </div>
       <h3 className="text-text-muted text-sm mb-1">{title}</h3>
