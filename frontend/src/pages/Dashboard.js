@@ -160,6 +160,7 @@ const Dashboard = () => {
   const [recommendations, setRecommendations] = useState([]);
   const [events, setEvents] = useState([]);
   const [selectedSport, setSelectedSport] = useState("basketball_nba");
+  const [showActivePicksModal, setShowActivePicksModal] = useState(false);
 
   const sports = [
     { key: "basketball_nba", label: "NBA" },
@@ -174,7 +175,7 @@ const Dashboard = () => {
     try {
       const [perfRes, recsRes, eventsRes] = await Promise.all([
         axios.get(`${API}/performance`),
-        axios.get(`${API}/recommendations?limit=10`),
+        axios.get(`${API}/recommendations?limit=50`),
         axios.get(`${API}/events/${selectedSport}`)
       ]);
       
