@@ -1748,7 +1748,14 @@ async def scheduled_recommendation_generator():
     
     while True:
         try:
-            # Check API usage before generating
+            # If using OddsPortal, no API limit concerns
+            if DATA_SOURCE == 'oddsportal':
+                logger.info("Running scheduled recommendation generation (OddsPortal - no API limits)...")
+                await auto_generate_recommendations()
+                await asyncio.sleep(14400)  # Run every 4 hours with OddsPortal
+                continue
+            
+            # Check API usage before generating (for Odds API)
             if current_api_key.get('requests_remaining') and current_api_key['requests_remaining'] < 30:
                 logger.warning(f"Low API calls ({current_api_key['requests_remaining']}). Skipping recommendation generation.")
                 await asyncio.sleep(21600)  # Wait 6 hours
@@ -1759,6 +1766,48 @@ async def scheduled_recommendation_generator():
             await asyncio.sleep(21600)  # Run every 6 hours (4 times per day)
         except Exception as e:
             logger.error(f"Scheduled recommendation generator error: {e}")
+            await asyncio.sleep(300)
+
+# Background task for hourly OddsPortal odds scraping
+async def scheduled_oddsportal_scraper():
+    """Background task that scrapes OddsPortal every hour for odds updates"""
+    # Wait 2 minutes on startup
+    await asyncio.sleep(120)
+    
+    sports_to_scrape = ["basketball_nba", "americanfootball_nfl", "baseball_mlb", "icehockey_nhl", "soccer_epl"]
+    
+    while True:
+        try:
+            if DATA_SOURCE == 'oddsportal':
+                logger.info("Running hourly OddsPortal scraping...")
+                
+                for sport_key in sports_to_scrape:
+                    try:
+                        from oddsportal_scraper import scrape_oddsportal
+                        events = await scrape_oddsportal(sport_key)
+                        
+                        if events:
+                            # Store odds snapshots for line movement tracking
+                            for event in events:
+                                await store_odds_snapshot(event)
+                            
+                            # Update cache
+                            cache_key = f"{sport_key}_h2h,spreads,totals"
+                            events_cache[cache_key] = (events, datetime.now(timezone.utc))
+                            
+                            logger.info(f"Scraped {len(events)} events for {sport_key}")
+                        
+                        await asyncio.sleep(10)  # Small delay between sports
+                        
+                    except Exception as e:
+                        logger.error(f"Error scraping {sport_key}: {e}")
+                
+                logger.info("Hourly OddsPortal scraping complete")
+            
+            await asyncio.sleep(3600)  # Run every hour
+            
+        except Exception as e:
+            logger.error(f"Scheduled OddsPortal scraper error: {e}")
             await asyncio.sleep(300)
 
 @app.on_event("startup")
@@ -1775,6 +1824,10 @@ async def startup_event():
     # Start recommendation generator
     asyncio.create_task(scheduled_recommendation_generator())
     logger.info("Started recommendation generator - runs every 6 hours")
+    
+    # Start OddsPortal scraper
+    asyncio.create_task(scheduled_oddsportal_scraper())
+    logger.info("Started OddsPortal scraper - runs every hour")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
