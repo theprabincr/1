@@ -404,16 +404,20 @@ Provide analysis on:
     }
 
 @api_router.get("/recommendations")
-async def get_recommendations(sport_key: Optional[str] = None, limit: int = 10):
-    """Get AI-generated bet recommendations"""
-    query = {"result": "pending"}
+async def get_recommendations(sport_key: Optional[str] = None, limit: int = 10, min_odds: float = 1.5):
+    """Get AI-generated bet recommendations - sorted by confidence, filtered by min odds"""
+    query = {
+        "result": "pending",
+        "odds_at_prediction": {"$gte": min_odds, "$lte": 20}
+    }
     if sport_key:
         query["sport_key"] = sport_key
     
+    # Sort by confidence (highest first)
     predictions = await db.predictions.find(
         query,
         {"_id": 0}
-    ).sort("created_at", -1).limit(limit).to_list(limit)
+    ).sort("confidence", -1).limit(limit).to_list(limit)
     
     return predictions
 
