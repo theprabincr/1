@@ -595,7 +595,7 @@ def extract_opening_odds_from_page(content: str) -> Dict:
                     opening["away"] = away
                     opening["timestamp"] = datetime.now(timezone.utc).isoformat()
                     break
-            except:
+            except (ValueError, IndexError):
                 pass
     
     return opening
