@@ -1627,12 +1627,13 @@ async def fetch_event_result(sport_key: str, event_id: str, home_team: str, away
 @api_router.get("/scores/{sport_key}")
 async def get_scores(sport_key: str, days_from: int = 3):
     """Get recent scores for completed events"""
-    if not ODDS_API_KEY:
+    api_key = await get_active_api_key()
+    if not api_key:
         return {"error": "API key not configured", "scores": []}
     
     try:
         params = {
-            "apiKey": ODDS_API_KEY,
+            "apiKey": api_key,
             "daysFrom": days_from
         }
         
