@@ -900,14 +900,23 @@ REASONING: [2-3 sentences on why this has 70%+ win probability]"""
         
         analysis_lower = analysis_text.lower()
         
+        # Check if AI recommends no bet
+        if "no_bet" in analysis_lower or "no bet" in analysis_lower:
+            logger.info(f"Skipping {home_team} vs {away_team} - AI recommends NO_BET (no strong edge)")
+            return None
+        
         # Extract confidence
         try:
-            import re
             conf_match = re.search(r'confidence[:\s]*(\d+)', analysis_lower)
             if conf_match:
                 confidence = int(conf_match.group(1)) / 10
         except Exception:
             pass
+        
+        # Skip if confidence is below 70% (7/10)
+        if confidence < 0.70:
+            logger.info(f"Skipping {home_team} vs {away_team} - confidence {confidence*100:.0f}% below 70% threshold")
+            return None
         
         # Determine market type and pick
         if "market:" in analysis_lower:
@@ -948,7 +957,7 @@ REASONING: [2-3 sentences on why this has 70%+ win probability]"""
             logger.info(f"Skipping {home_team} vs {away_team} - odds outside 1.5-20 range: {odds_at_prediction}")
             return None
         
-        # Create prediction
+        # Create prediction (only 70%+ confidence reaches here)
         prediction = PredictionCreate(
             event_id=event.get("id"),
             sport_key=sport_key,
@@ -957,7 +966,7 @@ REASONING: [2-3 sentences on why this has 70%+ win probability]"""
             commence_time=event.get("commence_time"),
             prediction_type=prediction_type,
             predicted_outcome=predicted_outcome,
-            confidence=min(max(confidence, 0.3), 0.95),  # Between 30-95%
+            confidence=min(max(confidence, 0.70), 0.95),  # Between 70-95%
             analysis=analysis_text,
             ai_model="gpt-5.2",
             odds_at_prediction=odds_at_prediction
@@ -965,6 +974,7 @@ REASONING: [2-3 sentences on why this has 70%+ win probability]"""
         
         # Save to database
         await create_recommendation(prediction)
+        logger.info(f"Created 70%+ confidence recommendation: {home_team} vs {away_team} - {confidence*100:.0f}%")
         return prediction.model_dump()
         
     except Exception as e:
