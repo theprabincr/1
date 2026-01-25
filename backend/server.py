@@ -30,6 +30,7 @@ EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 
 # Events cache to reduce scraping (1 hour cache)
 events_cache = {}
+mock_events_cache = {}  # Cache for mock events
 CACHE_DURATION_MINUTES = 60
 
 # Last scrape timestamp for status
