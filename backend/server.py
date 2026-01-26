@@ -1806,35 +1806,31 @@ async def analyze_event_v5(event_id: str, sport_key: str = "basketball_nba"):
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 
-# NEW: Compare V2 vs V3 vs Smart V4 vs V5 algorithm performance
-@api_router.get("/predictions/comparison")
-async def compare_algorithms():
-    """Compare performance of V2 (legacy) vs V3 (enhanced) vs Smart V4 vs V5 algorithms"""
+# Algorithm Performance Stats (V5 only)
+@api_router.get("/predictions/stats")
+async def get_prediction_stats():
+    """Get BetPredictor V5 performance statistics"""
     
-    # Get all predictions
-    all_predictions = await db.predictions.find({}).to_list(10000)
+    all_predictions = await db.predictions.find({"ai_model": "betpredictor_v5"}).to_list(10000)
     
-    v2_predictions = [p for p in all_predictions if p.get("ai_model") in ["custom_algorithm_v1", "gpt-5.2", "claude"]]
-    v3_predictions = [p for p in all_predictions if p.get("ai_model") == "enhanced_v3"]
-    v4_predictions = [p for p in all_predictions if p.get("ai_model") == "smart_v4"]
-    v5_predictions = [p for p in all_predictions if p.get("ai_model") == "betpredictor_v5"]
+    completed = [p for p in all_predictions if p.get("result") in ["win", "loss"]]
+    wins = len([p for p in completed if p.get("result") == "win"])
+    losses = len([p for p in completed if p.get("result") == "loss"])
+    pending = len([p for p in all_predictions if p.get("result") == "pending"])
     
-    def calculate_stats(predictions):
-        completed = [p for p in predictions if p.get("result") in ["win", "loss"]]
-        wins = len([p for p in completed if p.get("result") == "win"])
-        losses = len([p for p in completed if p.get("result") == "loss"])
-        pending = len([p for p in predictions if p.get("result") == "pending"])
-        
-        # Count by pick type
-        ml_picks = len([p for p in predictions if p.get("prediction_type") == "moneyline"])
-        spread_picks = len([p for p in predictions if p.get("prediction_type") == "spread"])
-        total_picks = len([p for p in predictions if p.get("prediction_type") == "total"])
-        
-        win_rate = wins / len(completed) * 100 if completed else 0
-        avg_confidence = sum(p.get("confidence", 0) for p in predictions) / len(predictions) * 100 if predictions else 0
-        
-        return {
-            "total": len(predictions),
+    # Count by pick type
+    ml_picks = len([p for p in all_predictions if p.get("prediction_type") == "moneyline"])
+    spread_picks = len([p for p in all_predictions if p.get("prediction_type") == "spread"])
+    total_picks = len([p for p in all_predictions if p.get("prediction_type") == "total"])
+    
+    win_rate = wins / len(completed) * 100 if completed else 0
+    avg_confidence = sum(p.get("confidence", 0) for p in all_predictions) / len(all_predictions) * 100 if all_predictions else 0
+    
+    return {
+        "algorithm": "betpredictor_v5",
+        "description": "Comprehensive line movement analysis with sharp money detection, squad/H2H/venue factors",
+        "stats": {
+            "total": len(all_predictions),
             "completed": len(completed),
             "wins": wins,
             "losses": losses,
@@ -1847,21 +1843,9 @@ async def compare_algorithms():
                 "total": total_picks
             }
         }
-    
-    return {
-        "v2_legacy": calculate_stats(v2_predictions),
-        "v3_enhanced": calculate_stats(v3_predictions),
-        "smart_v4": calculate_stats(v4_predictions),
-        "betpredictor_v5": calculate_stats(v5_predictions),
-        "description": {
-            "v2_legacy": "Original algorithm with basic factors",
-            "v3_enhanced": "Enhanced factors without LLM",
-            "smart_v4": "Smart algorithm - diverse predictions (ML/Spread/Total), no LLM required",
-            "betpredictor_v5": "Comprehensive line movement analysis with sharp money detection, squad/H2H/venue factors"
-        }
     }
 
-# NEW: View upcoming games in prediction window
+# View upcoming games in prediction window
 @api_router.get("/upcoming-predictions-window")
 async def get_upcoming_prediction_window():
     """View games that are in the 1-hour prediction window (45-75 min before start)"""
