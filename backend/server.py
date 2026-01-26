@@ -1512,7 +1512,74 @@ async def compare_algorithms():
         "v3_enhanced": calculate_stats(v3_predictions),
         "recommendation": "V3 Enhanced algorithm predicts 1-2 hours before games with deeper analysis"
     }
-async def get_odds_comparison(event_id: str, sport_key: str = "basketball_nba"):
+
+# NEW: View upcoming games in prediction window
+@api_router.get("/upcoming-predictions-window")
+async def get_upcoming_prediction_window():
+    """View games that are in the 1-2 hour prediction window"""
+    now = datetime.now(timezone.utc)
+    window_start = now + timedelta(hours=1)
+    window_end = now + timedelta(hours=2)
+    
+    sports = ["basketball_nba", "americanfootball_nfl", "icehockey_nhl", "soccer_epl"]
+    games_in_window = []
+    upcoming_games = []
+    
+    for sport_key in sports:
+        try:
+            events = await fetch_espn_events_with_odds(sport_key, days_ahead=1)
+            
+            for event in events:
+                commence_str = event.get("commence_time", "")
+                if not commence_str:
+                    continue
+                
+                try:
+                    commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
+                    time_to_start = (commence_time - now).total_seconds() / 60  # in minutes
+                    
+                    # Check if already has V3 prediction
+                    has_v3_prediction = await db.predictions.find_one({
+                        "event_id": event.get("id"),
+                        "ai_model": "enhanced_v3"
+                    }) is not None
+                    
+                    game_info = {
+                        "event_id": event.get("id"),
+                        "sport": sport_key,
+                        "home_team": event.get("home_team"),
+                        "away_team": event.get("away_team"),
+                        "commence_time": commence_str,
+                        "minutes_to_start": round(time_to_start),
+                        "has_v3_prediction": has_v3_prediction
+                    }
+                    
+                    if window_start <= commence_time <= window_end:
+                        game_info["status"] = "IN_PREDICTION_WINDOW"
+                        games_in_window.append(game_info)
+                    elif now < commence_time < window_start:
+                        game_info["status"] = "UPCOMING"
+                        upcoming_games.append(game_info)
+                    
+                except Exception:
+                    continue
+                    
+        except Exception as e:
+            logger.error(f"Error fetching events for {sport_key}: {e}")
+    
+    return {
+        "current_time": now.isoformat(),
+        "prediction_window": {
+            "start": window_start.isoformat(),
+            "end": window_end.isoformat()
+        },
+        "games_in_window": sorted(games_in_window, key=lambda x: x["minutes_to_start"]),
+        "upcoming_games": sorted(upcoming_games, key=lambda x: x["minutes_to_start"])[:10],
+        "total_in_window": len(games_in_window),
+        "message": "Games in prediction window will be automatically analyzed by V3 algorithm"
+    }
+
+@api_router.get("/odds-comparison/{event_id}")
     """Get odds comparison for an event - uses ESPN data in European/decimal format"""
     # Try multiple sports if not found
     sports_to_try = [sport_key, "basketball_nba", "americanfootball_nfl", "baseball_mlb", "icehockey_nhl", "soccer_epl"]
