@@ -33,27 +33,30 @@ const navItems = [
   { path: "/settings", icon: Settings, label: "Settings" },
 ];
 
-// Sidebar Component
+// Sidebar Component with Live Events
 const Sidebar = () => {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
-  const [dataStatus, setDataStatus] = useState({ source: 'oddsportal', lastUpdate: null });
+  const [dataStatus, setDataStatus] = useState({ source: 'espn', lastUpdate: null });
+  const [liveGames, setLiveGames] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [notifRes, statusRes] = await Promise.all([
+        const [notifRes, statusRes, liveRes] = await Promise.all([
           axios.get(`${API}/notifications?unread_only=true&limit=1`),
-          axios.get(`${API}/scraper-status`)
+          axios.get(`${API}/scraper-status`),
+          axios.get(`${API}/live-scores`)
         ]);
         setUnreadNotifications(notifRes.data.unread_count);
         setDataStatus(statusRes.data);
+        setLiveGames(liveRes.data.games || []);
       } catch (error) {
         console.error("Error fetching sidebar data:", error);
       }
     };
     
     fetchData();
-    const interval = setInterval(fetchData, 60000); // Refresh every minute
+    const interval = setInterval(fetchData, 10000); // Refresh every 10 seconds
     return () => clearInterval(interval);
   }, []);
 
@@ -66,7 +69,7 @@ const Sidebar = () => {
           </div>
           <div>
             <h1 className="font-mono font-bold text-lg text-text-primary">BetPredictor</h1>
-            <p className="text-xs text-text-muted">AI-Powered Picks</p>
+            <p className="text-xs text-text-muted">Algorithm-Powered</p>
           </div>
         </div>
 
@@ -90,7 +93,7 @@ const Sidebar = () => {
           )}
         </NavLink>
         
-        <nav className="space-y-1 max-h-[calc(100vh-320px)] overflow-y-auto">
+        <nav className="space-y-1">
           {navItems.map((item) => (
             <NavLink
               key={item.path}
@@ -106,12 +109,39 @@ const Sidebar = () => {
             </NavLink>
           ))}
         </nav>
+
+        {/* Live Games Section */}
+        {liveGames.length > 0 && (
+          <div className="mt-6 pt-4 border-t border-zinc-800">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-2 h-2 rounded-full bg-semantic-success animate-pulse"></div>
+              <span className="text-xs font-mono text-text-muted uppercase">Live Games ({liveGames.length})</span>
+            </div>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {liveGames.slice(0, 5).map((game, i) => (
+                <div key={game.espn_id || i} className="p-2 bg-zinc-800/50 rounded-lg">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-text-muted truncate max-w-[80px]">{game.away_team?.split(' ').pop()}</span>
+                    <span className="font-mono font-bold text-brand-primary">{game.away_score}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-text-muted truncate max-w-[80px]">{game.home_team?.split(' ').pop()}</span>
+                    <span className="font-mono font-bold text-brand-primary">{game.home_score}</span>
+                  </div>
+                  <div className="text-[10px] text-text-muted text-center mt-1">
+                    {game.clock || 'LIVE'} {game.period ? `Q${game.period}` : ''}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       
       <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-zinc-800 space-y-2">
         <div className="flex items-center gap-3 text-sm">
           <Globe className="w-4 h-4 text-brand-primary" />
-          <span className="text-text-muted">Source: <span className="text-brand-primary font-medium">OddsPortal</span></span>
+          <span className="text-text-muted">Source: <span className="text-brand-primary font-medium">ESPN</span></span>
         </div>
         <div className="flex items-center gap-3 text-sm">
           <Activity className="w-4 h-4 text-semantic-success" />
