@@ -245,17 +245,19 @@ class SmartPredictionEngine:
         best_edge = 0
         best_odds = 0
         
-        if home_edge >= self.min_edge:
+        if home_edge >= self.min_edge and home_ml >= self.min_odds:
             best_side = home_team
             best_edge = home_edge
             best_odds = home_ml
         
-        if away_edge >= self.min_edge and away_edge > best_edge:
-            best_side = away_team
-            best_edge = away_edge
-            best_odds = away_ml
+        if away_edge >= self.min_edge and away_ml >= self.min_odds:
+            # Only switch to away if it has better edge OR away is underdog with good value
+            if away_edge > best_edge:
+                best_side = away_team
+                best_edge = away_edge
+                best_odds = away_ml
         
-        if best_side and best_odds >= 1.5:  # Consider odds >= 1.5
+        if best_side and best_odds >= self.min_odds:  # Accept odds >= 1.5 (including favorites)
             confidence = self._calculate_confidence(best_edge, len(factors))
             ev = best_edge * (best_odds - 1) * 100  # Expected value %
             
