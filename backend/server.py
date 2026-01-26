@@ -1598,10 +1598,10 @@ async def compare_algorithms():
 # NEW: View upcoming games in prediction window
 @api_router.get("/upcoming-predictions-window")
 async def get_upcoming_prediction_window():
-    """View games that are in the 1-2 hour prediction window"""
+    """View games that are in the 1-hour prediction window (45-75 min before start)"""
     now = datetime.now(timezone.utc)
-    window_start = now + timedelta(hours=1)
-    window_end = now + timedelta(hours=2)
+    window_start = now + timedelta(minutes=45)  # 45 min from now
+    window_end = now + timedelta(minutes=75)    # 75 min from now (1 hour ± 15 min)
     
     sports = ["basketball_nba", "americanfootball_nfl", "icehockey_nhl", "soccer_epl"]
     games_in_window = []
