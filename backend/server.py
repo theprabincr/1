@@ -415,7 +415,7 @@ async def root():
 @api_router.get("/sports", response_model=List[Sport])
 async def list_sports():
     """Get list of available sports"""
-    # Return hardcoded sports list (OddsPortal supported)
+    # Return hardcoded sports list (ESPN supported)
     return [
         {"key": "americanfootball_nfl", "group": "American Football", "title": "NFL", "description": "US Football", "active": True, "has_outrights": False},
         {"key": "basketball_nba", "group": "Basketball", "title": "NBA", "description": "US Basketball", "active": True, "has_outrights": False},
