@@ -820,157 +820,17 @@ async def create_recommendation(prediction: PredictionCreate):
     return pred_obj
 
 @api_router.post("/generate-recommendations")
-async def generate_recommendations(sport_key: str, background_tasks: BackgroundTasks):
-    """Generate AI recommendations for upcoming events"""
-    events = await get_events(sport_key)
-    
-    if not events:
-        return {"message": "No events found", "recommendations": []}
-    
-    recommendations = []
-    
-    # Analyze top 3 events
-    for event in events[:3]:
-        odds_data = {
-            "bookmakers": event.get("bookmakers", []),
-            "home_team": event.get("home_team"),
-            "away_team": event.get("away_team")
-        }
-        
-        analysis_request = AnalysisRequest(
-            event_id=event.get("id"),
-            home_team=event.get("home_team"),
-            away_team=event.get("away_team"),
-            sport_key=sport_key,
-            odds_data=odds_data
-        )
-        
-        analysis = await analyze_game(analysis_request)
-        
-        # Parse AI recommendation and create prediction
-        # This is simplified - in production you'd parse the AI response more carefully
-        best_odds = get_best_odds(event.get("bookmakers", []))
-        
-        prediction = PredictionCreate(
-            event_id=event.get("id"),
-            sport_key=sport_key,
-            home_team=event.get("home_team"),
-            away_team=event.get("away_team"),
-            commence_time=event.get("commence_time"),
-            prediction_type="moneyline",
-            predicted_outcome=event.get("home_team"),  # Simplified
-            confidence=0.65,
-            analysis=analysis.get("gpt_analysis", ""),
-            ai_model="gpt-5.2",
-            odds_at_prediction=best_odds.get("home_price", 0)
-        )
-        
-        saved = await create_recommendation(prediction)
-        recommendations.append(saved)
-    
-    return {"message": f"Generated {len(recommendations)} recommendations", "recommendations": recommendations}
-
 @api_router.post("/force-generate-picks")
-async def force_generate_picks(background_tasks: BackgroundTasks):
-    """Force immediate generation of picks using custom algorithm"""
-    background_tasks.add_task(auto_generate_recommendations)
-    return {"message": "Pick generation started in background using custom algorithm - picks will appear shortly"}
-
-# Auto-generate recommendations using CUSTOM ALGORITHM (no AI)
-async def auto_generate_recommendations():
-    """Automatically generate picks using custom betting algorithm - only 70%+ confidence within 3 day window"""
-    logger.info("Starting ALGORITHMIC pick generation (no AI)...")
-    sports_to_analyze = ["basketball_nba", "americanfootball_nfl", "icehockey_nhl", "soccer_epl"]
-    
-    now = datetime.now(timezone.utc)
-    three_days_later = now + timedelta(days=3)
-    picks_generated = 0
-    
-    for sport_key in sports_to_analyze:
-        try:
-            # Fetch events with REAL odds from ESPN
-            events = await fetch_espn_events_with_odds(sport_key, days_ahead=3)
-            if not events:
-                logger.info(f"No events found for {sport_key}")
-                continue
-            
-            logger.info(f"Found {len(events)} events for {sport_key}")
-            
-            # Filter events within time window (later today to 3 days from now)
-            valid_events = []
-            for event in events:
-                try:
-                    commence_str = event.get("commence_time", "")
-                    if commence_str:
-                        commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
-                        # Must start in the future and within 3 days
-                        if now < commence_time <= three_days_later:
-                            valid_events.append(event)
-                except Exception:
-                    continue
-            
-            logger.info(f"Found {len(valid_events)} valid pre-match events for {sport_key}")
-            
-            # Analyze valid events using custom algorithm
-            for event in valid_events[:5]:  # Top 5 per sport
-                event_id = event.get("id")
-                
-                # Check if we already have a recommendation for this event
-                existing = await db.predictions.find_one({"event_id": event_id, "result": "pending"})
-                if existing:
-                    logger.debug(f"Skipping {event_id} - already has prediction")
-                    continue
-                
-                # Get comprehensive matchup data for algorithm
-                try:
-                    logger.info(f"Analyzing: {event.get('home_team')} vs {event.get('away_team')}")
-                    matchup_data = await get_comprehensive_matchup_data(event, sport_key)
-                    
-                    # Get line movement data from our database
-                    line_movement = await get_line_movement_data(event_id)
-                    
-                    # Run custom betting algorithm
-                    pick_result = calculate_pick(matchup_data, line_movement)
-                    
-                    if pick_result:
-                        logger.info(f"Algorithm result: {pick_result.get('pick')} conf={pick_result.get('confidence', 0)}")
-                        
-                        if pick_result.get("confidence", 0) >= 0.70:
-                            # Create prediction from algorithm result
-                            prediction = PredictionCreate(
-                                event_id=event_id,
-                                sport_key=sport_key,
-                                home_team=event.get("home_team"),
-                                away_team=event.get("away_team"),
-                                commence_time=event.get("commence_time"),
-                                prediction_type=pick_result.get("pick_type", "moneyline"),
-                                predicted_outcome=pick_result.get("pick", ""),
-                                confidence=pick_result.get("confidence", 0.70),
-                                analysis=pick_result.get("reasoning", ""),
-                                ai_model="custom_algorithm_v1",
-                                odds_at_prediction=pick_result.get("odds", 1.91)
-                            )
-                            
-                            await create_recommendation(prediction)
-                            picks_generated += 1
-                            logger.info(f"ALGORITHM PICK: {event.get('home_team')} vs {event.get('away_team')} - "
-                                      f"{pick_result.get('pick')} @ {pick_result.get('confidence')*100:.0f}% conf, "
-                                      f"{pick_result.get('edge', 0):.1f}% edge")
-                        else:
-                            logger.info(f"Confidence too low: {pick_result.get('confidence', 0)*100:.0f}%")
-                    else:
-                        logger.info(f"No pick returned for {event.get('home_team')} vs {event.get('away_team')}")
-                        
-                except Exception as e:
-                    logger.error(f"Error analyzing {event_id}: {e}")
-                    import traceback
-                    traceback.print_exc()
-                    continue
-                    
-        except Exception as e:
-            logger.error(f"Error generating recommendations for {sport_key}: {e}")
-    
-    logger.info(f"Algorithmic pick generation complete - {picks_generated} picks created")
+async def force_generate_picks():
+    """
+    Force immediate analysis of games in the prediction window.
+    Note: Predictions are automatically generated 1 hour before games.
+    This endpoint manually triggers analysis for games currently in the 45-75 minute window.
+    """
+    return {
+        "message": "BetPredictor V5 automatically generates picks 1 hour before game start",
+        "note": "Use POST /api/analyze-v5/{event_id} to manually analyze a specific event"
+    }
 
 
 async def get_line_movement_data(event_id: str) -> Dict:
@@ -981,17 +841,14 @@ async def get_line_movement_data(event_id: str) -> Dict:
             return {
                 "opening_home_odds": opening.get("home_odds"),
                 "opening_away_odds": opening.get("away_odds"),
+                "opening_spread": opening.get("spread"),
+                "opening_total": opening.get("total"),
                 "opening_time": opening.get("timestamp")
             }
     except Exception as e:
         logger.error(f"Error getting line movement for {event_id}: {e}")
     return {}
 
-
-# Keep the old function for backward compatibility but it's not used
-async def generate_smart_recommendation(event: dict, sport_key: str, odds_data: dict) -> Optional[dict]:
-    """DEPRECATED - Use auto_generate_recommendations with custom algorithm instead"""
-    return None
 
 # Update recommendations based on line movement
 async def update_recommendations_on_line_movement():
