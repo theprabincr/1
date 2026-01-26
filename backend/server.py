@@ -2546,7 +2546,7 @@ async def scheduled_pregame_predictor():
                                 existing = await db.predictions.find_one({
                                     "event_id": event_id, 
                                     "result": "pending",
-                                    "ai_model": {"$in": ["betpredictor_v5", "smart_v4"]}
+                                    "ai_model": "betpredictor_v5"
                                 })
                                 
                                 if existing:
