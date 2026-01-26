@@ -1948,7 +1948,10 @@ def format_espn_odds_comparison(event: dict) -> dict:
 
 # Helper functions
 async def store_odds_snapshot(event: dict):
-    """Store odds snapshot for line movement tracking - stores opening odds and snapshots every 5 minutes"""
+    """
+    Store odds snapshot for line movement tracking - ALL markets (ML, Spread, Totals)
+    Stores opening odds and snapshots every 5 minutes
+    """
     event_id = event.get("id")
     now = datetime.now(timezone.utc)
     timestamp = now.isoformat()
@@ -1969,85 +1972,153 @@ async def store_odds_snapshot(event: dict):
         "time_key": time_key
     })
     
-    # Collect all bookmaker odds for this snapshot
-    all_home_odds = []
-    all_away_odds = []
+    # Collect ALL market odds for this snapshot
+    all_home_ml = []
+    all_away_ml = []
+    all_spreads = []  # Home spread
+    all_spread_odds = []
+    all_totals = []  # Total points line
+    all_over_odds = []
+    all_under_odds = []
     bookmaker_snapshots = []
     
     for bookmaker in event.get("bookmakers", []):
         bm_key = bookmaker.get("key")
         bm_title = bookmaker.get("title", bm_key)
         
+        bm_snapshot = {
+            "bookmaker": bm_key,
+            "bookmaker_title": bm_title
+        }
+        
         for market in bookmaker.get("markets", []):
             market_key = market.get("key", "h2h")
-            if market_key != "h2h":
-                continue  # Only track moneyline for line movement
-                
             outcomes = market.get("outcomes", [])
             
-            # Extract home and away odds
-            home_odds = None
-            away_odds = None
-            
-            for outcome in outcomes:
-                name = outcome.get("name", "").lower()
-                price = outcome.get("price")
+            if market_key == "h2h":  # Moneyline
+                home_odds = None
+                away_odds = None
                 
-                if name == "home" or home_team.lower() in name:
-                    home_odds = price
-                elif name == "away" or away_team.lower() in name:
-                    away_odds = price
-            
-            # If not found by name, use position (first = home, second = away)
-            if home_odds is None and len(outcomes) >= 1:
-                home_odds = outcomes[0].get("price")
-            if away_odds is None and len(outcomes) >= 2:
-                away_odds = outcomes[1].get("price")
-            
-            if home_odds and away_odds:
-                all_home_odds.append(home_odds)
-                all_away_odds.append(away_odds)
-                bookmaker_snapshots.append({
-                    "bookmaker": bm_key,
-                    "bookmaker_title": bm_title,
-                    "home_odds": home_odds,
-                    "away_odds": away_odds
-                })
+                for outcome in outcomes:
+                    name = outcome.get("name", "").lower()
+                    price = outcome.get("price")
+                    
+                    if name == "home" or home_team.lower() in name:
+                        home_odds = price
+                    elif name == "away" or away_team.lower() in name:
+                        away_odds = price
+                
+                # If not found by name, use position (first = home, second = away)
+                if home_odds is None and len(outcomes) >= 1:
+                    home_odds = outcomes[0].get("price")
+                if away_odds is None and len(outcomes) >= 2:
+                    away_odds = outcomes[1].get("price")
+                
+                if home_odds and away_odds:
+                    all_home_ml.append(home_odds)
+                    all_away_ml.append(away_odds)
+                    bm_snapshot["home_ml"] = home_odds
+                    bm_snapshot["away_ml"] = away_odds
+                    
+            elif market_key == "spreads":  # Point Spread
+                for outcome in outcomes:
+                    name = outcome.get("name", "").lower()
+                    price = outcome.get("price")
+                    point = outcome.get("point", 0)
+                    
+                    if name == "home" or home_team.lower() in name:
+                        all_spreads.append(point)
+                        all_spread_odds.append(price)
+                        bm_snapshot["home_spread"] = point
+                        bm_snapshot["spread_odds"] = price
+                        
+            elif market_key == "totals":  # Over/Under
+                for outcome in outcomes:
+                    name = outcome.get("name", "").lower()
+                    price = outcome.get("price")
+                    point = outcome.get("point", 0)
+                    
+                    if "over" in name:
+                        all_totals.append(point)
+                        all_over_odds.append(price)
+                        bm_snapshot["total_line"] = point
+                        bm_snapshot["over_odds"] = price
+                    elif "under" in name:
+                        all_under_odds.append(price)
+                        bm_snapshot["under_odds"] = price
+        
+        if bm_snapshot.get("home_ml") or bm_snapshot.get("home_spread") or bm_snapshot.get("total_line"):
+            bookmaker_snapshots.append(bm_snapshot)
     
-    # Calculate average odds across all bookmakers
-    avg_home = sum(all_home_odds) / len(all_home_odds) if all_home_odds else None
-    avg_away = sum(all_away_odds) / len(all_away_odds) if all_away_odds else None
+    # Calculate averages across all bookmakers
+    avg_home_ml = sum(all_home_ml) / len(all_home_ml) if all_home_ml else None
+    avg_away_ml = sum(all_away_ml) / len(all_away_ml) if all_away_ml else None
+    avg_spread = sum(all_spreads) / len(all_spreads) if all_spreads else None
+    avg_total = sum(all_totals) / len(all_totals) if all_totals else None
+    avg_over_odds = sum(all_over_odds) / len(all_over_odds) if all_over_odds else None
+    avg_under_odds = sum(all_under_odds) / len(all_under_odds) if all_under_odds else None
     
     # Store opening odds if this is first time seeing this event
-    if not existing_opening and avg_home and avg_away:
-        await db.opening_odds.insert_one({
+    if not existing_opening and (avg_home_ml or avg_spread or avg_total):
+        opening_data = {
             "event_id": event_id,
             "home_team": home_team,
             "away_team": away_team,
-            "home_odds": round(avg_home, 2),
-            "away_odds": round(avg_away, 2),
-            "bookmakers": bookmaker_snapshots,
             "timestamp": timestamp,
-            "commence_time": commence_time  # Store for cleanup reference
-        })
-        logger.info(f"Stored opening odds for {home_team} vs {away_team}: {avg_home:.2f}/{avg_away:.2f}")
+            "commence_time": commence_time,
+            "bookmakers": bookmaker_snapshots
+        }
+        
+        # ML
+        if avg_home_ml and avg_away_ml:
+            opening_data["home_odds"] = round(avg_home_ml, 2)
+            opening_data["away_odds"] = round(avg_away_ml, 2)
+        
+        # Spread
+        if avg_spread is not None:
+            opening_data["spread"] = round(avg_spread, 1)
+            opening_data["spread_odds"] = round(sum(all_spread_odds) / len(all_spread_odds), 2) if all_spread_odds else 1.91
+        
+        # Totals
+        if avg_total is not None:
+            opening_data["total"] = round(avg_total, 1)
+            opening_data["over_odds"] = round(avg_over_odds, 2) if avg_over_odds else 1.91
+            opening_data["under_odds"] = round(avg_under_odds, 2) if avg_under_odds else 1.91
+        
+        await db.opening_odds.insert_one(opening_data)
+        logger.info(f"Stored opening odds for {home_team} vs {away_team}: ML={avg_home_ml:.2f}/{avg_away_ml:.2f}, Spread={avg_spread}, Total={avg_total}")
     
     # Store 5-minute snapshot for line movement tracking (avoid duplicates within same 5-min window)
-    if not existing_snapshot and avg_home and avg_away:
+    if not existing_snapshot and (avg_home_ml or avg_spread or avg_total):
         snapshot = {
             "event_id": event_id,
             "home_team": home_team,
             "away_team": away_team,
             "timestamp": timestamp,
             "time_key": time_key,
-            "home_odds": round(avg_home, 2),
-            "away_odds": round(avg_away, 2),
-            "bookmakers": bookmaker_snapshots,
+            "commence_time": commence_time,
             "num_bookmakers": len(bookmaker_snapshots),
-            "commence_time": commence_time  # Store for cleanup reference
+            "bookmakers": bookmaker_snapshots
         }
+        
+        # ML
+        if avg_home_ml and avg_away_ml:
+            snapshot["home_odds"] = round(avg_home_ml, 2)
+            snapshot["away_odds"] = round(avg_away_ml, 2)
+        
+        # Spread
+        if avg_spread is not None:
+            snapshot["spread"] = round(avg_spread, 1)
+            snapshot["spread_odds"] = round(sum(all_spread_odds) / len(all_spread_odds), 2) if all_spread_odds else 1.91
+        
+        # Totals
+        if avg_total is not None:
+            snapshot["total"] = round(avg_total, 1)
+            snapshot["over_odds"] = round(avg_over_odds, 2) if avg_over_odds else 1.91
+            snapshot["under_odds"] = round(avg_under_odds, 2) if avg_under_odds else 1.91
+        
         await db.odds_history.insert_one(snapshot)
-        logger.debug(f"Stored 5-min snapshot for {home_team} vs {away_team}: H={avg_home:.2f} A={avg_away:.2f}")
+        logger.debug(f"Stored 5-min snapshot for {home_team} vs {away_team}: ML={avg_home_ml:.2f}/{avg_away_ml:.2f}, Spread={avg_spread}, Total={avg_total}")
 
 def format_odds_for_analysis(odds_data: dict) -> str:
     """Format odds data for AI analysis (decimal format)"""
