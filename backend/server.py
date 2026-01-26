@@ -256,7 +256,7 @@ async def manual_refresh_odds(sport_key: str = "basketball_nba"):
                         if commence_time > datetime.now(timezone.utc):
                             await store_odds_snapshot(event)
                             snapshots_stored += 1
-                    except:
+                    except Exception:
                         pass
             
             return {
