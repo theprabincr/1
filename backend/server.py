@@ -2365,31 +2365,48 @@ async def scheduled_line_movement_cleanup():
         try:
             logger.info("Running line movement cleanup for live/finished events...")
             now = datetime.now(timezone.utc)
-            deleted_count = 0
+            deleted_history_count = 0
+            deleted_opening_count = 0
             
             # Find events that have started and delete their line movement data
             event_ids = await db.odds_history.distinct("event_id")
             
             for event_id in event_ids:
-                # Get opening odds to check commence time
+                # Get commence time from opening_odds (now stored directly)
                 opening = await db.opening_odds.find_one({"event_id": event_id}, {"_id": 0})
                 
+                commence_str = None
                 if opening:
-                    # Check commence time
+                    commence_str = opening.get("commence_time")
+                
+                # Fallback: check odds_history
+                if not commence_str:
+                    history_record = await db.odds_history.find_one({"event_id": event_id})
+                    if history_record:
+                        commence_str = history_record.get("commence_time")
+                
+                # Fallback: check predictions
+                if not commence_str:
                     prediction = await db.predictions.find_one({"event_id": event_id}, {"commence_time": 1})
                     if prediction:
                         commence_str = prediction.get("commence_time", "")
-                        if commence_str:
-                            try:
-                                commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
-                                if commence_time <= now:
-                                    result = await db.odds_history.delete_many({"event_id": event_id})
-                                    deleted_count += result.deleted_count
-                            except Exception:
-                                pass
+                
+                if commence_str:
+                    try:
+                        commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
+                        if commence_time <= now:
+                            # Delete odds history
+                            result = await db.odds_history.delete_many({"event_id": event_id})
+                            deleted_history_count += result.deleted_count
+                            
+                            # Delete opening odds
+                            opening_result = await db.opening_odds.delete_one({"event_id": event_id})
+                            deleted_opening_count += opening_result.deleted_count
+                    except Exception:
+                        pass
             
-            if deleted_count > 0:
-                logger.info(f"Cleaned up {deleted_count} line movement records for started events")
+            if deleted_history_count > 0 or deleted_opening_count > 0:
+                logger.info(f"Cleaned up {deleted_history_count} history records, {deleted_opening_count} opening odds for started events")
             
             await asyncio.sleep(1800)  # Run every 30 minutes
             
