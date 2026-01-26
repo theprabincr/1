@@ -210,22 +210,27 @@ async def create_notification(notif_type: str, title: str, message: str, data: D
     notification_queue.append(notification.model_dump())
     return notification
 
-# ==================== SCRAPER STATUS ENDPOINT ====================
+# ==================== DATA SOURCE STATUS ====================
 
-@api_router.get("/scraper-status")
-async def get_scraper_status():
-    """Get OddsPortal scraper status"""
+@api_router.get("/data-source-status")
+async def get_data_source_status():
+    """Get ESPN data source status and line movement tracking info"""
     global last_scrape_time
     
     # Get cached events count
     total_cached = sum(len(events) for events, _ in events_cache.values())
     
+    # Count line movement snapshots
+    snapshot_count = await db.odds_history.count_documents({})
+    
     return {
-        "source": "oddsportal",
+        "source": "ESPN/DraftKings",
         "status": "active",
         "lastUpdate": last_scrape_time,
         "cachedEvents": total_cached,
-        "cacheDuration": CACHE_DURATION_MINUTES,
+        "lineMovementSnapshots": snapshot_count,
+        "refreshInterval": "15 minutes",
+        "predictionWindow": "1 hour before game",
         "sports": list(events_cache.keys())
     }
 
