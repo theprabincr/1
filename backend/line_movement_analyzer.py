@@ -1,21 +1,21 @@
 """
-Line Movement Analyzer V2 - Deep Line Movement Analysis
-Studies complete line movement history from opening to 1 hour before game.
+Line Movement Analyzer V3 - Complete Market Analysis
+Studies complete line movement history for ALL markets (ML, Spread, Totals).
 
 Key Features:
-1. Analyzes complete line movement trajectory (not just opening vs current)
-2. Identifies movement patterns (gradual drift, sharp moves, reversals)
+1. Analyzes ML, Spread, and Totals movement from opening to game time
+2. Identifies movement patterns across all markets
 3. Detects sharp money vs public money patterns
-4. Correlates movement timing with game factors
-5. Calculates line movement confidence score
-6. Identifies value based on overreaction/underreaction to news
+4. Correlates movements between markets (e.g., spread moving but ML not)
+5. Calculates market-specific confidence scores
+6. Identifies value in each market type
 
 Analysis Philosophy:
 - Sharp money typically comes in early (12-24 hours before)
 - Public money comes late (within 2 hours)
 - Reverse line movement = sharp action against public
 - Steam moves = coordinated sharp betting
-- Line settling = market found true price
+- Cross-market signals = when spread and totals confirm each other
 """
 import logging
 from datetime import datetime, timezone, timedelta
@@ -27,13 +27,16 @@ logger = logging.getLogger(__name__)
 
 class LineMovementAnalyzer:
     """
-    Comprehensive line movement analyzer that studies the complete
-    trajectory of odds from opening to pre-game.
+    Comprehensive line movement analyzer for ALL markets.
     """
     
     def __init__(self):
-        self.significant_move_threshold = 0.03  # 3% move is significant
-        self.steam_move_threshold = 0.05  # 5% rapid move
+        self.significant_ml_move = 0.03  # 3% ML move is significant
+        self.significant_spread_move = 0.5  # Half point spread move
+        self.significant_total_move = 1.0  # 1 point total move
+        self.steam_ml_threshold = 0.05  # 5% rapid ML move
+        self.steam_spread_threshold = 1.0  # 1 point rapid spread move
+        self.steam_total_threshold = 1.5  # 1.5 point rapid total move
         self.sharp_timing_hours = (12, 48)  # Sharp money window
         self.public_timing_hours = (0, 3)  # Public money window
     
@@ -47,29 +50,23 @@ class LineMovementAnalyzer:
         away_team: str
     ) -> Dict:
         """
-        Perform complete analysis of line movement history.
-        
-        Returns comprehensive analysis including:
-        - Movement trajectory
-        - Sharp money indicators
-        - Steam moves detected
-        - Reverse line movement
-        - Confidence adjustment
-        - Reasoning for why line moved
+        Perform complete analysis of line movement for ALL markets.
         """
         analysis = {
             "has_meaningful_movement": False,
-            "movement_direction": "neutral",  # home, away, or neutral
-            "total_movement_pct": 0,
-            "sharp_money_side": None,
-            "public_money_side": None,
-            "reverse_line_movement": False,
-            "steam_moves": [],
-            "movement_phases": [],
+            "markets": {
+                "moneyline": self._create_empty_market_analysis(),
+                "spread": self._create_empty_market_analysis(),
+                "totals": self._create_empty_market_analysis()
+            },
+            "cross_market_signals": [],
+            "overall_direction": "neutral",  # home, away, or neutral
+            "sharp_money_detected": False,
             "confidence_adjustment": 0,
-            "value_side": None,
+            "recommended_market": None,
             "reasoning": [],
-            "key_insights": []
+            "key_insights": [],
+            "summary": ""
         }
         
         if not line_history or len(line_history) < 2:
@@ -85,476 +82,657 @@ class LineMovementAnalyzer:
         except:
             game_time = datetime.now(timezone.utc) + timedelta(hours=6)
         
-        # 1. Calculate total movement
+        # Analyze each market
+        analysis["markets"]["moneyline"] = self._analyze_moneyline_movement(
+            line_history, opening_odds, current_odds, game_time, home_team, away_team
+        )
+        
+        analysis["markets"]["spread"] = self._analyze_spread_movement(
+            line_history, opening_odds, current_odds, game_time, home_team, away_team
+        )
+        
+        analysis["markets"]["totals"] = self._analyze_totals_movement(
+            line_history, opening_odds, current_odds, game_time
+        )
+        
+        # Cross-market analysis
+        cross_signals = self._analyze_cross_market_signals(analysis["markets"], home_team, away_team)
+        analysis["cross_market_signals"] = cross_signals
+        
+        # Determine overall direction
+        analysis["overall_direction"] = self._determine_overall_direction(analysis["markets"])
+        
+        # Check for sharp money
+        for market_name, market_data in analysis["markets"].items():
+            if market_data.get("sharp_money_side"):
+                analysis["sharp_money_detected"] = True
+                break
+        
+        # Has meaningful movement in any market?
+        analysis["has_meaningful_movement"] = any(
+            m.get("has_meaningful_movement") for m in analysis["markets"].values()
+        )
+        
+        # Calculate confidence adjustment
+        conf_adj = self._calculate_total_confidence_adjustment(analysis)
+        analysis["confidence_adjustment"] = conf_adj
+        
+        # Determine best market to bet
+        analysis["recommended_market"] = self._determine_recommended_market(analysis, home_team, away_team)
+        
+        # Generate summary
+        analysis["summary"] = self._generate_comprehensive_summary(analysis, home_team, away_team)
+        
+        return analysis
+    
+    def _create_empty_market_analysis(self) -> Dict:
+        return {
+            "has_meaningful_movement": False,
+            "movement_direction": "neutral",
+            "total_movement": 0,
+            "opening_value": None,
+            "current_value": None,
+            "sharp_money_side": None,
+            "public_money_side": None,
+            "reverse_line_movement": False,
+            "steam_moves": [],
+            "phases": [],
+            "value_side": None,
+            "confidence": 0.50
+        }
+    
+    def _analyze_moneyline_movement(
+        self,
+        line_history: List[Dict],
+        opening_odds: Dict,
+        current_odds: Dict,
+        game_time: datetime,
+        home_team: str,
+        away_team: str
+    ) -> Dict:
+        """Analyze moneyline movement."""
+        result = self._create_empty_market_analysis()
+        
+        # Get opening and current ML
         opening_home = opening_odds.get("home_odds", line_history[0].get("home_odds", 1.91))
         opening_away = opening_odds.get("away_odds", line_history[0].get("away_odds", 1.91))
         
         current_home = current_odds.get("home", line_history[-1].get("home_odds", 1.91))
         current_away = current_odds.get("away", line_history[-1].get("away_odds", 1.91))
         
-        if opening_home and opening_home > 0:
-            total_home_move = (current_home - opening_home) / opening_home * 100
-        else:
-            total_home_move = 0
+        if not opening_home or opening_home <= 0:
+            return result
         
-        analysis["total_movement_pct"] = total_home_move
+        result["opening_value"] = {"home": opening_home, "away": opening_away}
+        result["current_value"] = {"home": current_home, "away": current_away}
         
-        # 2. Determine overall movement direction
-        if total_home_move < -3:  # Home odds dropped = money on home
-            analysis["movement_direction"] = "home"
-            analysis["has_meaningful_movement"] = True
-        elif total_home_move > 3:  # Home odds increased = money on away
-            analysis["movement_direction"] = "away"
-            analysis["has_meaningful_movement"] = True
-        else:
-            analysis["movement_direction"] = "neutral"
+        # Calculate total movement
+        total_move = (current_home - opening_home) / opening_home * 100
+        result["total_movement"] = round(total_move, 2)
         
-        # 3. Analyze movement phases (early, mid, late)
-        phases = self._analyze_movement_phases(line_history, game_time)
-        analysis["movement_phases"] = phases
+        # Direction
+        if total_move < -3:
+            result["movement_direction"] = "home"
+            result["has_meaningful_movement"] = True
+        elif total_move > 3:
+            result["movement_direction"] = "away"
+            result["has_meaningful_movement"] = True
         
-        # 4. Detect sharp vs public money patterns
-        sharp_analysis = self._detect_sharp_money(phases, home_team, away_team)
-        analysis["sharp_money_side"] = sharp_analysis.get("sharp_side")
-        analysis["public_money_side"] = sharp_analysis.get("public_side")
-        analysis["reverse_line_movement"] = sharp_analysis.get("rlm", False)
+        # Analyze phases
+        ml_history = [(h.get("timestamp"), h.get("home_odds")) for h in line_history if h.get("home_odds")]
+        result["phases"] = self._analyze_phases(ml_history, game_time, "ml")
         
-        if sharp_analysis.get("sharp_side"):
-            analysis["key_insights"].append(
-                f"Sharp money detected on {sharp_analysis['sharp_side']} "
-                f"(moved {abs(sharp_analysis.get('sharp_move_pct', 0)):.1f}% in sharp window)"
-            )
+        # Sharp/public detection
+        sharp_public = self._detect_sharp_public(result["phases"], home_team, away_team, "ml")
+        result["sharp_money_side"] = sharp_public.get("sharp_side")
+        result["public_money_side"] = sharp_public.get("public_side")
+        result["reverse_line_movement"] = sharp_public.get("rlm", False)
         
-        if sharp_analysis.get("rlm"):
-            analysis["key_insights"].append(
-                f"⚠️ Reverse Line Movement: Line moving opposite to public action"
-            )
+        # Steam moves
+        result["steam_moves"] = self._detect_steam_moves_ml(line_history, home_team, away_team)
         
-        # 5. Detect steam moves
-        steam_moves = self._detect_steam_moves(line_history, home_team, away_team)
-        analysis["steam_moves"] = steam_moves
+        # Value side
+        result["value_side"], result["confidence"] = self._determine_ml_value(result, home_team, away_team)
         
-        if steam_moves:
-            analysis["key_insights"].append(
-                f"Steam move(s) detected: {len(steam_moves)} rapid price changes"
-            )
-        
-        # 6. Analyze line trajectory pattern
-        trajectory = self._analyze_trajectory_pattern(line_history)
-        analysis["trajectory_pattern"] = trajectory["pattern"]
-        
-        if trajectory.get("insight"):
-            analysis["key_insights"].append(trajectory["insight"])
-        
-        # 7. Calculate confidence adjustment
-        conf_adj = self._calculate_confidence_adjustment(analysis, phases)
-        analysis["confidence_adjustment"] = conf_adj["adjustment"]
-        analysis["reasoning"].extend(conf_adj["reasons"])
-        
-        # 8. Determine value side based on analysis
-        value_analysis = self._determine_value_side(analysis, home_team, away_team)
-        analysis["value_side"] = value_analysis.get("side")
-        analysis["value_confidence"] = value_analysis.get("confidence", 0)
-        
-        if value_analysis.get("reason"):
-            analysis["reasoning"].append(value_analysis["reason"])
-        
-        # 9. Generate comprehensive reasoning
-        analysis["summary"] = self._generate_summary(analysis, home_team, away_team)
-        
-        return analysis
+        return result
     
-    def _analyze_movement_phases(
+    def _analyze_spread_movement(
         self,
         line_history: List[Dict],
+        opening_odds: Dict,
+        current_odds: Dict,
+        game_time: datetime,
+        home_team: str,
+        away_team: str
+    ) -> Dict:
+        """Analyze spread movement."""
+        result = self._create_empty_market_analysis()
+        
+        # Get opening and current spread
+        opening_spread = opening_odds.get("spread")
+        current_spread = None
+        
+        # Find current spread from history
+        for h in reversed(line_history):
+            if h.get("spread") is not None:
+                current_spread = h.get("spread")
+                break
+        
+        if opening_spread is None:
+            # Try to get from first history record
+            for h in line_history:
+                if h.get("spread") is not None:
+                    opening_spread = h.get("spread")
+                    break
+        
+        if opening_spread is None or current_spread is None:
+            return result
+        
+        result["opening_value"] = opening_spread
+        result["current_value"] = current_spread
+        
+        # Calculate movement (negative = moved toward home, positive = moved toward away)
+        total_move = current_spread - opening_spread
+        result["total_movement"] = round(total_move, 1)
+        
+        # Direction (spread decreased = more money on home)
+        if total_move <= -0.5:
+            result["movement_direction"] = "home"
+            result["has_meaningful_movement"] = True
+        elif total_move >= 0.5:
+            result["movement_direction"] = "away"
+            result["has_meaningful_movement"] = True
+        
+        # Analyze phases
+        spread_history = [(h.get("timestamp"), h.get("spread")) for h in line_history if h.get("spread") is not None]
+        result["phases"] = self._analyze_phases(spread_history, game_time, "spread")
+        
+        # Sharp/public detection
+        sharp_public = self._detect_sharp_public(result["phases"], home_team, away_team, "spread")
+        result["sharp_money_side"] = sharp_public.get("sharp_side")
+        result["public_money_side"] = sharp_public.get("public_side")
+        result["reverse_line_movement"] = sharp_public.get("rlm", False)
+        
+        # Steam moves
+        result["steam_moves"] = self._detect_steam_moves_spread(line_history, home_team, away_team)
+        
+        # Value side
+        result["value_side"], result["confidence"] = self._determine_spread_value(result, home_team, away_team)
+        
+        return result
+    
+    def _analyze_totals_movement(
+        self,
+        line_history: List[Dict],
+        opening_odds: Dict,
+        current_odds: Dict,
         game_time: datetime
+    ) -> Dict:
+        """Analyze totals (over/under) movement."""
+        result = self._create_empty_market_analysis()
+        
+        # Get opening and current total
+        opening_total = opening_odds.get("total")
+        current_total = None
+        
+        for h in reversed(line_history):
+            if h.get("total") is not None:
+                current_total = h.get("total")
+                break
+        
+        if opening_total is None:
+            for h in line_history:
+                if h.get("total") is not None:
+                    opening_total = h.get("total")
+                    break
+        
+        if opening_total is None or current_total is None:
+            return result
+        
+        result["opening_value"] = opening_total
+        result["current_value"] = current_total
+        
+        # Calculate movement
+        total_move = current_total - opening_total
+        result["total_movement"] = round(total_move, 1)
+        
+        # Direction (increase = over money, decrease = under money)
+        if total_move >= 1.0:
+            result["movement_direction"] = "over"
+            result["has_meaningful_movement"] = True
+        elif total_move <= -1.0:
+            result["movement_direction"] = "under"
+            result["has_meaningful_movement"] = True
+        
+        # Analyze phases
+        total_history = [(h.get("timestamp"), h.get("total")) for h in line_history if h.get("total") is not None]
+        result["phases"] = self._analyze_phases(total_history, game_time, "total")
+        
+        # Sharp/public detection for totals
+        sharp_public = self._detect_sharp_public_totals(result["phases"])
+        result["sharp_money_side"] = sharp_public.get("sharp_side")
+        result["public_money_side"] = sharp_public.get("public_side")
+        result["reverse_line_movement"] = sharp_public.get("rlm", False)
+        
+        # Steam moves
+        result["steam_moves"] = self._detect_steam_moves_total(line_history)
+        
+        # Value side
+        result["value_side"], result["confidence"] = self._determine_totals_value(result)
+        
+        return result
+    
+    def _analyze_phases(
+        self,
+        history: List[Tuple],
+        game_time: datetime,
+        market_type: str
     ) -> List[Dict]:
-        """
-        Break down movement into phases:
-        - Early (>24 hours before): Sharp money window
-        - Mid (6-24 hours): Mixed action
-        - Late (<6 hours): Public money window
-        """
+        """Break down movement into early/mid/late phases."""
         phases = []
-        now = datetime.now(timezone.utc)
         
-        early_moves = []
-        mid_moves = []
-        late_moves = []
+        early_vals = []
+        mid_vals = []
+        late_vals = []
         
-        for i, snap in enumerate(line_history):
+        for ts_str, value in history:
+            if not ts_str or value is None:
+                continue
             try:
-                snap_time = datetime.fromisoformat(snap.get("timestamp", "").replace('Z', '+00:00'))
+                snap_time = datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
+                hours_to_game = (game_time - snap_time).total_seconds() / 3600
+                
+                if hours_to_game > 24:
+                    early_vals.append(value)
+                elif hours_to_game > 6:
+                    mid_vals.append(value)
+                else:
+                    late_vals.append(value)
             except:
                 continue
-            
-            hours_to_game = (game_time - snap_time).total_seconds() / 3600
-            
-            home_odds = snap.get("home_odds", 0)
-            
-            move_data = {
-                "timestamp": snap.get("timestamp"),
-                "home_odds": home_odds,
-                "hours_to_game": hours_to_game
-            }
-            
-            if hours_to_game > 24:
-                early_moves.append(move_data)
-            elif hours_to_game > 6:
-                mid_moves.append(move_data)
-            else:
-                late_moves.append(move_data)
         
         # Calculate movement in each phase
-        if len(early_moves) >= 2:
-            early_start = early_moves[0]["home_odds"]
-            early_end = early_moves[-1]["home_odds"]
-            if early_start > 0:
-                early_move = (early_end - early_start) / early_start * 100
+        for phase_name, vals in [("early", early_vals), ("mid", mid_vals), ("late", late_vals)]:
+            if len(vals) >= 2:
+                if market_type == "ml":
+                    move = (vals[-1] - vals[0]) / vals[0] * 100 if vals[0] > 0 else 0
+                else:
+                    move = vals[-1] - vals[0]
+                
                 phases.append({
-                    "phase": "early",
-                    "label": "Sharp Window (>24h)",
-                    "movement_pct": early_move,
-                    "snapshots": len(early_moves)
-                })
-        
-        if len(mid_moves) >= 2:
-            mid_start = mid_moves[0]["home_odds"]
-            mid_end = mid_moves[-1]["home_odds"]
-            if mid_start > 0:
-                mid_move = (mid_end - mid_start) / mid_start * 100
-                phases.append({
-                    "phase": "mid",
-                    "label": "Mixed Action (6-24h)",
-                    "movement_pct": mid_move,
-                    "snapshots": len(mid_moves)
-                })
-        
-        if len(late_moves) >= 2:
-            late_start = late_moves[0]["home_odds"]
-            late_end = late_moves[-1]["home_odds"]
-            if late_start > 0:
-                late_move = (late_end - late_start) / late_start * 100
-                phases.append({
-                    "phase": "late",
-                    "label": "Public Window (<6h)",
-                    "movement_pct": late_move,
-                    "snapshots": len(late_moves)
+                    "phase": phase_name,
+                    "movement": round(move, 2),
+                    "snapshots": len(vals)
                 })
         
         return phases
     
-    def _detect_sharp_money(
+    def _detect_sharp_public(
         self,
         phases: List[Dict],
         home_team: str,
-        away_team: str
+        away_team: str,
+        market_type: str
     ) -> Dict:
-        """
-        Detect sharp money patterns based on timing and direction.
-        Sharp money characteristics:
-        - Comes early (>12 hours before game)
-        - Large single moves
-        - Often opposite to public sentiment
-        """
-        result = {
-            "sharp_side": None,
-            "public_side": None,
-            "rlm": False,
-            "sharp_move_pct": 0
-        }
+        """Detect sharp vs public money patterns."""
+        result = {"sharp_side": None, "public_side": None, "rlm": False}
         
         early_move = 0
         late_move = 0
         
         for phase in phases:
             if phase["phase"] == "early":
-                early_move = phase["movement_pct"]
+                early_move = phase["movement"]
             elif phase["phase"] == "late":
-                late_move = phase["movement_pct"]
+                late_move = phase["movement"]
         
-        # Sharp money detection: significant early movement
-        if abs(early_move) >= 3:
-            if early_move < 0:  # Home odds dropped early
-                result["sharp_side"] = home_team
-                result["sharp_move_pct"] = early_move
+        # Thresholds depend on market type
+        if market_type == "ml":
+            sharp_threshold = 3
+            public_threshold = 2
+        else:  # spread
+            sharp_threshold = 0.5
+            public_threshold = 0.5
+        
+        # Sharp money detection
+        if abs(early_move) >= sharp_threshold:
+            if market_type == "ml":
+                result["sharp_side"] = home_team if early_move < 0 else away_team
+            else:  # spread - negative move = toward home
+                result["sharp_side"] = home_team if early_move < 0 else away_team
+        
+        # Public money detection
+        if abs(late_move) >= public_threshold:
+            if market_type == "ml":
+                result["public_side"] = home_team if late_move < 0 else away_team
             else:
-                result["sharp_side"] = away_team
-                result["sharp_move_pct"] = early_move
+                result["public_side"] = home_team if late_move < 0 else away_team
         
-        # Public money detection: late movement
-        if abs(late_move) >= 2:
-            if late_move < 0:  # Home odds dropped late
-                result["public_side"] = home_team
-            else:
-                result["public_side"] = away_team
-        
-        # Reverse Line Movement: when sharp and public are opposite
+        # RLM
         if result["sharp_side"] and result["public_side"]:
             if result["sharp_side"] != result["public_side"]:
                 result["rlm"] = True
         
         return result
     
-    def _detect_steam_moves(
-        self,
-        line_history: List[Dict],
-        home_team: str,
-        away_team: str
-    ) -> List[Dict]:
-        """
-        Detect steam moves - rapid, coordinated price changes
-        indicating sharp syndicate action.
-        """
+    def _detect_sharp_public_totals(self, phases: List[Dict]) -> Dict:
+        """Detect sharp vs public for totals."""
+        result = {"sharp_side": None, "public_side": None, "rlm": False}
+        
+        early_move = 0
+        late_move = 0
+        
+        for phase in phases:
+            if phase["phase"] == "early":
+                early_move = phase["movement"]
+            elif phase["phase"] == "late":
+                late_move = phase["movement"]
+        
+        # Sharp money
+        if abs(early_move) >= 1.0:
+            result["sharp_side"] = "over" if early_move > 0 else "under"
+        
+        # Public money
+        if abs(late_move) >= 0.5:
+            result["public_side"] = "over" if late_move > 0 else "under"
+        
+        # RLM
+        if result["sharp_side"] and result["public_side"]:
+            if result["sharp_side"] != result["public_side"]:
+                result["rlm"] = True
+        
+        return result
+    
+    def _detect_steam_moves_ml(self, line_history: List[Dict], home_team: str, away_team: str) -> List[Dict]:
+        """Detect steam moves in ML."""
         steam_moves = []
         
-        for i in range(1, len(line_history)):
-            prev = line_history[i-1]
-            curr = line_history[i]
-            
-            prev_home = prev.get("home_odds", 0)
-            curr_home = curr.get("home_odds", 0)
-            
-            if prev_home <= 0:
-                continue
-            
-            move_pct = (curr_home - prev_home) / prev_home * 100
-            
-            # Steam move = rapid significant move (>3% in single update)
-            if abs(move_pct) >= 3:
-                side = home_team if move_pct < 0 else away_team
-                steam_moves.append({
-                    "timestamp": curr.get("timestamp"),
-                    "side": side,
-                    "move_pct": move_pct,
-                    "from_odds": prev_home,
-                    "to_odds": curr_home
-                })
-        
-        return steam_moves
-    
-    def _analyze_trajectory_pattern(self, line_history: List[Dict]) -> Dict:
-        """
-        Identify the overall trajectory pattern:
-        - Steady drift: Gradual one-direction movement
-        - Oscillation: Back and forth
-        - Sharp correction: Sudden reversal
-        - Settling: Converging to stable price
-        """
-        if len(line_history) < 3:
-            return {"pattern": "insufficient_data", "insight": None}
-        
-        # Calculate direction changes
-        directions = []
         for i in range(1, len(line_history)):
             prev = line_history[i-1].get("home_odds", 0)
             curr = line_history[i].get("home_odds", 0)
             
-            if prev > 0 and curr > 0:
-                if curr > prev:
-                    directions.append("up")
-                elif curr < prev:
-                    directions.append("down")
-                else:
-                    directions.append("flat")
-        
-        if not directions:
-            return {"pattern": "no_movement", "insight": None}
-        
-        # Count direction changes
-        changes = sum(1 for i in range(1, len(directions)) 
-                     if directions[i] != directions[i-1] and directions[i] != "flat")
-        
-        # Determine pattern
-        if changes <= 1:
-            if directions.count("down") > directions.count("up"):
-                return {
-                    "pattern": "steady_drift_home",
-                    "insight": "Consistent movement toward home team - market confidence"
-                }
-            elif directions.count("up") > directions.count("down"):
-                return {
-                    "pattern": "steady_drift_away",
-                    "insight": "Consistent movement toward away team - market confidence"
-                }
-        elif changes >= len(directions) * 0.5:
-            return {
-                "pattern": "oscillation",
-                "insight": "Market uncertainty - no clear consensus"
-            }
-        
-        # Check for late reversal
-        if len(directions) >= 4:
-            early_trend = directions[:len(directions)//2]
-            late_trend = directions[len(directions)//2:]
+            if prev <= 0:
+                continue
             
-            early_down = early_trend.count("down") > early_trend.count("up")
-            late_up = late_trend.count("up") > late_trend.count("down")
+            move_pct = (curr - prev) / prev * 100
             
-            if early_down and late_up:
-                return {
-                    "pattern": "late_reversal_away",
-                    "insight": "Late reversal toward away - possible sharp correction"
-                }
-            elif not early_down and not late_up:
-                return {
-                    "pattern": "late_reversal_home",
-                    "insight": "Late reversal toward home - possible sharp correction"
-                }
+            if abs(move_pct) >= 3:
+                steam_moves.append({
+                    "timestamp": line_history[i].get("timestamp"),
+                    "side": home_team if move_pct < 0 else away_team,
+                    "move": f"{move_pct:+.1f}%"
+                })
         
-        return {"pattern": "mixed", "insight": None}
+        return steam_moves
     
-    def _calculate_confidence_adjustment(
-        self,
-        analysis: Dict,
-        phases: List[Dict]
-    ) -> Dict:
-        """
-        Calculate confidence adjustment based on line movement analysis.
-        Returns adjustment factor (-0.10 to +0.10) and reasoning.
-        """
-        adjustment = 0
-        reasons = []
+    def _detect_steam_moves_spread(self, line_history: List[Dict], home_team: str, away_team: str) -> List[Dict]:
+        """Detect steam moves in spread."""
+        steam_moves = []
+        prev_spread = None
         
-        # 1. Sharp money alignment (+3-5%)
-        if analysis.get("sharp_money_side"):
-            adjustment += 0.03
-            reasons.append(f"+3% confidence: Sharp money detected on {analysis['sharp_money_side']}")
+        for h in line_history:
+            curr_spread = h.get("spread")
+            if curr_spread is None:
+                continue
+            
+            if prev_spread is not None:
+                move = curr_spread - prev_spread
+                
+                if abs(move) >= 1.0:
+                    steam_moves.append({
+                        "timestamp": h.get("timestamp"),
+                        "side": home_team if move < 0 else away_team,
+                        "move": f"{move:+.1f} points"
+                    })
+            
+            prev_spread = curr_spread
         
-        # 2. Reverse Line Movement (+3-5%)
-        if analysis.get("reverse_line_movement"):
-            adjustment += 0.04
-            reasons.append("+4% confidence: Reverse line movement (sharp vs public)")
+        return steam_moves
+    
+    def _detect_steam_moves_total(self, line_history: List[Dict]) -> List[Dict]:
+        """Detect steam moves in total."""
+        steam_moves = []
+        prev_total = None
         
-        # 3. Steam moves (+2% per steam move, max +4%)
-        steam_bonus = min(0.04, len(analysis.get("steam_moves", [])) * 0.02)
-        if steam_bonus > 0:
-            adjustment += steam_bonus
-            reasons.append(f"+{steam_bonus*100:.0f}% confidence: Steam move(s) detected")
+        for h in line_history:
+            curr_total = h.get("total")
+            if curr_total is None:
+                continue
+            
+            if prev_total is not None:
+                move = curr_total - prev_total
+                
+                if abs(move) >= 1.5:
+                    steam_moves.append({
+                        "timestamp": h.get("timestamp"),
+                        "side": "over" if move > 0 else "under",
+                        "move": f"{move:+.1f} points"
+                    })
+            
+            prev_total = curr_total
         
-        # 4. Trajectory pattern
-        pattern = analysis.get("trajectory_pattern", "")
-        if pattern in ["steady_drift_home", "steady_drift_away"]:
-            adjustment += 0.02
-            reasons.append("+2% confidence: Consistent market direction")
-        elif pattern == "oscillation":
-            adjustment -= 0.02
-            reasons.append("-2% confidence: Market uncertainty (oscillating line)")
+        return steam_moves
+    
+    def _determine_ml_value(self, result: Dict, home_team: str, away_team: str) -> Tuple[Optional[str], float]:
+        """Determine value side for ML."""
+        confidence = 0.50
+        value_side = None
         
-        # 5. Phase agreement (early and late moving same direction)
-        early_dir = None
-        late_dir = None
-        for phase in phases:
-            if phase["phase"] == "early" and abs(phase["movement_pct"]) > 2:
-                early_dir = "home" if phase["movement_pct"] < 0 else "away"
-            elif phase["phase"] == "late" and abs(phase["movement_pct"]) > 2:
-                late_dir = "home" if phase["movement_pct"] < 0 else "away"
-        
-        if early_dir and late_dir:
-            if early_dir == late_dir:
-                adjustment += 0.02
-                reasons.append("+2% confidence: Early and late money aligned")
+        if result.get("sharp_money_side"):
+            value_side = result["sharp_money_side"]
+            confidence = 0.62
+            
+            if result.get("reverse_line_movement"):
+                confidence += 0.05
+            
+            if result.get("steam_moves"):
+                confidence += 0.02
+        elif result.get("has_meaningful_movement"):
+            if result["movement_direction"] == "home":
+                value_side = home_team
             else:
-                adjustment -= 0.01
-                reasons.append("-1% confidence: Early and late money diverged")
+                value_side = away_team
+            confidence = 0.55
         
-        # Cap adjustment
-        adjustment = max(-0.10, min(0.10, adjustment))
-        
-        return {
-            "adjustment": adjustment,
-            "reasons": reasons
-        }
+        return value_side, min(0.75, confidence)
     
-    def _determine_value_side(
+    def _determine_spread_value(self, result: Dict, home_team: str, away_team: str) -> Tuple[Optional[str], float]:
+        """Determine value side for spread."""
+        confidence = 0.50
+        value_side = None
+        
+        if result.get("sharp_money_side"):
+            value_side = result["sharp_money_side"]
+            confidence = 0.60
+            
+            if result.get("reverse_line_movement"):
+                confidence += 0.05
+        elif result.get("has_meaningful_movement"):
+            if result["movement_direction"] == "home":
+                value_side = home_team
+            else:
+                value_side = away_team
+            confidence = 0.55
+        
+        return value_side, min(0.72, confidence)
+    
+    def _determine_totals_value(self, result: Dict) -> Tuple[Optional[str], float]:
+        """Determine value side for totals."""
+        confidence = 0.50
+        value_side = None
+        
+        if result.get("sharp_money_side"):
+            value_side = result["sharp_money_side"]
+            confidence = 0.60
+            
+            if result.get("reverse_line_movement"):
+                confidence += 0.05
+        elif result.get("has_meaningful_movement"):
+            value_side = result["movement_direction"]  # "over" or "under"
+            confidence = 0.55
+        
+        return value_side, min(0.70, confidence)
+    
+    def _analyze_cross_market_signals(
+        self,
+        markets: Dict,
+        home_team: str,
+        away_team: str
+    ) -> List[str]:
+        """Analyze signals that appear across multiple markets."""
+        signals = []
+        
+        ml = markets.get("moneyline", {})
+        spread = markets.get("spread", {})
+        totals = markets.get("totals", {})
+        
+        # ML and Spread agreement
+        if ml.get("value_side") and spread.get("value_side"):
+            if ml["value_side"] == spread["value_side"]:
+                signals.append(f"✓ ML and Spread both favor {ml['value_side']} - strong signal")
+            else:
+                signals.append(f"⚠️ ML favors {ml['value_side']} but Spread favors {spread['value_side']} - mixed signals")
+        
+        # Sharp money across markets
+        sharp_sides = []
+        for market_name, market_data in markets.items():
+            if market_data.get("sharp_money_side"):
+                sharp_sides.append(market_data["sharp_money_side"])
+        
+        if len(sharp_sides) >= 2:
+            if len(set(sharp_sides)) == 1:
+                signals.append(f"💰 Sharp money detected across multiple markets on {sharp_sides[0]}")
+            else:
+                signals.append("⚠️ Sharp money split across different sides in different markets")
+        
+        # RLM in any market
+        for market_name, market_data in markets.items():
+            if market_data.get("reverse_line_movement"):
+                signals.append(f"🔄 Reverse Line Movement detected in {market_name.upper()}")
+        
+        return signals
+    
+    def _determine_overall_direction(self, markets: Dict) -> str:
+        """Determine overall betting direction across all markets."""
+        home_signals = 0
+        away_signals = 0
+        
+        ml = markets.get("moneyline", {})
+        spread = markets.get("spread", {})
+        
+        if ml.get("movement_direction") == "home":
+            home_signals += 1
+        elif ml.get("movement_direction") == "away":
+            away_signals += 1
+        
+        if spread.get("movement_direction") == "home":
+            home_signals += 1
+        elif spread.get("movement_direction") == "away":
+            away_signals += 1
+        
+        if home_signals > away_signals:
+            return "home"
+        elif away_signals > home_signals:
+            return "away"
+        return "neutral"
+    
+    def _calculate_total_confidence_adjustment(self, analysis: Dict) -> float:
+        """Calculate total confidence adjustment based on all markets."""
+        adjustment = 0
+        
+        for market_name, market_data in analysis["markets"].items():
+            if market_data.get("sharp_money_side"):
+                adjustment += 0.02
+            if market_data.get("reverse_line_movement"):
+                adjustment += 0.02
+            if market_data.get("steam_moves"):
+                adjustment += 0.01
+        
+        if len(analysis.get("cross_market_signals", [])) >= 2:
+            adjustment += 0.02
+        
+        return min(0.10, adjustment)
+    
+    def _determine_recommended_market(
         self,
         analysis: Dict,
         home_team: str,
         away_team: str
-    ) -> Dict:
-        """
-        Determine which side has value based on line movement analysis.
-        """
-        # Priority: Sharp money > RLM > Steam moves > Total movement
+    ) -> Optional[Dict]:
+        """Determine the best market to bet based on line movement."""
+        markets = analysis["markets"]
+        best_market = None
+        best_confidence = 0.50
         
-        # If we have sharp money, follow it
-        if analysis.get("sharp_money_side"):
-            return {
-                "side": analysis["sharp_money_side"],
-                "confidence": 0.65 + analysis.get("confidence_adjustment", 0),
-                "reason": f"Following sharp money on {analysis['sharp_money_side']}"
-            }
+        for market_name, market_data in markets.items():
+            if market_data.get("value_side") and market_data.get("confidence", 0) > best_confidence:
+                if market_data.get("sharp_money_side") or market_data.get("reverse_line_movement"):
+                    best_confidence = market_data["confidence"]
+                    best_market = {
+                        "market": market_name,
+                        "side": market_data["value_side"],
+                        "confidence": market_data["confidence"],
+                        "opening": market_data.get("opening_value"),
+                        "current": market_data.get("current_value"),
+                        "movement": market_data.get("total_movement"),
+                        "reason": self._get_market_reason(market_data, market_name)
+                    }
         
-        # If RLM, take the sharp side (opposite of public)
-        if analysis.get("reverse_line_movement"):
-            if analysis.get("public_money_side"):
-                value_side = home_team if analysis["public_money_side"] == away_team else away_team
-                return {
-                    "side": value_side,
-                    "confidence": 0.60 + analysis.get("confidence_adjustment", 0),
-                    "reason": f"RLM indicates value on {value_side}"
-                }
-        
-        # If steam moves, follow them
-        if analysis.get("steam_moves"):
-            last_steam = analysis["steam_moves"][-1]
-            return {
-                "side": last_steam["side"],
-                "confidence": 0.58 + analysis.get("confidence_adjustment", 0),
-                "reason": f"Steam move detected on {last_steam['side']}"
-            }
-        
-        # If meaningful total movement, follow market
-        if analysis.get("has_meaningful_movement"):
-            direction = analysis.get("movement_direction")
-            if direction == "home":
-                return {
-                    "side": home_team,
-                    "confidence": 0.55 + analysis.get("confidence_adjustment", 0),
-                    "reason": f"Market moving toward {home_team}"
-                }
-            elif direction == "away":
-                return {
-                    "side": away_team,
-                    "confidence": 0.55 + analysis.get("confidence_adjustment", 0),
-                    "reason": f"Market moving toward {away_team}"
-                }
-        
-        return {
-            "side": None,
-            "confidence": 0.50,
-            "reason": "No clear value signal from line movement"
-        }
+        return best_market
     
-    def _generate_summary(
+    def _get_market_reason(self, market_data: Dict, market_name: str) -> str:
+        """Generate reason for market recommendation."""
+        reasons = []
+        
+        if market_data.get("sharp_money_side"):
+            reasons.append(f"Sharp money on {market_data['sharp_money_side']}")
+        
+        if market_data.get("reverse_line_movement"):
+            reasons.append("Reverse line movement detected")
+        
+        if market_data.get("steam_moves"):
+            reasons.append(f"{len(market_data['steam_moves'])} steam move(s)")
+        
+        if not reasons and market_data.get("has_meaningful_movement"):
+            reasons.append(f"Significant {market_name} movement")
+        
+        return "; ".join(reasons) if reasons else "No strong signal"
+    
+    def _generate_comprehensive_summary(
         self,
         analysis: Dict,
         home_team: str,
         away_team: str
     ) -> str:
-        """Generate a human-readable summary of the line movement analysis."""
+        """Generate summary of all market analysis."""
         parts = []
         
-        # Total movement
-        total_move = analysis.get("total_movement_pct", 0)
-        if abs(total_move) >= 3:
-            direction = home_team if total_move < 0 else away_team
-            parts.append(f"Line moved {abs(total_move):.1f}% toward {direction}")
-        else:
-            parts.append("Line has been stable")
+        ml = analysis["markets"].get("moneyline", {})
+        spread = analysis["markets"].get("spread", {})
+        totals = analysis["markets"].get("totals", {})
         
-        # Key insights
-        if analysis.get("key_insights"):
-            parts.append("Key signals: " + "; ".join(analysis["key_insights"][:2]))
+        # ML summary
+        if ml.get("has_meaningful_movement"):
+            parts.append(f"ML: {abs(ml.get('total_movement', 0)):.1f}% toward {ml.get('movement_direction', 'neutral')}")
         
-        # Value conclusion
-        if analysis.get("value_side"):
-            parts.append(
-                f"Line movement suggests value on {analysis['value_side']} "
-                f"({analysis.get('value_confidence', 0.5)*100:.0f}% confidence)"
-            )
+        # Spread summary
+        if spread.get("has_meaningful_movement"):
+            parts.append(f"Spread: {abs(spread.get('total_movement', 0)):.1f}pts toward {spread.get('movement_direction', 'neutral')}")
         
-        return ". ".join(parts)
+        # Totals summary
+        if totals.get("has_meaningful_movement"):
+            parts.append(f"Total: {abs(totals.get('total_movement', 0)):.1f}pts toward {totals.get('movement_direction', 'neutral')}")
+        
+        # Sharp money
+        if analysis.get("sharp_money_detected"):
+            parts.append("Sharp money detected")
+        
+        # Recommended market
+        if analysis.get("recommended_market"):
+            rec = analysis["recommended_market"]
+            parts.append(f"Best bet: {rec['market'].upper()} {rec['side']} ({rec['confidence']*100:.0f}% conf)")
+        
+        return " | ".join(parts) if parts else "No significant line movement detected"
 
 
 # Convenience function
@@ -566,9 +744,7 @@ async def analyze_line_movement(
     home_team: str,
     away_team: str
 ) -> Dict:
-    """
-    Main entry point for line movement analysis.
-    """
+    """Main entry point for line movement analysis."""
     analyzer = LineMovementAnalyzer()
     return analyzer.analyze_complete_movement(
         line_history,
