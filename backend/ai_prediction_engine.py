@@ -112,10 +112,8 @@ If no value found:
             # Use GPT-5.2 for best analysis
             chat.with_model("openai", "gpt-5.2")
             
-            response = await asyncio.to_thread(
-                chat.send_message,
-                UserMessage(text=prompt)
-            )
+            # Call LLM for analysis - send_message is async now
+            response = await chat.send_message(UserMessage(text=prompt))
             
             # Parse AI response
             prediction = self._parse_ai_response(response.content, event)
