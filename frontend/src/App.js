@@ -191,7 +191,6 @@ function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/events" element={<Events />} />
               <Route path="/line-movement" element={<LineMovement />} />
-              <Route path="/predictions" element={<Predictions />} />
               <Route path="/performance" element={<Performance />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/notifications" element={<Notifications />} />
