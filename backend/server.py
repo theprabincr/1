@@ -1754,6 +1754,7 @@ async def store_odds_snapshot(event: dict):
     
     home_team = event.get("home_team", "home")
     away_team = event.get("away_team", "away")
+    commence_time = event.get("commence_time")  # Store commence time for cleanup
     
     # Check if we have opening odds stored for this event
     existing_opening = await db.opening_odds.find_one({"event_id": event_id})
@@ -1822,7 +1823,8 @@ async def store_odds_snapshot(event: dict):
             "home_odds": round(avg_home, 2),
             "away_odds": round(avg_away, 2),
             "bookmakers": bookmaker_snapshots,
-            "timestamp": timestamp
+            "timestamp": timestamp,
+            "commence_time": commence_time  # Store for cleanup reference
         })
         logger.info(f"Stored opening odds for {home_team} vs {away_team}: {avg_home:.2f}/{avg_away:.2f}")
     
@@ -1837,7 +1839,8 @@ async def store_odds_snapshot(event: dict):
             "home_odds": round(avg_home, 2),
             "away_odds": round(avg_away, 2),
             "bookmakers": bookmaker_snapshots,
-            "num_bookmakers": len(bookmaker_snapshots)
+            "num_bookmakers": len(bookmaker_snapshots),
+            "commence_time": commence_time  # Store for cleanup reference
         }
         await db.odds_history.insert_one(snapshot)
         logger.debug(f"Stored 5-min snapshot for {home_team} vs {away_team}: H={avg_home:.2f} A={avg_away:.2f}")
