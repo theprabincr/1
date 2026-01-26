@@ -276,11 +276,14 @@ backend:
     file: "backend/oddsportal_scraper.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: true
         agent: "main"
         comment: "Updated create_bookmaker_entry to include spreads and totals markets. Sport-appropriate values generated (NBA totals ~220, NFL ~45, NHL ~6, Soccer ~2.5). All three markets now returned in events endpoint."
+      - working: true
+        agent: "testing"
+        comment: "✅ ALL MARKETS WORKING: GET /api/events/basketball_nba?pre_match_only=true returns all 3 markets (h2h, spreads, totals). Spreads have point values (spread like -5.5), totals have Over/Under with point values (total like 225.5). All market structures verified correct."
 
   - task: "Pre-match Only Odds"
     implemented: true
