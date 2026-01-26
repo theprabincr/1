@@ -2125,21 +2125,22 @@ async def scheduled_recommendation_generator():
 # NEW: Pre-game predictor - runs predictions 1-2 hours before game start
 async def scheduled_pregame_predictor():
     """
-    AI-POWERED V4 ALGORITHM: Generates predictions 1 hour before game start.
-    Uses LLM (GPT-5.2) to analyze ALL available data and make diverse predictions.
+    SMART PREDICTION ENGINE V4: Generates predictions 1 hour before game start.
+    Uses comprehensive statistical analysis - NO LLM REQUIRED!
     
     Features:
     - Pulls full squad data 1 hour before game
     - Analyzes player stats, H2H, venue, injuries
-    - Studies line movement across multiple bookmakers (ESPN + OddsPortal)
-    - Makes diverse predictions: Moneyline, Spread, Totals
+    - Studies line movement across multiple bookmakers (ESPN + aggregated)
+    - Makes DIVERSE predictions: Moneyline, Spread, Totals
     - Only 70%+ confidence predictions
     - Considers odds as low as 1.5x
+    - FREE - no API keys needed!
     """
     # Wait 1 minute on startup
     await asyncio.sleep(60)
     
-    logger.info("🤖 Started AI PRE-GAME PREDICTOR V4 - runs every 10 minutes, AI analysis 1 hour before games")
+    logger.info("📊 Started SMART PRE-GAME PREDICTOR V4 - analyzes games 1 hour before start, runs every 10 min")
     
     sports_to_analyze = ["basketball_nba", "americanfootball_nfl", "icehockey_nhl", "soccer_epl"]
     
