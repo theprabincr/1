@@ -1348,7 +1348,7 @@ async def cleanup_line_movement_data():
 
 @api_router.get("/odds-comparison/{event_id}")
 async def get_odds_comparison(event_id: str, sport_key: str = "basketball_nba"):
-    """Get odds comparison across all sportsbooks for an event"""
+    """Get odds comparison for an event - uses ESPN data in European/decimal format"""
     # Try multiple sports if not found
     sports_to_try = [sport_key, "basketball_nba", "americanfootball_nfl", "baseball_mlb", "icehockey_nhl", "soccer_epl"]
     
@@ -1356,10 +1356,76 @@ async def get_odds_comparison(event_id: str, sport_key: str = "basketball_nba"):
         events = await get_events(sk)
         for event in events:
             if event.get("id") == event_id:
-                comparison = format_odds_comparison(event)
+                # Format ESPN odds for comparison view
+                comparison = format_espn_odds_comparison(event)
                 return comparison
     
     raise HTTPException(status_code=404, detail="Event not found")
+
+
+def format_espn_odds_comparison(event: dict) -> dict:
+    """Format ESPN odds for comparison view - all in European/decimal format"""
+    odds = event.get("odds", {})
+    home_team = event.get("home_team", "Home")
+    away_team = event.get("away_team", "Away")
+    
+    # Get odds from ESPN (already in decimal format)
+    home_ml = odds.get("home_ml_decimal", 1.91)
+    away_ml = odds.get("away_ml_decimal", 1.91)
+    spread = odds.get("spread", 0)
+    total = odds.get("total", 220)
+    provider = odds.get("provider_name", "DraftKings")
+    
+    comparison = {
+        "event_id": event.get("id"),
+        "home_team": home_team,
+        "away_team": away_team,
+        "commence_time": event.get("commence_time"),
+        "venue": event.get("venue", {}),
+        "source": "ESPN/DraftKings",
+        "h2h": [
+            {
+                "bookmaker": "draftkings",
+                "title": provider,
+                "last_update": event.get("scraped_at"),
+                "outcomes": [
+                    {"name": home_team, "price": round(home_ml, 2)},
+                    {"name": away_team, "price": round(away_ml, 2)}
+                ]
+            }
+        ],
+        "spreads": [
+            {
+                "bookmaker": "draftkings",
+                "title": provider,
+                "last_update": event.get("scraped_at"),
+                "outcomes": [
+                    {"name": home_team, "price": 1.91, "point": spread},
+                    {"name": away_team, "price": 1.91, "point": -spread if spread else 0}
+                ]
+            }
+        ],
+        "totals": [
+            {
+                "bookmaker": "draftkings",
+                "title": provider,
+                "last_update": event.get("scraped_at"),
+                "outcomes": [
+                    {"name": "Over", "price": 1.91, "point": total},
+                    {"name": "Under", "price": 1.91, "point": total}
+                ]
+            }
+        ],
+        "best_odds": {
+            "home_ml": round(home_ml, 2),
+            "away_ml": round(away_ml, 2),
+            "spread": spread,
+            "total": total,
+            "home_favorite": odds.get("home_favorite", spread < 0 if spread else False)
+        }
+    }
+    
+    return comparison
 
 # Helper functions
 async def store_odds_snapshot(event: dict):
