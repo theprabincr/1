@@ -1849,25 +1849,187 @@ async def scheduled_line_movement_checker():
             logger.error(f"Scheduled line movement checker error: {e}")
             await asyncio.sleep(60)
 
-# Background task for auto-generating recommendations - runs more frequently on startup
+# Background task for auto-generating recommendations - LEGACY (kept for backward compatibility)
 async def scheduled_recommendation_generator():
-    """Background task that generates 70%+ confidence recommendations"""
+    """DEPRECATED: Legacy recommendation generator. Use scheduled_pregame_predictor instead."""
     # Run immediately on startup to generate picks
     await asyncio.sleep(30)
     
-    # Initial generation
-    logger.info("Running INITIAL recommendation generation on startup...")
+    # Initial generation (legacy)
+    logger.info("Running LEGACY recommendation generation on startup...")
     await auto_generate_recommendations()
     
     while True:
         try:
-            # Run every 2 hours to keep picks fresh
-            await asyncio.sleep(7200)  # Run every 2 hours
-            logger.info("Running scheduled recommendation generation...")
+            # Run every 4 hours (reduced frequency since pregame predictor is primary)
+            await asyncio.sleep(14400)  # Every 4 hours instead of 2
+            logger.info("Running legacy recommendation generation...")
             await auto_generate_recommendations()
         except Exception as e:
             logger.error(f"Scheduled recommendation generator error: {e}")
             await asyncio.sleep(300)
+
+# NEW: Pre-game predictor - runs predictions 1-2 hours before game start
+async def scheduled_pregame_predictor():
+    """
+    ENHANCED V3 ALGORITHM: Generates predictions 1-2 hours before game start.
+    This is the PRIMARY prediction system that analyzes:
+    - Full squad player stats
+    - Line movement history
+    - Head-to-head records
+    - Venue factors
+    - Injury impact
+    - Multi-bookmaker odds comparison
+    """
+    # Wait 1 minute on startup
+    await asyncio.sleep(60)
+    
+    logger.info("🎯 Started PRE-GAME PREDICTOR - runs every 10 minutes, predicts 1-2 hours before games")
+    
+    sports_to_analyze = ["basketball_nba", "americanfootball_nfl", "icehockey_nhl", "soccer_epl"]
+    
+    while True:
+        try:
+            now = datetime.now(timezone.utc)
+            window_start = now + timedelta(hours=1)  # Games starting in 1 hour
+            window_end = now + timedelta(hours=2)    # Games starting in 2 hours
+            
+            predictions_made = 0
+            
+            for sport_key in sports_to_analyze:
+                try:
+                    # Fetch events
+                    events = await fetch_espn_events_with_odds(sport_key, days_ahead=1)
+                    
+                    if not events:
+                        continue
+                    
+                    # Filter to games starting in 1-2 hours
+                    for event in events:
+                        try:
+                            commence_str = event.get("commence_time", "")
+                            if not commence_str:
+                                continue
+                            
+                            commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
+                            
+                            # Check if game is in our target window (1-2 hours from now)
+                            if window_start <= commence_time <= window_end:
+                                event_id = event.get("id")
+                                
+                                # Check if we already have a prediction for this event
+                                existing = await db.predictions.find_one({
+                                    "event_id": event_id, 
+                                    "result": "pending",
+                                    "algorithm": "enhanced_v3"  # Only check for V3 predictions
+                                })
+                                
+                                if existing:
+                                    logger.debug(f"Skipping {event_id} - already has V3 prediction")
+                                    continue
+                                
+                                # This game is 1-2 hours away - time for deep analysis!
+                                logger.info(f"🔬 PRE-GAME ANALYSIS: {event.get('home_team')} vs {event.get('away_team')} "
+                                          f"(starts in {(commence_time - now).total_seconds() / 60:.0f} min)")
+                                
+                                # Get comprehensive matchup data
+                                matchup_data = await get_comprehensive_matchup_data(event, sport_key)
+                                
+                                # Get line movement history
+                                line_history = await get_line_movement_history(event_id)
+                                
+                                # Get multi-bookmaker odds if available
+                                odds_api_key = os.environ.get('ODDS_API_KEY', '')
+                                multi_book_odds = None
+                                if odds_api_key:
+                                    multi_book_odds = await fetch_multi_book_odds(sport_key, event_id, odds_api_key)
+                                
+                                # Run ENHANCED V3 algorithm
+                                pick_result = await calculate_enhanced_pick(
+                                    event, sport_key, matchup_data, line_history, multi_book_odds
+                                )
+                                
+                                if pick_result and pick_result.get("confidence", 0) >= 0.70:
+                                    # Create prediction
+                                    prediction = PredictionCreate(
+                                        event_id=event_id,
+                                        sport_key=sport_key,
+                                        home_team=event.get("home_team"),
+                                        away_team=event.get("away_team"),
+                                        commence_time=event.get("commence_time"),
+                                        prediction_type=pick_result.get("pick_type", "moneyline"),
+                                        predicted_outcome=pick_result.get("pick", ""),
+                                        confidence=pick_result.get("confidence", 0.70),
+                                        analysis=pick_result.get("reasoning", ""),
+                                        ai_model="enhanced_v3",
+                                        odds_at_prediction=pick_result.get("odds", 1.91)
+                                    )
+                                    
+                                    await create_recommendation(prediction)
+                                    predictions_made += 1
+                                    
+                                    logger.info(f"✅ V3 PREDICTION: {event.get('home_team')} vs {event.get('away_team')} - "
+                                              f"{pick_result.get('pick')} @ {pick_result.get('confidence')*100:.0f}% conf, "
+                                              f"{pick_result.get('edge', 0):.1f}% edge, "
+                                              f"{pick_result.get('supporting_factors_count', 0)} factors")
+                                else:
+                                    logger.info(f"⏭️ NO PICK: {event.get('home_team')} vs {event.get('away_team')} - "
+                                              f"confidence too low or no edge found")
+                                
+                                # Small delay between analyses
+                                await asyncio.sleep(2)
+                                
+                        except Exception as e:
+                            logger.error(f"Error analyzing event: {e}")
+                            continue
+                    
+                except Exception as e:
+                    logger.error(f"Error in pregame predictor for {sport_key}: {e}")
+            
+            if predictions_made > 0:
+                logger.info(f"🎯 Pre-game predictor complete - {predictions_made} V3 predictions created")
+            
+            # Run every 10 minutes to catch all games in the 1-2 hour window
+            await asyncio.sleep(600)
+            
+        except Exception as e:
+            logger.error(f"Scheduled pregame predictor error: {e}")
+            await asyncio.sleep(120)
+
+
+async def get_line_movement_history(event_id: str) -> List[Dict]:
+    """Get complete line movement history for an event"""
+    history = []
+    
+    try:
+        # Get opening odds
+        opening = await db.opening_odds.find_one({"event_id": event_id}, {"_id": 0})
+        if opening:
+            history.append({
+                "timestamp": opening.get("timestamp"),
+                "home_odds": opening.get("home_odds"),
+                "away_odds": opening.get("away_odds"),
+                "is_opening": True
+            })
+        
+        # Get hourly snapshots
+        snapshots = await db.odds_history.find(
+            {"event_id": event_id},
+            {"_id": 0}
+        ).sort("timestamp", 1).to_list(100)
+        
+        for snapshot in snapshots:
+            history.append({
+                "timestamp": snapshot.get("timestamp"),
+                "home_odds": snapshot.get("home_odds"),
+                "away_odds": snapshot.get("away_odds"),
+                "is_opening": False
+            })
+        
+    except Exception as e:
+        logger.error(f"Error getting line movement history for {event_id}: {e}")
+    
+    return history
 
 # Background task for line movement data cleanup
 async def scheduled_line_movement_cleanup():
