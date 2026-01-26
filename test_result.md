@@ -306,11 +306,14 @@ backend:
     file: "backend/server.py"
     stuck_count: 0
     priority: "medium"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: true
         agent: "main"
         comment: "Added scheduled_line_movement_cleanup task (runs every 30 minutes). Deletes odds_history for events that have started. Added /api/cleanup-line-movement endpoint for manual trigger."
+      - working: true
+        agent: "testing"
+        comment: "✅ LINE MOVEMENT CLEANUP WORKING: POST /api/cleanup-line-movement returns 200 with deleted_count (10 records cleaned). Endpoint properly removes line movement data for started events. Response structure correct with message and deleted_count fields."
 
   - task: "Continuous Score Sync (2 min)"
     implemented: true
