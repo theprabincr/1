@@ -357,12 +357,22 @@ async def export_predictions(format: str = "csv"):
 async def export_performance_report():
     """Generate comprehensive performance report"""
     performance = await get_performance()
-    scraper_status = await get_scraper_status()
+    
+    # Get data source status
+    snapshot_count = await db.odds_history.count_documents({})
+    opening_count = await db.opening_odds.count_documents({})
+    
+    data_source_status = {
+        "source": "ESPN/DraftKings",
+        "status": "active",
+        "line_movement_snapshots": snapshot_count,
+        "opening_odds_tracked": opening_count
+    }
     
     report = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "performance": performance,
-        "scraper_status": scraper_status
+        "data_source_status": data_source_status
     }
     
     return report
