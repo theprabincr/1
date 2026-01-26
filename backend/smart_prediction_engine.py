@@ -59,12 +59,15 @@ class SmartPredictionEngine:
     """
     Smart algorithmic prediction engine that analyzes comprehensive data
     and makes diverse predictions without requiring LLM.
+    
+    IMPORTANT: Only makes predictions with genuine value, considers ALL odds >= 1.5
     """
     
     def __init__(self):
         self.min_confidence = 0.70
         self.max_confidence = 0.85
-        self.min_edge = 0.03  # 3% minimum edge
+        self.min_edge = 0.04  # 4% minimum edge for value
+        self.min_odds = 1.5   # Accept odds as low as 1.5 (favorites)
     
     async def analyze_and_predict(
         self,
