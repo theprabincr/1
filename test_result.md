@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Enhance BetPredictor app with real-time score tracking, automatic win/loss calculation, 70%+ confidence filtering, and time window (today to 3 days) for recommendations."
+user_problem_statement: "Enhance BetPredictor app with: (1) Real-time score tracking via ESPN API, (2) Automatic win/loss calculation, (3) 70%+ confidence filtering, (4) Time window (today to 3 days), (5) All markets (ML/Spread/Total), (6) Pre-match only odds, (7) Line movement with opening odds and hourly snapshots."
 
 backend:
   - task: "API Key Management System"
