@@ -187,10 +187,8 @@ const Dashboard = () => {
   const [performance, setPerformance] = useState(null);
   const [recommendations, setRecommendations] = useState([]);
   const [events, setEvents] = useState([]);
-  const [liveScores, setLiveScores] = useState([]);
   const [selectedSport, setSelectedSport] = useState("basketball_nba");
   const [showActivePicksModal, setShowActivePicksModal] = useState(false);
-  const [showLiveScoresModal, setShowLiveScoresModal] = useState(false);
 
   const sports = [
     { key: "basketball_nba", label: "NBA" },
@@ -200,29 +198,12 @@ const Dashboard = () => {
     { key: "soccer_epl", label: "EPL" },
   ];
 
-  // Fetch live scores every 10 seconds
-  useEffect(() => {
-    const fetchLiveScores = async () => {
-      try {
-        const res = await axios.get(`${API}/live-scores`);
-        setLiveScores(res.data.games || []);
-      } catch (err) {
-        console.error("Error fetching live scores:", err);
-      }
-    };
-    
-    fetchLiveScores();
-    const interval = setInterval(fetchLiveScores, 10000); // Every 10 seconds
-    
-    return () => clearInterval(interval);
-  }, []);
-
   const fetchData = async () => {
     setLoading(true);
     try {
       const [perfRes, recsRes, eventsRes] = await Promise.all([
         axios.get(`${API}/performance`),
-        axios.get(`${API}/recommendations?limit=50&include_all=true`),
+        axios.get(`${API}/recommendations?limit=50&min_confidence=0.70`),
         axios.get(`${API}/events/${selectedSport}`)
       ]);
       
