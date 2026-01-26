@@ -2258,7 +2258,7 @@ async def scheduled_pregame_predictor():
                     logger.error(f"Error in AI pregame predictor for {sport_key}: {e}")
             
             if predictions_made > 0:
-                logger.info(f"🤖 AI Pre-game predictor complete - {predictions_made} AI V4 predictions created")
+                logger.info(f"📊 Smart pre-game predictor complete - {predictions_made} Smart V4 predictions created")
             
             # Run every 10 minutes to catch all games in the 1 hour window
             await asyncio.sleep(600)
