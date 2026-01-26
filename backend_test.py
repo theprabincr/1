@@ -1277,6 +1277,9 @@ def main():
     tester.test_sports_endpoint()
     tester.test_enhanced_api_usage()  # Test the enhanced API usage endpoint
     
+    print("\n🚀 Testing NEW Smart V4 Prediction Engine (NO LLM REQUIRED)...")
+    tester.test_smart_v4_prediction_engine_complete()
+    
     print("\n🚀 Testing NEW V3 Enhanced Betting Algorithm...")
     tester.test_v3_enhanced_betting_algorithm_complete()
     
