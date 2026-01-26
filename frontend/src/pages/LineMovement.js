@@ -298,6 +298,8 @@ const LineMovement = () => {
   const [loading, setLoading] = useState(true);
   const [loadingLine, setLoadingLine] = useState(false);
   const [selectedSport, setSelectedSport] = useState("basketball_nba");
+  const [lastUpdate, setLastUpdate] = useState(null);
+  const [isAutoRefresh, setIsAutoRefresh] = useState(true);
 
   const sports = [
     { key: "basketball_nba", label: "NBA" },
@@ -330,16 +332,28 @@ const LineMovement = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSport]);
 
-  const fetchLineMovement = async (eventId) => {
-    setLoadingLine(true);
+  // Real-time polling for line movement data (every 30 seconds)
+  useEffect(() => {
+    if (!selectedEvent || !isAutoRefresh) return;
+    
+    const pollInterval = setInterval(() => {
+      fetchLineMovement(selectedEvent.id, true); // silent refresh
+    }, 30000); // 30 seconds
+    
+    return () => clearInterval(pollInterval);
+  }, [selectedEvent, isAutoRefresh, selectedSport]);
+
+  const fetchLineMovement = async (eventId, silent = false) => {
+    if (!silent) setLoadingLine(true);
     try {
       const response = await axios.get(`${API}/line-movement/${eventId}?sport_key=${selectedSport}`);
       setLineData(response.data);
+      setLastUpdate(new Date());
     } catch (error) {
       console.error("Error fetching line movement:", error);
-      setLineData(null);
+      if (!silent) setLineData(null);
     } finally {
-      setLoadingLine(false);
+      if (!silent) setLoadingLine(false);
     }
   };
 
