@@ -1877,25 +1877,24 @@ async def scheduled_line_movement_cleanup():
             logger.error(f"Line movement cleanup error: {e}")
             await asyncio.sleep(300)
 
-# Background task for hourly OddsPortal odds scraping (only for pre-match events)
-async def scheduled_oddsportal_scraper():
-    """Background task that scrapes OddsPortal every hour for pre-match odds and line movement tracking"""
+# Background task for hourly ESPN odds refresh (only for pre-match events)
+async def scheduled_espn_odds_refresh():
+    """Background task that refreshes ESPN odds every hour for pre-match events and line movement tracking"""
     global last_scrape_time
     
     # Wait 2 minutes on startup
     await asyncio.sleep(120)
     
-    sports_to_scrape = ["basketball_nba", "americanfootball_nfl", "baseball_mlb", "icehockey_nhl", "soccer_epl"]
+    sports_to_refresh = ["basketball_nba", "americanfootball_nfl", "icehockey_nhl", "soccer_epl"]
     
     while True:
         try:
-            logger.info("Running hourly OddsPortal scraping (pre-match only)...")
+            logger.info("Running hourly ESPN odds refresh (pre-match only)...")
             now = datetime.now(timezone.utc)
             
-            for sport_key in sports_to_scrape:
+            for sport_key in sports_to_refresh:
                 try:
-                    from oddsportal_scraper import scrape_oddsportal_events
-                    events = await scrape_oddsportal_events(sport_key)
+                    events = await fetch_espn_events_with_odds(sport_key, days_ahead=3)
                     
                     if events:
                         # Only store odds snapshots for PRE-MATCH events (not started)
@@ -1916,19 +1915,19 @@ async def scheduled_oddsportal_scraper():
                         events_cache[cache_key] = (events, now)
                         last_scrape_time = now.isoformat()
                         
-                        logger.info(f"Scraped {len(events)} events for {sport_key} ({prematch_count} pre-match odds stored)")
+                        logger.info(f"Refreshed {len(events)} events from ESPN for {sport_key} ({prematch_count} pre-match)")
                     
-                    await asyncio.sleep(10)  # Small delay between sports
+                    await asyncio.sleep(5)  # Small delay between sports
                     
                 except Exception as e:
-                    logger.error(f"Error scraping {sport_key}: {e}")
+                    logger.error(f"Error refreshing ESPN odds for {sport_key}: {e}")
             
-            logger.info("Hourly OddsPortal scraping complete")
+            logger.info("Hourly ESPN odds refresh complete")
             
             await asyncio.sleep(3600)  # Run every hour
             
         except Exception as e:
-            logger.error(f"Scheduled OddsPortal scraper error: {e}")
+            logger.error(f"Scheduled ESPN refresh error: {e}")
             await asyncio.sleep(300)
 
 @app.on_event("startup")
@@ -1946,9 +1945,9 @@ async def startup_event():
     asyncio.create_task(scheduled_recommendation_generator())
     logger.info("Started recommendation generator - runs on STARTUP then every 2 hours")
     
-    # Start OddsPortal scraper (pre-match only)
-    asyncio.create_task(scheduled_oddsportal_scraper())
-    logger.info("Started OddsPortal scraper - runs every hour (pre-match events only)")
+    # Start ESPN odds refresh (pre-match only)
+    asyncio.create_task(scheduled_espn_odds_refresh())
+    logger.info("Started ESPN odds refresh - runs every hour (pre-match events only)")
     
     # Start line movement data cleanup
     asyncio.create_task(scheduled_line_movement_cleanup())
