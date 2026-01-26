@@ -314,6 +314,12 @@ backend:
       - working: true
         agent: "testing"
         comment: "✅ LINE MOVEMENT CLEANUP WORKING: POST /api/cleanup-line-movement returns 200 with deleted_count (10 records cleaned). Endpoint properly removes line movement data for started events. Response structure correct with message and deleted_count fields."
+      - working: true
+        agent: "main"
+        comment: "Updated to delete both odds_history AND opening_odds when events start. Added commence_time storage in snapshots for better cleanup. Removed OddsPortal references - now ESPN only."
+      - working: true
+        agent: "testing"
+        comment: "✅ LINE MOVEMENT CLEANUP VERIFIED: POST /api/cleanup-line-movement returns proper response with message, deleted_history_count, deleted_opening_count, total_deleted fields. Cleanup logic working correctly."
 
   - task: "Continuous Score Sync (2 min)"
     implemented: true
