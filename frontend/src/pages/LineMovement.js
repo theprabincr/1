@@ -754,18 +754,125 @@ const LineMovement = () => {
               </div>
             </div>
             
+            {/* Market Tabs */}
+            <div className="flex gap-2 mb-4">
+              {markets.map(market => (
+                <button
+                  key={market.key}
+                  onClick={() => setSelectedMarket(market.key)}
+                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                    selectedMarket === market.key
+                      ? 'bg-brand-primary text-black'
+                      : 'bg-zinc-800 text-text-secondary hover:bg-zinc-700'
+                  }`}
+                >
+                  {market.label}
+                </button>
+              ))}
+            </div>
+            
             {loadingLine ? (
               <div className="flex items-center justify-center h-64">
                 <RefreshCw className="w-6 h-6 text-brand-primary animate-spin" />
               </div>
             ) : (
-              <MovementChart 
-                chartData={processChartData()} 
-                homeTeam={selectedEvent.home_team}
-                awayTeam={selectedEvent.away_team}
-                openingOdds={lineData?.opening_odds}
-              />
+              <>
+                {selectedMarket === 'moneyline' && (
+                  <MovementChart 
+                    chartData={processChartData('moneyline')} 
+                    homeTeam={selectedEvent.home_team}
+                    awayTeam={selectedEvent.away_team}
+                    openingOdds={lineData?.opening_odds}
+                  />
+                )}
+                {selectedMarket === 'spread' && (
+                  <SpreadChart 
+                    chartData={processChartData('spread')} 
+                    homeTeam={selectedEvent.home_team}
+                    openingSpread={lineData?.opening_odds?.spread}
+                  />
+                )}
+                {selectedMarket === 'totals' && (
+                  <TotalsChart 
+                    chartData={processChartData('totals')} 
+                    openingTotal={lineData?.opening_odds?.total}
+                  />
+                )}
+              </>
             )}
+          </div>
+
+          {/* Market Summary Cards */}
+          <div className="grid md:grid-cols-3 gap-4">
+            {/* ML Summary */}
+            <div className="stat-card">
+              <h3 className="font-mono font-bold text-sm text-text-primary mb-3 flex items-center gap-2">
+                <Activity className="w-4 h-4 text-brand-primary" />
+                Moneyline
+              </h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-text-muted">Opening</span>
+                  <span className="font-mono text-text-primary">
+                    {lineData?.opening_odds?.ml?.home?.toFixed(2) || '—'} / {lineData?.opening_odds?.ml?.away?.toFixed(2) || '—'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-text-muted">Current</span>
+                  <span className="font-mono text-brand-primary">
+                    {lineData?.current_odds?.ml?.home?.toFixed(2) || '—'} / {lineData?.current_odds?.ml?.away?.toFixed(2) || '—'}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Spread Summary */}
+            <div className="stat-card">
+              <h3 className="font-mono font-bold text-sm text-text-primary mb-3 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-brand-primary" />
+                Spread
+              </h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-text-muted">Opening</span>
+                  <span className="font-mono text-text-primary">
+                    {lineData?.opening_odds?.spread !== null && lineData?.opening_odds?.spread !== undefined 
+                      ? (lineData.opening_odds.spread > 0 ? '+' : '') + lineData.opening_odds.spread 
+                      : '—'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-text-muted">Current</span>
+                  <span className="font-mono text-brand-primary">
+                    {lineData?.current_odds?.spread !== null && lineData?.current_odds?.spread !== undefined 
+                      ? (lineData.current_odds.spread > 0 ? '+' : '') + lineData.current_odds.spread 
+                      : '—'}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Total Summary */}
+            <div className="stat-card">
+              <h3 className="font-mono font-bold text-sm text-text-primary mb-3 flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-brand-primary" />
+                Total
+              </h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-text-muted">Opening</span>
+                  <span className="font-mono text-text-primary">
+                    {lineData?.opening_odds?.total ?? '—'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-text-muted">Current</span>
+                  <span className="font-mono text-brand-primary">
+                    {lineData?.current_odds?.total ?? '—'}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
