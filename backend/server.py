@@ -736,7 +736,7 @@ async def create_recommendation(prediction: PredictionCreate):
     return pred_obj
 
 @api_router.post("/generate-recommendations")
-async def generate_recommendations(sport_key: str):
+async def generate_recommendations(sport_key: str, background_tasks: BackgroundTasks):
     """Generate AI recommendations for upcoming events"""
     events = await get_events(sport_key)
     
@@ -785,6 +785,12 @@ async def generate_recommendations(sport_key: str):
         recommendations.append(saved)
     
     return {"message": f"Generated {len(recommendations)} recommendations", "recommendations": recommendations}
+
+@api_router.post("/force-generate-picks")
+async def force_generate_picks(background_tasks: BackgroundTasks):
+    """Force immediate generation of AI picks across all sports"""
+    background_tasks.add_task(auto_generate_recommendations)
+    return {"message": "Recommendation generation started in background - picks will appear shortly"}
 
 # Auto-generate recommendations for dashboard
 async def auto_generate_recommendations():
