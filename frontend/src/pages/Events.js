@@ -31,13 +31,24 @@ const SPORTSBOOK_NAMES = {
 };
 
 // Event Card Component
-const EventCard = ({ event, onAnalyze, onCompare }) => {
+const EventCard = ({ event, onCompare }) => {
   const [expanded, setExpanded] = useState(false);
   const bookmakers = event.bookmakers || [];
   const bestOdds = getBestOdds(bookmakers, event.home_team, event.away_team);
+  const espnOdds = event.odds || {};
   
+  // Format date and time
   const eventTime = event.commence_time ? 
     format(parseISO(event.commence_time), "MMM d, h:mm a") : "TBD";
+  const eventDate = event.commence_time ?
+    format(parseISO(event.commence_time), "EEE, MMM d") : "";
+
+  // Use ESPN odds directly (decimal format)
+  const homeML = espnOdds.home_ml_decimal || bestOdds.home;
+  const awayML = espnOdds.away_ml_decimal || bestOdds.away;
+  const spread = espnOdds.spread ?? bestOdds.spread;
+  const total = espnOdds.total ?? bestOdds.total;
+  const isFavorite = espnOdds.home_favorite ?? (spread && spread < 0);
 
   return (
     <div className="event-card" data-testid={`event-card-${event.id}`}>
@@ -47,121 +58,89 @@ const EventCard = ({ event, onAnalyze, onCompare }) => {
           <span className="text-xs font-mono text-text-muted uppercase">
             {event.sport_title || event.sport_key?.replace(/_/g, ' ')}
           </span>
+          <span className="text-xs px-2 py-0.5 bg-zinc-800 rounded text-brand-primary">
+            {event.source === 'espn' ? 'ESPN' : 'Live'}
+          </span>
         </div>
-        <div className="flex items-center gap-2 text-text-muted text-sm">
-          <Clock className="w-4 h-4" />
-          {eventTime}
+        <div className="flex flex-col items-end">
+          <div className="flex items-center gap-1 text-text-muted text-sm">
+            <Calendar className="w-3 h-3" />
+            <span className="text-xs">{eventDate}</span>
+          </div>
+          <div className="flex items-center gap-1 text-brand-primary text-sm font-mono">
+            <Clock className="w-3 h-3" />
+            {eventTime}
+          </div>
         </div>
       </div>
 
       {/* Teams & Odds */}
-      <div className="grid grid-cols-3 gap-4 items-center mb-4">
-        <div>
-          <p className="text-text-primary font-semibold">{event.home_team}</p>
-          <div className="mt-2">
-            <p className="text-xs text-text-muted">Best ML</p>
-            <p className="font-mono text-xl font-bold text-brand-primary">
-              {bestOdds.home?.toFixed(2)}
-            </p>
-            <p className="text-xs text-text-muted">{bestOdds.homeBk}</p>
+      <div className="space-y-3 mb-4">
+        {/* Away Team */}
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <p className="text-text-primary font-semibold">{event.away_team}</p>
+            {event.away_record && <p className="text-xs text-text-muted">{event.away_record}</p>}
+          </div>
+          <div className="flex items-center gap-4 font-mono">
+            <span className="text-text-muted text-xs w-12 text-right">ML</span>
+            <span className={`font-bold ${awayML < homeML ? 'text-semantic-success' : 'text-text-primary'}`}>
+              {awayML?.toFixed(2) || '-'}
+            </span>
           </div>
         </div>
-
-        <div className="text-center">
-          <div className="w-12 h-12 mx-auto rounded-full bg-zinc-800 flex items-center justify-center">
-            <span className="text-text-muted font-mono text-sm">VS</span>
+        
+        {/* Home Team */}
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <p className="text-text-primary font-semibold">{event.home_team}</p>
+            {event.home_record && <p className="text-xs text-text-muted">{event.home_record}</p>}
           </div>
-        </div>
-
-        <div className="text-right">
-          <p className="text-text-primary font-semibold">{event.away_team}</p>
-          <div className="mt-2">
-            <p className="text-xs text-text-muted">Best ML</p>
-            <p className="font-mono text-xl font-bold text-brand-primary">
-              {bestOdds.away?.toFixed(2)}
-            </p>
-            <p className="text-xs text-text-muted">{bestOdds.awayBk}</p>
+          <div className="flex items-center gap-4 font-mono">
+            <span className="text-text-muted text-xs w-12 text-right">ML</span>
+            <span className={`font-bold ${homeML < awayML ? 'text-semantic-success' : 'text-text-primary'}`}>
+              {homeML?.toFixed(2) || '-'}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Spreads & Totals Summary */}
-      <div className="grid grid-cols-2 gap-4 p-3 bg-zinc-800/50 rounded-lg mb-4">
-        <div>
-          <p className="text-xs text-text-muted mb-1">Spread</p>
-          <p className="font-mono text-sm text-text-primary">
-            {bestOdds.spread ? `${event.home_team} ${bestOdds.spread > 0 ? '+' : ''}${bestOdds.spread}` : 'N/A'}
+      {/* Spread & Total */}
+      <div className="grid grid-cols-2 gap-4 py-3 border-t border-zinc-800">
+        <div className="text-center">
+          <p className="text-xs text-text-muted mb-1">SPREAD</p>
+          <p className="font-mono font-bold text-brand-primary">
+            {spread !== null ? `${isFavorite ? event.home_team.split(' ').pop() : event.away_team.split(' ').pop()} ${spread > 0 ? '+' : ''}${spread}` : '-'}
           </p>
         </div>
-        <div>
-          <p className="text-xs text-text-muted mb-1">Total</p>
-          <p className="font-mono text-sm text-text-primary">
-            {bestOdds.total ? `O/U ${bestOdds.total}` : 'N/A'}
+        <div className="text-center">
+          <p className="text-xs text-text-muted mb-1">TOTAL</p>
+          <p className="font-mono font-bold text-brand-primary">
+            {total ? `O/U ${total}` : '-'}
           </p>
         </div>
       </div>
 
       {/* Actions */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 mt-4">
         <button 
           onClick={() => onCompare(event)}
-          className="btn-outline flex-1 flex items-center justify-center gap-2 text-sm"
-          data-testid={`compare-odds-${event.id}`}
+          className="btn-secondary flex-1 flex items-center justify-center gap-2 text-sm"
+          data-testid={`compare-${event.id}`}
         >
           <BarChart3 className="w-4 h-4" />
-          Compare Odds
-        </button>
-        <button 
-          onClick={() => onAnalyze(event)}
-          className="btn-primary flex-1 flex items-center justify-center gap-2 text-sm"
-          data-testid={`analyze-${event.id}`}
-        >
-          <Zap className="w-4 h-4" />
-          AI Analysis
+          View Details
         </button>
       </div>
 
-      {/* Expanded Odds View */}
-      {expanded && (
-        <div className="mt-4 pt-4 border-t border-zinc-800">
-          <h4 className="text-sm font-mono text-text-muted mb-3">All Sportsbooks</h4>
-          <div className="space-y-2 max-h-60 overflow-y-auto">
-            {bookmakers.slice(0, 8).map((bm) => {
-              const h2h = bm.markets?.find(m => m.key === 'h2h');
-              if (!h2h) return null;
-              
-              return (
-                <div key={bm.key} className="flex items-center justify-between py-2 border-b border-zinc-800/50">
-                  <div className="flex items-center gap-2">
-                    <img 
-                      src={SPORTSBOOK_LOGOS[bm.key]} 
-                      alt={bm.title}
-                      className="w-5 h-5 rounded"
-                      onError={(e) => e.target.style.display = 'none'}
-                    />
-                    <span className="text-sm text-text-secondary">{SPORTSBOOK_NAMES[bm.key] || bm.title}</span>
-                  </div>
-                  <div className="flex gap-6 font-mono text-sm">
-                    {h2h.outcomes?.map((o, i) => (
-                      <span key={i} className={o.price > 0 ? "text-semantic-success" : "text-text-primary"}>
-                        {o.price > 0 ? "+" : ""}{o.price}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+      {/* Venue Info */}
+      {event.venue?.name && (
+        <div className="mt-3 pt-3 border-t border-zinc-800">
+          <p className="text-xs text-text-muted text-center">
+            📍 {event.venue.name}{event.venue.city ? `, ${event.venue.city}` : ''}
+          </p>
         </div>
       )}
-
-      <button 
-        onClick={() => setExpanded(!expanded)}
-        className="w-full mt-3 text-center text-sm text-text-muted hover:text-text-primary transition-colors"
-        data-testid={`toggle-odds-${event.id}`}
-      >
-        {expanded ? "Hide" : "Show"} all sportsbooks
-      </button>
     </div>
   );
 };
