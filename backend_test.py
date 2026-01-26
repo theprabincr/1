@@ -1664,6 +1664,186 @@ class BettingPredictorAPITester:
                 else:
                     print(f"   ❌ Line movement endpoint failed")
 
+    def test_line_movement_tracking_review(self):
+        """Test Line Movement Tracking - Review Request Tests"""
+        print("\n🎯 Testing Line Movement Tracking - Review Request...")
+        
+        # 1. First get events from GET /api/events/basketball_nba
+        success, events = self.run_test("Get NBA Events", "GET", "events/basketball_nba", 200)
+        if not success or not events or len(events) == 0:
+            print("   ❌ CRITICAL: No NBA events found - cannot proceed with line movement tests")
+            return
+        
+        # Pick first event
+        first_event = events[0]
+        event_id = first_event.get('id')
+        home_team = first_event.get('home_team', 'Unknown')
+        away_team = first_event.get('away_team', 'Unknown')
+        
+        print(f"   Using event: {home_team} vs {away_team} (ID: {event_id})")
+        
+        if not event_id:
+            print("   ❌ CRITICAL: Event ID not found")
+            return
+        
+        # 2. Test Line Movement Endpoint
+        print("\n   📈 Testing Line Movement Endpoint...")
+        success, line_data = self.run_test("Line Movement", "GET", f"line-movement/{event_id}?sport_key=basketball_nba", 200)
+        if success and line_data:
+            # Verify response contains required fields
+            required_fields = ['opening_odds', 'current_odds', 'chart_data']
+            missing_fields = []
+            
+            for field in required_fields:
+                if field not in line_data:
+                    missing_fields.append(field)
+            
+            if missing_fields:
+                print(f"   ❌ Line Movement missing fields: {missing_fields}")
+            else:
+                print(f"   ✅ Line Movement response structure correct")
+                
+                # Check opening_odds structure
+                opening_odds = line_data.get('opening_odds', {})
+                if opening_odds:
+                    ml = opening_odds.get('ml', {})
+                    spread = opening_odds.get('spread')
+                    total = opening_odds.get('total')
+                    timestamp = opening_odds.get('timestamp')
+                    
+                    if ml and 'home' in ml and 'away' in ml and timestamp:
+                        print(f"   ✅ Opening odds complete: ML home={ml.get('home')}, away={ml.get('away')}")
+                    else:
+                        print(f"   ⚠️  Opening odds incomplete")
+                
+                # Check current_odds structure
+                current_odds = line_data.get('current_odds', {})
+                if current_odds:
+                    ml = current_odds.get('ml', {})
+                    spread = current_odds.get('spread')
+                    total = current_odds.get('total')
+                    
+                    if ml:
+                        print(f"   ✅ Current odds available")
+                    else:
+                        print(f"   ⚠️  Current odds missing")
+                
+                # Check chart_data for all markets
+                chart_data = line_data.get('chart_data', {})
+                if chart_data:
+                    moneyline = chart_data.get('moneyline', [])
+                    spread_chart = chart_data.get('spread', [])
+                    totals_chart = chart_data.get('totals', [])
+                    
+                    print(f"   Chart data - ML: {len(moneyline)}, Spread: {len(spread_chart)}, Totals: {len(totals_chart)}")
+                    
+                    # Each chart should have at least 1 entry
+                    if len(moneyline) >= 1:
+                        print(f"   ✅ Moneyline chart has data ({len(moneyline)} entries)")
+                    else:
+                        print(f"   ❌ Moneyline chart empty")
+                    
+                    if len(spread_chart) >= 1:
+                        print(f"   ✅ Spread chart has data ({len(spread_chart)} entries)")
+                    else:
+                        print(f"   ⚠️  Spread chart empty")
+                    
+                    if len(totals_chart) >= 1:
+                        print(f"   ✅ Totals chart has data ({len(totals_chart)} entries)")
+                    else:
+                        print(f"   ⚠️  Totals chart empty")
+                else:
+                    print(f"   ❌ Chart data missing")
+        else:
+            print(f"   ❌ Line Movement endpoint failed")
+        
+        # 3. Test V5 Analysis Endpoint
+        print("\n   🔬 Testing V5 Analysis Endpoint...")
+        success, v5_data = self.run_test("V5 Analysis", "POST", f"analyze-v5/{event_id}?sport_key=basketball_nba", 200, timeout=60)
+        if success and v5_data:
+            # Verify response contains required fields
+            prediction = v5_data.get('prediction', {})
+            if prediction:
+                market_analysis = prediction.get('market_analysis', {})
+                algorithm = prediction.get('algorithm')
+                factor_count = prediction.get('factor_count', 0)
+                
+                if algorithm == "betpredictor_v5":
+                    print(f"   ✅ V5 algorithm confirmed: {algorithm}")
+                else:
+                    print(f"   ❌ Expected betpredictor_v5, got: {algorithm}")
+                
+                if factor_count >= 0:
+                    print(f"   ✅ Factor count valid: {factor_count}")
+                else:
+                    print(f"   ❌ Invalid factor count: {factor_count}")
+                
+                # Check market_analysis sections
+                if market_analysis:
+                    ml_section = market_analysis.get('ml', {})
+                    spread_section = market_analysis.get('spread', {})
+                    totals_section = market_analysis.get('totals', {})
+                    
+                    sections_found = []
+                    if ml_section: sections_found.append('ml')
+                    if spread_section: sections_found.append('spread')  
+                    if totals_section: sections_found.append('totals')
+                    
+                    if len(sections_found) >= 1:
+                        print(f"   ✅ Market analysis sections: {sections_found}")
+                    else:
+                        print(f"   ❌ No market analysis sections found")
+                else:
+                    print(f"   ❌ Market analysis missing")
+            else:
+                print(f"   ❌ Prediction data missing")
+        else:
+            print(f"   ❌ V5 Analysis endpoint failed")
+        
+        # 4. Test Predictions Check
+        print("\n   📊 Testing Predictions Check...")
+        success, pred_data = self.run_test("Smart V4 Predictions", "GET", "predictions/smart-v4", 200)
+        if success and pred_data:
+            stats = pred_data.get('stats', {})
+            if stats:
+                pending = stats.get('pending', -1)
+                total = stats.get('total', -1)
+                
+                if pending == 0:
+                    print(f"   ✅ No premature predictions (pending = {pending})")
+                else:
+                    print(f"   ⚠️  Pending predictions found: {pending}")
+                
+                if total == 0:
+                    print(f"   ✅ Total predictions = {total}")
+                else:
+                    print(f"   ℹ️  Total predictions: {total}")
+            else:
+                print(f"   ❌ Stats missing from predictions response")
+        else:
+            print(f"   ❌ Predictions check failed")
+        
+        # 5. Test Data Source Status
+        print("\n   📡 Testing Data Source Status...")
+        success, status_data = self.run_test("Data Source Status", "GET", "data-source-status", 200)
+        if success and status_data:
+            source = status_data.get('source', '')
+            line_movement_snapshots = status_data.get('lineMovementSnapshots', 0)
+            
+            if source == "ESPN/DraftKings":
+                print(f"   ✅ Source verified: {source}")
+            else:
+                print(f"   ❌ Expected ESPN/DraftKings, got: {source}")
+            
+            if line_movement_snapshots > 0:
+                print(f"   ✅ Line movement snapshots available: {line_movement_snapshots}")
+            else:
+                print(f"   ❌ No line movement snapshots: {line_movement_snapshots}")
+        else:
+            print(f"   ❌ Data Source Status failed")
+        
+        print(f"\n   🎯 Line Movement Tracking Review Tests Complete")
+
 def main():
     print("🚀 Starting BetPredictor API Testing...")
     print("=" * 60)
