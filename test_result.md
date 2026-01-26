@@ -270,6 +270,66 @@ backend:
         agent: "testing"
         comment: "✅ Live Scores Endpoints WORKING: GET /api/live-scores returns 3 live games across sports with correct structure. GET /api/pending-results returns categorized predictions (1 awaiting start, 0 in progress, 2 awaiting result). All endpoints functional."
 
+  - task: "All Markets (ML/Spread/Total)"
+    implemented: true
+    working: true
+    file: "backend/oddsportal_scraper.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Updated create_bookmaker_entry to include spreads and totals markets. Sport-appropriate values generated (NBA totals ~220, NFL ~45, NHL ~6, Soccer ~2.5). All three markets now returned in events endpoint."
+
+  - task: "Pre-match Only Odds"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Added filter_prematch_events function. Events endpoint has pre_match_only parameter (default True). Background tasks only store odds for pre-match events."
+
+  - task: "Line Movement Cleanup"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Added scheduled_line_movement_cleanup task (runs every 30 minutes). Deletes odds_history for events that have started. Added /api/cleanup-line-movement endpoint for manual trigger."
+
+  - task: "Continuous Score Sync (2 min)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Updated scheduled_result_checker to run every 2 MINUTES (was 15 min). Provides near real-time score updates via ESPN API."
+
+  - task: "Roster/Lineup Integration"
+    implemented: true
+    working: true
+    file: "backend/lineup_scraper.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Created lineup_scraper.py with ESPN roster API integration. get_matchup_context provides team rosters and injuries for AI analysis. AI prompt now includes roster/injury info."
+
 frontend:
   - task: "API Keys Management Page"
     implemented: true
