@@ -1744,12 +1744,13 @@ def format_espn_odds_comparison(event: dict) -> dict:
 
 # Helper functions
 async def store_odds_snapshot(event: dict):
-    """Store odds snapshot for line movement tracking - stores opening odds and hourly snapshots"""
+    """Store odds snapshot for line movement tracking - stores opening odds and snapshots every 5 minutes"""
     event_id = event.get("id")
     now = datetime.now(timezone.utc)
     timestamp = now.isoformat()
-    # Round to current hour for grouping snapshots
-    hour_key = now.strftime("%Y-%m-%d-%H")
+    # Round to 5-minute intervals for grouping snapshots (e.g., 10:00, 10:05, 10:10)
+    minute_bucket = (now.minute // 5) * 5
+    time_key = now.strftime(f"%Y-%m-%d-%H-{minute_bucket:02d}")
     
     home_team = event.get("home_team", "home")
     away_team = event.get("away_team", "away")
@@ -1757,10 +1758,10 @@ async def store_odds_snapshot(event: dict):
     # Check if we have opening odds stored for this event
     existing_opening = await db.opening_odds.find_one({"event_id": event_id})
     
-    # Check if we already have a snapshot for this hour (to avoid duplicates)
+    # Check if we already have a snapshot for this 5-minute window (to avoid duplicates)
     existing_snapshot = await db.odds_history.find_one({
         "event_id": event_id,
-        "hour_key": hour_key
+        "time_key": time_key
     })
     
     # Collect all bookmaker odds for this snapshot
