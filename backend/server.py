@@ -1550,6 +1550,26 @@ def format_odds_for_analysis(odds_data: dict) -> str:
                 output.append(f"  {market_name}: {outcome.get('name')} @ {price:.2f}{point_str}")
     return "\n".join(output)
 
+@api_router.delete("/clear-all-data")
+async def clear_all_data():
+    """Clear all predictions, odds history, and opening odds - FRESH START"""
+    try:
+        pred_result = await db.predictions.delete_many({})
+        odds_result = await db.odds_history.delete_many({})
+        opening_result = await db.opening_odds.delete_many({})
+        
+        return {
+            "message": "All data cleared - fresh start!",
+            "deleted": {
+                "predictions": pred_result.deleted_count,
+                "odds_history": odds_result.deleted_count,
+                "opening_odds": opening_result.deleted_count
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error clearing data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 def get_best_odds(bookmakers: list) -> dict:
     """Get best odds from all bookmakers"""
     best_home = {"price": -99999, "bookmaker": ""}
