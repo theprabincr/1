@@ -2577,10 +2577,6 @@ async def startup_event():
     asyncio.create_task(scheduled_line_movement_checker())
     logger.info("Started line movement checker - monitors for significant line moves")
     
-    # Legacy recommendation generator - DISABLED (only pregame predictor makes picks)
-    asyncio.create_task(scheduled_recommendation_generator())
-    logger.info("⚠️ Legacy recommendation generator DISABLED")
-    
     # START BETPREDICTOR V5 - Makes predictions 1 hour before games with comprehensive line movement analysis
     asyncio.create_task(scheduled_pregame_predictor())
     logger.info("📊 Started BETPREDICTOR V5 - Comprehensive line movement analysis 1 hour before game")
