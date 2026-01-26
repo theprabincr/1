@@ -516,6 +516,316 @@ class BettingPredictorAPITester:
                 else:
                     print(f"   ⚠️  Total mismatch: {calculated_total} vs {total_predictions}")
 
+    def test_all_markets_ml_spread_total(self):
+        """Test All Markets (ML/Spread/Total) - NEW FEATURE"""
+        print("\n🎯 Testing All Markets (ML/Spread/Total)...")
+        
+        success, data = self.run_test("All Markets - NBA", "GET", "events/basketball_nba?pre_match_only=true", 200)
+        if success and isinstance(data, list) and len(data) > 0:
+            event = data[0]
+            bookmakers = event.get('bookmakers', [])
+            
+            if bookmakers:
+                bookmaker = bookmakers[0]
+                markets = bookmaker.get('markets', [])
+                market_keys = [m.get('key') for m in markets]
+                
+                # Check for all three market types
+                required_markets = ['h2h', 'spreads', 'totals']
+                missing_markets = []
+                
+                for market_type in required_markets:
+                    if market_type in market_keys:
+                        print(f"   ✅ {market_type} market found")
+                        
+                        # Find the market and check structure
+                        market = next((m for m in markets if m.get('key') == market_type), None)
+                        if market:
+                            outcomes = market.get('outcomes', [])
+                            
+                            if market_type == 'spreads':
+                                # Check spreads have point field
+                                has_points = any(outcome.get('point') is not None for outcome in outcomes)
+                                if has_points:
+                                    print(f"   ✅ Spreads have point values")
+                                else:
+                                    print(f"   ⚠️  Spreads missing point values")
+                            
+                            elif market_type == 'totals':
+                                # Check totals have Over/Under with point field
+                                over_under = [o.get('name') for o in outcomes]
+                                has_over_under = 'Over' in over_under and 'Under' in over_under
+                                has_points = any(outcome.get('point') is not None for outcome in outcomes)
+                                
+                                if has_over_under and has_points:
+                                    print(f"   ✅ Totals have Over/Under with point values")
+                                else:
+                                    print(f"   ⚠️  Totals structure incomplete")
+                    else:
+                        missing_markets.append(market_type)
+                
+                if missing_markets:
+                    print(f"   ❌ Missing markets: {missing_markets}")
+                else:
+                    print(f"   ✅ All three markets (ML/Spread/Total) available")
+            else:
+                print(f"   ⚠️  No bookmakers found in event data")
+        else:
+            print(f"   ⚠️  No events found for market testing")
+
+    def test_pre_match_only_filter(self):
+        """Test Pre-match Only Filter - NEW FEATURE"""
+        print("\n⏰ Testing Pre-match Only Filter...")
+        
+        # Test with pre_match_only=true (default)
+        success_pre, data_pre = self.run_test("Pre-match Only (True)", "GET", "events/basketball_nba?pre_match_only=true", 200)
+        
+        # Test with pre_match_only=false
+        success_all, data_all = self.run_test("Pre-match Only (False)", "GET", "events/basketball_nba?pre_match_only=false", 200)
+        
+        if success_pre and success_all:
+            pre_count = len(data_pre) if isinstance(data_pre, list) else 0
+            all_count = len(data_all) if isinstance(data_all, list) else 0
+            
+            print(f"   Pre-match only events: {pre_count}")
+            print(f"   All events: {all_count}")
+            
+            # Verify pre-match events have future commence_time
+            if isinstance(data_pre, list) and len(data_pre) > 0:
+                from datetime import datetime, timezone
+                now = datetime.now(timezone.utc)
+                future_events = 0
+                
+                for event in data_pre[:5]:  # Check first 5 events
+                    commence_str = event.get('commence_time', '')
+                    if commence_str:
+                        try:
+                            commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
+                            if commence_time > now:
+                                future_events += 1
+                        except:
+                            pass
+                
+                if future_events > 0:
+                    print(f"   ✅ Pre-match filter working - {future_events} future events verified")
+                else:
+                    print(f"   ⚠️  Pre-match filter may not be working correctly")
+            
+            # All events should be >= pre-match only events
+            if all_count >= pre_count:
+                print(f"   ✅ Filter logic correct (all >= pre-match)")
+            else:
+                print(f"   ⚠️  Filter logic issue (all < pre-match)")
+
+    def test_continuous_score_sync(self):
+        """Test Continuous Score Sync - NEW FEATURE"""
+        print("\n🔄 Testing Continuous Score Sync...")
+        
+        success, data = self.run_test("Live Scores Sync", "GET", "live-scores", 200)
+        if success and data:
+            # Check required fields
+            required_fields = ['live_games_count', 'games']
+            missing_fields = []
+            
+            for field in required_fields:
+                if field in data:
+                    print(f"   ✅ {field}: {data[field] if field != 'games' else f'{len(data[field])} games'}")
+                else:
+                    missing_fields.append(field)
+            
+            if missing_fields:
+                print(f"   ❌ Missing fields: {missing_fields}")
+            else:
+                print(f"   ✅ Live scores structure correct")
+            
+            # Check games have real-time scores
+            games = data.get('games', [])
+            if games:
+                game = games[0]
+                score_fields = ['home_score', 'away_score', 'status']
+                has_scores = all(field in game for field in score_fields)
+                
+                if has_scores:
+                    print(f"   ✅ Games have real-time score data")
+                    print(f"   Sample: {game.get('home_team')} {game.get('home_score')} - {game.get('away_score')} {game.get('away_team')} ({game.get('status')})")
+                else:
+                    print(f"   ⚠️  Games missing score fields")
+
+    def test_line_movement_cleanup(self):
+        """Test Line Movement Cleanup - NEW FEATURE"""
+        print("\n🧹 Testing Line Movement Cleanup...")
+        
+        success, data = self.run_test("Line Movement Cleanup", "POST", "cleanup-line-movement", 200)
+        if success and data:
+            deleted_count = data.get('deleted_count', 0)
+            message = data.get('message', '')
+            
+            print(f"   ✅ Cleanup executed successfully")
+            print(f"   Deleted records: {deleted_count}")
+            print(f"   Message: {message}")
+            
+            # Verify response structure
+            if 'deleted_count' in data:
+                print(f"   ✅ Response includes deleted_count")
+            else:
+                print(f"   ⚠️  Response missing deleted_count field")
+
+    def test_performance_stats_enhanced(self):
+        """Test Enhanced Performance Stats - NEW FEATURE"""
+        print("\n📊 Testing Enhanced Performance Stats...")
+        
+        success, data = self.run_test("Enhanced Performance Stats", "GET", "performance", 200)
+        if success and data:
+            # Check for all required fields
+            required_fields = ['wins', 'losses', 'pushes', 'win_rate', 'roi']
+            missing_fields = []
+            
+            for field in required_fields:
+                if field in data:
+                    value = data[field]
+                    print(f"   ✅ {field}: {value}")
+                else:
+                    missing_fields.append(field)
+            
+            if missing_fields:
+                print(f"   ❌ Missing required fields: {missing_fields}")
+            else:
+                print(f"   ✅ All performance fields present")
+            
+            # Check recent_predictions includes final_score when available
+            recent_predictions = data.get('recent_predictions', [])
+            if recent_predictions:
+                predictions_with_scores = 0
+                for pred in recent_predictions[:5]:  # Check first 5
+                    if 'final_score' in pred:
+                        predictions_with_scores += 1
+                        final_score = pred['final_score']
+                        print(f"   ✅ Prediction has final_score: {final_score}")
+                        break
+                
+                if predictions_with_scores > 0:
+                    print(f"   ✅ Recent predictions include final_score data")
+                else:
+                    print(f"   ℹ️  No recent predictions with final_score (may be normal)")
+
+    def test_espn_scores_api_enhanced(self):
+        """Test Enhanced ESPN Scores API - NEW FEATURE"""
+        print("\n🏀 Testing Enhanced ESPN Scores API...")
+        
+        # Test basic ESPN scores
+        success, data = self.run_test("ESPN Scores - NBA", "GET", "scores/basketball_nba", 200)
+        if success and data:
+            games = data.get('games', [])
+            print(f"   Found {len(games)} NBA games")
+            
+            if games:
+                game = games[0]
+                # Check required structure
+                required_fields = ['espn_id', 'home_team', 'away_team', 'home_score', 'away_score', 'status']
+                missing_fields = []
+                
+                for field in required_fields:
+                    if field not in game:
+                        missing_fields.append(field)
+                
+                if missing_fields:
+                    print(f"   ❌ Game missing fields: {missing_fields}")
+                else:
+                    print(f"   ✅ Game structure correct")
+                    
+                    # Check if winner field exists for final games
+                    if game.get('status') == 'final' and 'winner' in game:
+                        print(f"   ✅ Final game has winner: {game['winner']}")
+        
+        # Test status filter - final games
+        success, data = self.run_test("ESPN Scores - Final Status", "GET", "scores/basketball_nba?status=final", 200)
+        if success and data:
+            final_games = data.get('games', [])
+            print(f"   Found {len(final_games)} final games")
+            
+            # Verify all games have final status
+            if final_games:
+                non_final = [g for g in final_games if g.get('status') != 'final']
+                if not non_final:
+                    print(f"   ✅ Status filter working - all games are final")
+                else:
+                    print(f"   ⚠️  Status filter issue - {len(non_final)} non-final games")
+
+    def test_pending_results_enhanced(self):
+        """Test Enhanced Pending Results - NEW FEATURE"""
+        print("\n⏳ Testing Enhanced Pending Results...")
+        
+        success, data = self.run_test("Enhanced Pending Results", "GET", "pending-results", 200)
+        if success and data:
+            # Check all required fields
+            required_fields = ['total_pending', 'awaiting_start', 'in_progress', 'awaiting_result']
+            missing_fields = []
+            
+            for field in required_fields:
+                if field in data:
+                    if isinstance(data[field], list):
+                        print(f"   ✅ {field}: {len(data[field])} items")
+                    else:
+                        print(f"   ✅ {field}: {data[field]}")
+                else:
+                    missing_fields.append(field)
+            
+            if missing_fields:
+                print(f"   ❌ Missing fields: {missing_fields}")
+            else:
+                print(f"   ✅ All pending results fields present")
+            
+            # Verify categorization logic
+            total_pending = data.get('total_pending', 0)
+            awaiting_start = len(data.get('awaiting_start', []))
+            in_progress = len(data.get('in_progress', []))
+            awaiting_result = len(data.get('awaiting_result', []))
+            
+            calculated_total = awaiting_start + in_progress + awaiting_result
+            if calculated_total == total_pending:
+                print(f"   ✅ Categorization totals match: {calculated_total}")
+            else:
+                print(f"   ⚠️  Total mismatch: {calculated_total} vs {total_pending}")
+
+    def test_recommendations_70_percent_enhanced(self):
+        """Test Enhanced 70% Confidence Filter - NEW FEATURE"""
+        print("\n🎯 Testing Enhanced 70% Confidence Filter...")
+        
+        # Test default 70% filter
+        success, data = self.run_test("70% Confidence Filter", "GET", "recommendations?min_confidence=0.70&limit=5", 200)
+        if success and isinstance(data, list):
+            print(f"   Found {len(data)} recommendations with 70%+ confidence")
+            
+            # Verify confidence levels
+            low_confidence = 0
+            for rec in data:
+                confidence = rec.get('confidence', 0)
+                if confidence < 0.70:
+                    low_confidence += 1
+            
+            if low_confidence == 0:
+                print(f"   ✅ All recommendations meet 70% threshold")
+            else:
+                print(f"   ❌ {low_confidence} recommendations below 70%")
+        
+        # Test include_all parameter
+        success, data = self.run_test("Include All Confidence", "GET", "recommendations?include_all=true", 200)
+        if success and isinstance(data, list):
+            print(f"   Found {len(data)} recommendations (all confidence levels)")
+            
+            if data:
+                confidences = [rec.get('confidence', 0) for rec in data]
+                min_conf = min(confidences)
+                max_conf = max(confidences)
+                print(f"   Confidence range: {min_conf:.2f} - {max_conf:.2f}")
+                
+                # Should include lower confidence when include_all=true
+                has_low_confidence = any(c < 0.70 for c in confidences)
+                if has_low_confidence:
+                    print(f"   ✅ include_all=true returns lower confidence predictions")
+                else:
+                    print(f"   ℹ️  No low confidence predictions available")
+
     def test_existing_endpoints_still_work(self):
         """Test that existing endpoints still work after updates"""
         print("\n🔧 Testing Existing Endpoints...")
