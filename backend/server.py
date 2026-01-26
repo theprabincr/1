@@ -67,35 +67,14 @@ last_scrape_time = None
 # Notification queue for line movement alerts
 notification_queue = []
 
-# Bookmakers tracked from OddsPortal
+# ESPN provides DraftKings odds only
 BOOKMAKERS = {
-    'bet365': 'bet365',
-    'pinnacle': 'Pinnacle',
-    'draftkings': 'DraftKings',
-    'fanduel': 'FanDuel',
-    'betmgm': 'BetMGM',
-    'unibet': 'Unibet',
-    'betway': 'Betway',
-    'betfair': 'Betfair',
-    'william_hill': 'William Hill',
-    '1xbet': '1xBet',
-    'betonlineag': 'BetOnline'
+    'draftkings': 'DraftKings (via ESPN)',
 }
 
 # Sportsbook display names (for UI)
 SPORTSBOOK_NAMES = {
-    'bet365': 'bet365',
-    'pinnacle': 'Pinnacle',
-    'draftkings': 'DraftKings',
-    'fanduel': 'FanDuel',
-    'betmgm': 'BetMGM',
-    'unibet': 'Unibet',
-    'betway': 'Betway',
-    'betfair': 'Betfair',
-    'william_hill': 'William Hill',
-    '1xbet': '1xBet',
-    'betonlineag': 'BetOnline',
-    'oddsportal_best': 'Best Available'
+    'draftkings': 'DraftKings (via ESPN)',
 }
 
 # Market types to analyze
