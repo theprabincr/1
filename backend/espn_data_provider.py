@@ -53,8 +53,8 @@ async def fetch_espn_events_with_odds(sport_key: str, days_ahead: int = 3) -> Li
     
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
-            # Fetch today and upcoming days
-            for day_offset in range(days_ahead + 1):
+            # Fetch yesterday (for late-night games), today and upcoming days
+            for day_offset in range(-1, days_ahead + 1):
                 date = (datetime.now(timezone.utc) + timedelta(days=day_offset)).strftime("%Y%m%d")
                 params = {"dates": date}
                 
