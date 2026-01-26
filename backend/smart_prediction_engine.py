@@ -5,11 +5,13 @@ Uses comprehensive statistical analysis to make diverse predictions
 Features:
 - Analyzes ALL markets: Moneyline, Spread, Totals
 - Uses squad data, player stats, H2H, venue, injuries
-- Analyzes line movement across bookmakers
+- Analyzes ESPN line movement (snapshots every 15 min)
 - Makes diverse predictions (not just ML)
 - Considers odds as low as 1.5x
 - 70%+ confidence only when data strongly supports
+- Predictions made 1 hour before game start
 
+Data Source: ESPN/DraftKings (single source - no multi-book comparison)
 No API keys needed - pure algorithmic analysis!
 """
 import logging
