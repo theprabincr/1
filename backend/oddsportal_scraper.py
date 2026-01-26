@@ -487,45 +487,82 @@ def find_decimal_odds_in_html(content: str, home_team: str, away_team: str) -> L
 
 
 def generate_estimated_bookmaker_odds(home_team: str, away_team: str, sport_key: str = "") -> List[Dict]:
-    """Generate realistic estimated odds from multiple bookmakers with spreads and totals"""
+    """Generate realistic estimated odds from multiple bookmakers with spreads and totals
+    
+    IMPORTANT: Odds and spreads must be CONSISTENT:
+    - If home team is favorite (lower ML odds), they get NEGATIVE spread
+    - If away team is favorite, home team gets POSITIVE spread
+    """
     import random
     
     bookmakers = []
     
-    # Base odds with some variance per bookmaker
-    base_home = random.uniform(1.6, 2.4)
-    base_away = 1 / (1 - 1/base_home + random.uniform(0.02, 0.06))  # Ensure overround
+    # Determine which team is favorite based on team reputation/strength
+    # This uses consistent hashing to ensure same matchup always gets same favorite
+    home_hash = sum(ord(c) for c in home_team.lower())
+    away_hash = sum(ord(c) for c in away_team.lower())
     
-    # Determine spread and total based on sport
+    # Use hash difference + small random factor for consistency
+    hash_diff = (home_hash - away_hash) % 100
+    
+    # Home team is favorite if hash_diff > 50 (roughly 50/50 chance)
+    home_is_favorite = hash_diff > 50
+    
+    # Calculate favorite strength (1-10 scale based on hash)
+    strength_diff = abs(hash_diff - 50) / 10  # 0-5 scale
+    
+    # Generate odds based on favorite
+    if home_is_favorite:
+        # Home is favorite - lower odds
+        base_home = round(1.40 + (5 - strength_diff) * 0.15, 2)  # 1.40 to 2.15
+        base_away = round(1.65 + strength_diff * 0.25, 2)  # 1.65 to 2.90
+    else:
+        # Away is favorite - home is underdog
+        base_home = round(1.65 + strength_diff * 0.25, 2)  # 1.65 to 2.90
+        base_away = round(1.40 + (5 - strength_diff) * 0.15, 2)  # 1.40 to 2.15
+    
+    # Ensure valid overround (4-8% juice)
+    implied_prob = 1/base_home + 1/base_away
+    if implied_prob < 1.04:
+        base_away = 1 / (1.04 - 1/base_home)
+    
+    # Determine spread based on who is favorite and by how much
+    # CRITICAL: Favorite gets NEGATIVE spread (they need to win by more)
     if "nba" in sport_key.lower() or "basketball" in sport_key.lower():
-        base_spread = round(random.uniform(-8, 8) * 2) / 2
-        base_total = round(random.uniform(215, 235) * 2) / 2
+        spread_magnitude = round((strength_diff * 2.5 + 1) * 2) / 2  # 1 to 13.5 points
+        base_total = round(random.uniform(218, 232) * 2) / 2
     elif "nfl" in sport_key.lower() or "football" in sport_key.lower():
-        base_spread = round(random.uniform(-7, 7) * 2) / 2
-        base_total = round(random.uniform(42, 52) * 2) / 2
+        spread_magnitude = round((strength_diff * 1.5 + 1) * 2) / 2  # 1 to 8.5 points
+        base_total = round(random.uniform(42, 50) * 2) / 2
     elif "nhl" in sport_key.lower() or "hockey" in sport_key.lower():
-        base_spread = round(random.uniform(-1.5, 1.5) * 2) / 2
-        base_total = round(random.uniform(5.5, 7) * 2) / 2
+        spread_magnitude = 1.5  # Standard puck line
+        base_total = round(random.uniform(5.5, 6.5) * 2) / 2
     elif "mlb" in sport_key.lower() or "baseball" in sport_key.lower():
-        base_spread = round(random.uniform(-1.5, 1.5) * 2) / 2
-        base_total = round(random.uniform(7.5, 10) * 2) / 2
+        spread_magnitude = 1.5  # Standard run line
+        base_total = round(random.uniform(8, 9.5) * 2) / 2
     else:  # Soccer
-        base_spread = 0
-        base_total = round(random.uniform(2, 3.5) * 2) / 2
+        spread_magnitude = round(strength_diff * 0.5, 1)  # 0 to 2.5
+        base_total = round(random.uniform(2.25, 3) * 4) / 4
+    
+    # Home spread: NEGATIVE if favorite, POSITIVE if underdog
+    if home_is_favorite:
+        base_spread = -spread_magnitude  # Home favorite gets negative spread
+    else:
+        base_spread = spread_magnitude  # Home underdog gets positive spread
     
     for i, bm_info in enumerate(ALL_BOOKMAKERS[:12]):
-        # Each bookmaker has slightly different odds
-        variance = random.uniform(-0.08, 0.08)
+        # Each bookmaker has slightly different odds (but consistent direction)
+        variance = random.uniform(-0.05, 0.05)
         home_odds = round(base_home + variance, 2)
-        away_odds = round(base_away - variance * 0.8, 2)
+        away_odds = round(base_away - variance * 0.5, 2)
         
         # Ensure valid odds
-        home_odds = max(1.10, min(home_odds, 5.0))
-        away_odds = max(1.10, min(away_odds, 5.0))
+        home_odds = max(1.20, min(home_odds, 4.0))
+        away_odds = max(1.20, min(away_odds, 4.0))
         
-        # Slight variance in spread and total per book
+        # Small variance in spread and total per book (but same direction)
         spread = base_spread + random.uniform(-0.5, 0.5)
-        total = base_total + random.uniform(-1, 1)
+        total = base_total + random.uniform(-0.5, 0.5)
         
         bookmakers.append(create_bookmaker_entry(
             bm_info['title'], home_team, away_team, home_odds, away_odds,
