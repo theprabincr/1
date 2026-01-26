@@ -453,6 +453,18 @@ backend:
         agent: "testing"
         comment: "✅ LINE MOVEMENT FUNCTIONALITY WORKING PERFECTLY: All 4 requested endpoints tested successfully. (1) GET /api/data-source-status returns source='ESPN/DraftKings' (not OddsPortal) with lineMovementSnapshots=52 > 0, (2) GET /api/line-movement/{event_id}?sport_key=basketball_nba returns complete structure with event_id, event_info (home_team, away_team, commence_time), opening_odds (home_odds=1.49, away_odds=2.7, timestamp), current_odds, bookmakers, chart_data (2 data points), total_snapshots=4, (3) POST /api/cleanup-line-movement returns message, deleted_history_count=0, deleted_opening_count=0, total_deleted=0, (4) POST /api/refresh-odds?sport_key=basketball_nba returns message with ESPN reference, snapshots_stored=31 > 0, source='ESPN/DraftKings'. All response structures verified correct. Line movement tracking fully functional with ESPN data source."
 
+  - task: "BetPredictor V5 Comprehensive Analysis"
+    implemented: true
+    working: true
+    file: "backend/betpredictor_v5.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ BETPREDICTOR V5 COMPREHENSIVE ANALYSIS WORKING PERFECTLY: All 4 requested V5 endpoints tested successfully. (1) POST /api/analyze-v5/{event_id}?sport_key=basketball_nba returns complete response structure with event (id, home_team, away_team, commence_time), prediction (has_pick, reasoning, factor_count, algorithm='betpredictor_v5'), line_movement_analysis (total_movement_pct, movement_direction, sharp_money_side, key_insights, summary, phases), data_summary (line_movement_snapshots, has_opening_odds, squad_data_available), (2) GET /api/predictions/v5 returns predictions array and stats (total, wins, losses, pending, win_rate, avg_confidence) with algorithm='betpredictor_v5', (3) GET /api/predictions/comparison includes betpredictor_v5 stats with comprehensive description, (4) GET /api/line-movement/{event_id}?sport_key=basketball_nba returns chart_data with 10 snapshots and total_snapshots=10 matching chart_data length. All V5 response structures verified complete and correct."
+
 frontend:
   - task: "API Keys Management Page"
     implemented: true
