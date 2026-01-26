@@ -1317,41 +1317,55 @@ async def get_pending_results():
 async def cleanup_line_movement_data():
     """Clean up line movement data for events that have already started (live or finished)"""
     now = datetime.now(timezone.utc)
-    deleted_count = 0
+    deleted_history_count = 0
+    deleted_opening_count = 0
     
-    # Get all events with line movement data
+    # Get all events with line movement data (from odds_history)
     event_ids = await db.odds_history.distinct("event_id")
     
     for event_id in event_ids:
-        # Get opening odds to check commence time
+        # Get opening odds to check commence time (stored directly in opening_odds)
         opening = await db.opening_odds.find_one({"event_id": event_id})
         
+        commence_str = None
         if opening:
-            # Check commence time from any prediction for this event
+            commence_str = opening.get("commence_time")
+        
+        # If no commence_time in opening odds, check odds_history
+        if not commence_str:
+            history_record = await db.odds_history.find_one({"event_id": event_id})
+            if history_record:
+                commence_str = history_record.get("commence_time")
+        
+        # If still no commence_time, try predictions
+        if not commence_str:
             prediction = await db.predictions.find_one({"event_id": event_id}, {"commence_time": 1})
-            
             if prediction:
-                commence_str = prediction.get("commence_time", "")
-                if commence_str:
-                    try:
-                        commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
-                        
-                        # If event has started, delete line movement data
-                        if commence_time <= now:
-                            # Delete odds history for this event
-                            result = await db.odds_history.delete_many({"event_id": event_id})
-                            deleted_count += result.deleted_count
-                            
-                            # Delete opening odds (optional - keep for historical reference)
-                            # await db.opening_odds.delete_one({"event_id": event_id})
-                            
-                            logger.info(f"Cleaned up line movement for event {event_id} (started)")
-                    except Exception:
-                        pass
+                commence_str = prediction.get("commence_time")
+        
+        if commence_str:
+            try:
+                commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
+                
+                # If event has started, delete line movement data
+                if commence_time <= now:
+                    # Delete odds history for this event
+                    result = await db.odds_history.delete_many({"event_id": event_id})
+                    deleted_history_count += result.deleted_count
+                    
+                    # Also delete opening odds since the event has started
+                    opening_result = await db.opening_odds.delete_one({"event_id": event_id})
+                    deleted_opening_count += opening_result.deleted_count
+                    
+                    logger.info(f"Cleaned up line movement for event {event_id} (started)")
+            except Exception as e:
+                logger.error(f"Error processing event {event_id}: {e}")
     
     return {
-        "message": f"Cleaned up line movement data for {deleted_count} records",
-        "deleted_count": deleted_count
+        "message": f"Cleaned up line movement data: {deleted_history_count} history records, {deleted_opening_count} opening odds",
+        "deleted_history_count": deleted_history_count,
+        "deleted_opening_count": deleted_opening_count,
+        "total_deleted": deleted_history_count + deleted_opening_count
     }
 
 # NEW: Endpoint to manually trigger Smart V4 prediction for a specific event
