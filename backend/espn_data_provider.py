@@ -420,17 +420,23 @@ def parse_recent_games(data: dict, team_id: str, num_games: int) -> List[Dict]:
             
             is_home = our_team.get("homeAway") == "home"
             
-            # Handle score which can be string, int, or dict
+            # Handle score which can be string, int, or dict with 'value' field
             our_score_raw = our_team.get("score", 0)
             opp_score_raw = opponent.get("score", 0)
             
-            # Convert to int safely
-            try:
-                our_score = int(our_score_raw) if isinstance(our_score_raw, (int, str)) and str(our_score_raw).isdigit() else 0
-                opp_score = int(opp_score_raw) if isinstance(opp_score_raw, (int, str)) and str(opp_score_raw).isdigit() else 0
-            except (ValueError, TypeError):
-                our_score = 0
-                opp_score = 0
+            # Extract score value from dict if needed
+            def extract_score(score_val):
+                if isinstance(score_val, dict):
+                    # ESPN returns {'value': 115.0, 'displayValue': '115'}
+                    return int(float(score_val.get('value', 0) or 0))
+                elif isinstance(score_val, (int, float)):
+                    return int(score_val)
+                elif isinstance(score_val, str) and score_val.replace('.','').isdigit():
+                    return int(float(score_val))
+                return 0
+            
+            our_score = extract_score(our_score_raw)
+            opp_score = extract_score(opp_score_raw)
             
             won = our_score > opp_score
             
