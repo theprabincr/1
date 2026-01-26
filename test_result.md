@@ -291,11 +291,14 @@ backend:
     file: "backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: true
         agent: "main"
         comment: "Added filter_prematch_events function. Events endpoint has pre_match_only parameter (default True). Background tasks only store odds for pre-match events."
+      - working: true
+        agent: "testing"
+        comment: "✅ PRE-MATCH FILTER WORKING: GET /api/events/basketball_nba?pre_match_only=true returns 7 events (future only), ?pre_match_only=false returns 10 events (all). Filter correctly excludes started events. All pre-match events have future commence_time verified."
 
   - task: "Line Movement Cleanup"
     implemented: true
