@@ -2150,25 +2150,15 @@ async def scheduled_line_movement_checker():
             logger.error(f"Scheduled line movement checker error: {e}")
             await asyncio.sleep(60)
 
-# Background task for auto-generating recommendations - LEGACY (kept for backward compatibility)
+# Background task for auto-generating recommendations - DISABLED (only pregame predictor should make picks)
 async def scheduled_recommendation_generator():
-    """DEPRECATED: Legacy recommendation generator. Use scheduled_pregame_predictor instead."""
-    # Run immediately on startup to generate picks
-    await asyncio.sleep(30)
+    """DISABLED: Legacy recommendation generator. Only scheduled_pregame_predictor should make predictions."""
+    # DO NOT run - we only want predictions 1 hour before games
+    logger.info("⚠️ Legacy recommendation generator DISABLED - only pregame predictor makes picks now")
     
-    # Initial generation (legacy)
-    logger.info("Running LEGACY recommendation generation on startup...")
-    await auto_generate_recommendations()
-    
+    # Keep the task alive but don't do anything
     while True:
-        try:
-            # Run every 4 hours (reduced frequency since pregame predictor is primary)
-            await asyncio.sleep(14400)  # Every 4 hours instead of 2
-            logger.info("Running legacy recommendation generation...")
-            await auto_generate_recommendations()
-        except Exception as e:
-            logger.error(f"Scheduled recommendation generator error: {e}")
-            await asyncio.sleep(300)
+        await asyncio.sleep(86400)  # Sleep for 24 hours - effectively disabled
 
 # NEW: Pre-game predictor - runs predictions 1-2 hours before game start
 async def scheduled_pregame_predictor():
