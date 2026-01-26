@@ -1366,12 +1366,13 @@ async def cleanup_line_movement_data():
         "deleted_count": deleted_count
     }
 
-# NEW: Endpoint to manually trigger V3 prediction for a specific event
+# NEW: Endpoint to manually trigger AI V4 prediction for a specific event
 @api_router.post("/analyze-pregame/{event_id}")
 async def analyze_pregame(event_id: str, sport_key: str = "basketball_nba"):
     """
-    Manually trigger enhanced V3 analysis for a specific event.
-    Use this to force analysis before the 1-2 hour window.
+    Manually trigger AI-powered V4 analysis for a specific event.
+    Uses LLM to analyze squads, H2H, venue, line movement, and multi-book odds.
+    Returns diverse predictions (ML/Spread/Total).
     """
     try:
         # Fetch event
@@ -1392,24 +1393,37 @@ async def analyze_pregame(event_id: str, sport_key: str = "basketball_nba"):
             if commence_time <= datetime.now(timezone.utc):
                 raise HTTPException(status_code=400, detail="Event has already started")
         
-        # Get comprehensive matchup data
+        logger.info(f"🤖 Manual AI Analysis: {event.get('home_team')} vs {event.get('away_team')}")
+        
+        # 1. Get comprehensive matchup data
         matchup_data = await get_comprehensive_matchup_data(event, sport_key)
         
-        # Get line movement history
-        line_history = await get_line_movement_history(event_id)
-        
-        # Get multi-bookmaker odds if available
-        odds_api_key = os.environ.get('ODDS_API_KEY', '')
-        multi_book_odds = None
-        if odds_api_key:
-            multi_book_odds = await fetch_multi_book_odds(sport_key, event_id, odds_api_key)
-        
-        # Run ENHANCED V3 algorithm
-        pick_result = await calculate_enhanced_pick(
-            event, sport_key, matchup_data, line_history, multi_book_odds
+        # 2. Get full squad data for both teams
+        squad_data = await get_matchup_context(
+            event.get("home_team"), 
+            event.get("away_team"), 
+            sport_key
         )
         
-        if pick_result and pick_result.get("confidence", 0) >= 0.70:
+        # 3. Get line movement history
+        line_history = await get_line_movement_history(event_id)
+        
+        # 4. Get multi-bookmaker odds (ESPN + aggregated)
+        multi_book_odds = await fetch_aggregated_odds(sport_key, event_id, event)
+        
+        # 5. Run AI prediction engine
+        ai_prediction = await generate_ai_prediction(
+            event=event,
+            sport_key=sport_key,
+            squad_data=squad_data,
+            matchup_data=matchup_data,
+            line_movement=line_history,
+            multi_book_odds=multi_book_odds,
+            h2h_records=None,
+            api_key=EMERGENT_LLM_KEY
+        )
+        
+        if ai_prediction and ai_prediction.get("has_pick") and ai_prediction.get("confidence", 0) >= 0.70:
             # Create prediction
             prediction = PredictionCreate(
                 event_id=event_id,
@@ -1417,33 +1431,47 @@ async def analyze_pregame(event_id: str, sport_key: str = "basketball_nba"):
                 home_team=event.get("home_team"),
                 away_team=event.get("away_team"),
                 commence_time=event.get("commence_time"),
-                prediction_type=pick_result.get("pick_type", "moneyline"),
-                predicted_outcome=pick_result.get("pick", ""),
-                confidence=pick_result.get("confidence", 0.70),
-                analysis=pick_result.get("reasoning", ""),
-                ai_model="enhanced_v3",
-                odds_at_prediction=pick_result.get("odds", 1.91)
+                prediction_type=ai_prediction.get("pick_type", "moneyline"),
+                predicted_outcome=ai_prediction.get("pick", ""),
+                confidence=ai_prediction.get("confidence", 0.70),
+                analysis=ai_prediction.get("reasoning", ""),
+                ai_model="ai_v4",
+                odds_at_prediction=ai_prediction.get("odds", 1.91)
             )
             
             await create_recommendation(prediction)
             
             return {
                 "status": "prediction_created",
+                "algorithm": "ai_v4",
                 "event": f"{event.get('home_team')} vs {event.get('away_team')}",
-                "prediction": pick_result
+                "prediction": ai_prediction,
+                "data_sources": {
+                    "matchup_data": bool(matchup_data),
+                    "squad_data": bool(squad_data),
+                    "line_movement_snapshots": len(line_history),
+                    "multi_book_sources": multi_book_odds.get("sources", []) if multi_book_odds else []
+                }
             }
         else:
             return {
                 "status": "no_pick",
+                "algorithm": "ai_v4",
                 "event": f"{event.get('home_team')} vs {event.get('away_team')}",
-                "reason": "Confidence too low or no edge found",
-                "analysis": pick_result or {"message": "Algorithm returned no pick - market likely efficient"}
+                "reason": ai_prediction.get("reasoning", "No value found") if ai_prediction else "AI analysis failed",
+                "closest_value": ai_prediction.get("closest_value") if ai_prediction else None,
+                "data_sources": {
+                    "matchup_data": bool(matchup_data),
+                    "squad_data": bool(squad_data),
+                    "line_movement_snapshots": len(line_history),
+                    "multi_book_sources": multi_book_odds.get("sources", []) if multi_book_odds else []
+                }
             }
             
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error in manual pregame analysis: {e}")
+        logger.error(f"Error in manual AI pregame analysis: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
