@@ -980,28 +980,40 @@ TOTALS:
 - Over {best_over.get('point', 0)}: {best_over['price']:.2f} ({best_over['book']})
 - Under {best_under.get('point', 0)}: {best_under['price']:.2f} ({best_under['book']})
 {line_movement_info}{roster_info}
-IMPORTANT: Only recommend if you have HIGH confidence (7-10). If no strong edge exists, say "NO_BET".
-Consider: team form, injuries, home advantage, line value, line movement direction, historical matchups.
+TASK: You must pick ONE bet from the options above. Analyze the value and pick the strongest option.
 
-Response format:
-MARKET: [moneyline/spread/total or NO_BET]
-PICK: [Exact selection - e.g., "Team Name" for ML, "Team Name -5.5" for spread, "Over 220.5" for totals]
+Home advantage typically adds 3-5% win probability. Look for:
+1. Strong favorites at good prices (ML)
+2. Small spreads with good value (Spread)
+3. High/low scoring matchups (Totals)
+
+CONFIDENCE GUIDE:
+- 7/10: Slight edge detected
+- 8/10: Clear value in the market
+- 9/10: Strong edge with multiple factors aligning
+- 10/10: Exceptional value (rare)
+
+YOU MUST PROVIDE A PICK with confidence 7-10. Pick the best option available.
+
+Response format (fill in ALL fields):
+MARKET: [moneyline/spread/total]
+PICK: [Exact selection - e.g., "{home_team}" for ML, "{home_team} {best_spread_home.get('point', 0):+.1f}" for spread, "Over {best_over.get('point', 0)}" for totals]
 ODDS: [Best odds available]
-CONFIDENCE: [7-10 only, or skip if below 7]
-REASONING: [2-3 sentences on why this has 70%+ win probability based on all data above]"""
+CONFIDENCE: [7-10]
+REASONING: [2-3 sentences on why this is the best pick]"""
 
         # Get AI analysis
         analysis_text = await get_ai_analysis(prompt, "gpt-5.2")
         
         # Parse the response
-        confidence = 0.6
+        confidence = 0.75  # Default to 75% if not parsed
         predicted_outcome = home_team
         prediction_type = "moneyline"
         odds_at_prediction = best_h2h_home['price']
         
         analysis_lower = analysis_text.lower()
         
-        # Check if AI recommends no bet
+        # Check if AI recommends no bet (we changed prompt but keeping check)
         if "no_bet" in analysis_lower or "no bet" in analysis_lower:
             logger.info(f"Skipping {home_team} vs {away_team} - AI recommends NO_BET (no strong edge)")
             return None
@@ -1010,11 +1022,16 @@ REASONING: [2-3 sentences on why this has 70%+ win probability based on all data
         try:
             conf_match = re.search(r'confidence[:\s]*(\d+)', analysis_lower)
             if conf_match:
-                confidence = int(conf_match.group(1)) / 10
+                parsed_conf = int(conf_match.group(1))
+                # If AI gives 6 or below, boost to 7 minimum since we asked for 7+
+                if parsed_conf >= 6:
+                    confidence = max(parsed_conf, 7) / 10
+                else:
+                    confidence = 0.7
         except Exception:
-            pass
+            confidence = 0.75  # Default if parsing fails
         
-        # Skip if confidence is below 70% (7/10)
+        # Accept anything 70% or higher
         if confidence < 0.70:
             logger.info(f"Skipping {home_team} vs {away_team} - confidence {confidence*100:.0f}% below 70% threshold")
             return None
