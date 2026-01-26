@@ -1,21 +1,25 @@
 """
 BetPredictor V5 - Comprehensive Analysis Engine
-Combines deep line movement analysis with squad, H2H, venue, and matchup data.
+Combines deep line movement analysis across ALL markets (ML, Spread, Totals)
+with squad, H2H, venue, and matchup data.
 
 Key Features:
 1. Complete line movement study from opening to 1 hour before game
-2. Sharp money detection and reverse line movement identification
-3. Squad analysis with injury impact
-4. Head-to-head historical analysis
-5. Venue and travel factor consideration
-6. Recent form and momentum analysis
-7. Reasonable confidence calculation based on factor alignment
+2. Analyzes ML, Spread, and Totals markets separately
+3. Sharp money detection and reverse line movement identification
+4. Cross-market signal analysis
+5. Squad analysis with injury impact
+6. Head-to-head historical analysis
+7. Venue and travel factor consideration
+8. Recent form and momentum analysis
+9. Generates picks for ML, Spread, OR Totals based on best signal
 
 Philosophy:
 - Only recommend when multiple factors align
 - Confidence is calculated based on actual analysis depth
 - NO PICK is the default - most markets are efficient
 - 70%+ confidence only when 4+ major factors agree
+- Recommends the market with strongest signal
 """
 import logging
 from datetime import datetime, timezone, timedelta
@@ -31,11 +35,11 @@ logger = logging.getLogger(__name__)
 SPORT_CONFIG = {
     "basketball_nba": {
         "avg_total": 225,
-        "home_adv_pct": 2.5,  # Home team gets 2.5% boost
-        "key_player_impact": 0.03,  # 3% per key player out
-        "h2h_weight": 0.15,  # How much to weight H2H
-        "form_weight": 0.20,  # How much to weight recent form
-        "line_movement_weight": 0.25,  # How much to weight line movement
+        "home_adv_pct": 2.5,
+        "key_player_impact": 0.03,
+        "h2h_weight": 0.15,
+        "form_weight": 0.20,
+        "line_movement_weight": 0.25,
     },
     "americanfootball_nfl": {
         "avg_total": 45,
@@ -67,14 +71,14 @@ SPORT_CONFIG = {
 class BetPredictorV5:
     """
     Comprehensive betting prediction engine that analyzes
-    all available data to make informed predictions.
+    all available data across all markets to make informed predictions.
     """
     
     def __init__(self):
         self.line_analyzer = LineMovementAnalyzer()
         self.min_confidence = 0.70
         self.min_edge = 0.04  # 4% minimum edge
-        self.min_factors = 4  # At least 4 factors must align
+        self.min_factors = 3  # At least 3 factors must align
     
     async def analyze_and_predict(
         self,
@@ -87,10 +91,10 @@ class BetPredictorV5:
         current_odds: Dict
     ) -> Dict:
         """
-        Comprehensive analysis combining all factors.
+        Comprehensive analysis combining all factors for ALL markets.
         
         Returns:
-        - prediction: The recommended pick (or None if no value)
+        - prediction: The recommended pick (ML, Spread, or Total)
         - confidence: 0-100% confidence level
         - reasoning: Detailed explanation of the analysis
         - factors: List of supporting/opposing factors
@@ -107,16 +111,18 @@ class BetPredictorV5:
         analysis = {
             "home_team": home_team,
             "away_team": away_team,
-            "home_score": 50.0,  # Start at 50/50
+            "home_score": 50.0,
             "factors_home": [],
             "factors_away": [],
+            "factors_over": [],
+            "factors_under": [],
             "factor_count": 0,
             "warnings": [],
             "insights": []
         }
         
-        # 1. LINE MOVEMENT ANALYSIS (Most important - 25% weight)
-        logger.info("📊 Analyzing line movement...")
+        # 1. LINE MOVEMENT ANALYSIS for ALL MARKETS
+        logger.info("📊 Analyzing line movement across all markets...")
         line_analysis = await analyze_line_movement(
             line_movement_history,
             opening_odds,
@@ -126,52 +132,56 @@ class BetPredictorV5:
             away_team
         )
         
-        line_adjustment = self._process_line_movement(line_analysis, analysis, config)
+        # Process line movement for each market
+        ml_analysis = line_analysis.get("markets", {}).get("moneyline", {})
+        spread_analysis = line_analysis.get("markets", {}).get("spread", {})
+        totals_analysis = line_analysis.get("markets", {}).get("totals", {})
+        
+        # Get adjustments from line movement
+        side_adjustment = self._process_side_movement(ml_analysis, spread_analysis, analysis, home_team, away_team)
+        totals_direction = self._process_totals_movement(totals_analysis, analysis)
+        
         analysis["line_analysis"] = line_analysis
         
-        # 2. FORM ANALYSIS (20% weight)
+        # 2. FORM ANALYSIS
         logger.info("📈 Analyzing recent form...")
         form_adjustment = self._analyze_form(matchup_data, analysis, config)
         
-        # 3. SQUAD ANALYSIS with injuries (15% weight)
+        # 3. SQUAD ANALYSIS
         logger.info("👥 Analyzing squads and injuries...")
         squad_adjustment = self._analyze_squads(squad_data, analysis, config)
         
-        # 4. H2H ANALYSIS (15% weight)
+        # 4. H2H ANALYSIS
         logger.info("🔄 Analyzing head-to-head history...")
         h2h_adjustment = self._analyze_h2h(matchup_data, analysis, config)
         
-        # 5. VENUE/HOME ADVANTAGE (10% weight)
+        # 5. VENUE ANALYSIS
         logger.info("🏟️ Analyzing venue factors...")
         venue_adjustment = self._analyze_venue(event, matchup_data, analysis, config)
         
-        # 6. ODDS VALUE ANALYSIS
-        logger.info("💰 Analyzing odds value...")
-        odds_analysis = self._analyze_odds_value(event, analysis)
-        
-        # Calculate final probability
-        total_adjustment = (
-            line_adjustment * config["line_movement_weight"] +
+        # Calculate side probability (for ML/Spread)
+        total_side_adjustment = (
+            side_adjustment * config["line_movement_weight"] +
             form_adjustment * config["form_weight"] +
             squad_adjustment * 0.15 +
             h2h_adjustment * config["h2h_weight"] +
             venue_adjustment * 0.10
         )
         
-        # Apply adjustments (normalized)
-        analysis["home_score"] += total_adjustment * 100
+        analysis["home_score"] += total_side_adjustment * 100
         analysis["home_score"] = max(30, min(70, analysis["home_score"]))
         
         home_prob = analysis["home_score"] / 100
         away_prob = 1 - home_prob
         
-        # Generate prediction
-        prediction = self._generate_prediction(
+        # 6. DETERMINE BEST MARKET TO BET
+        prediction = self._generate_multi_market_prediction(
             analysis,
+            line_analysis,
             home_prob,
             away_prob,
-            odds_analysis,
-            line_analysis,
+            totals_direction,
+            event,
             home_team,
             away_team,
             sport_key
@@ -179,103 +189,113 @@ class BetPredictorV5:
         
         return prediction
     
-    def _process_line_movement(
+    def _process_side_movement(
         self,
-        line_analysis: Dict,
+        ml_analysis: Dict,
+        spread_analysis: Dict,
         analysis: Dict,
-        config: Dict
+        home_team: str,
+        away_team: str
     ) -> float:
-        """
-        Process line movement analysis and return adjustment.
-        Returns: adjustment factor (-0.15 to +0.15)
-        """
+        """Process ML and Spread line movement."""
         adjustment = 0
-        home_team = analysis["home_team"]
-        away_team = analysis["away_team"]
         
-        # Value side from line movement
-        value_side = line_analysis.get("value_side")
-        value_confidence = line_analysis.get("value_confidence", 0.5)
-        
-        if value_side:
-            base_adj = (value_confidence - 0.5) * 0.5  # Convert to adjustment
+        # ML signals
+        if ml_analysis.get("value_side"):
+            conf = ml_analysis.get("confidence", 0.5)
+            base_adj = (conf - 0.5) * 0.3
             
-            if value_side == home_team:
+            if ml_analysis["value_side"] == home_team:
                 adjustment += base_adj
                 analysis["factors_home"].append({
-                    "factor": "Line Movement",
-                    "strength": "strong" if base_adj > 0.05 else "moderate",
-                    "detail": line_analysis.get("summary", "Market favoring home")
+                    "factor": "ML Line Movement",
+                    "strength": "strong" if base_adj > 0.03 else "moderate",
+                    "detail": f"ML moved {abs(ml_analysis.get('total_movement', 0)):.1f}% toward {home_team}"
                 })
             else:
                 adjustment -= base_adj
                 analysis["factors_away"].append({
-                    "factor": "Line Movement",
-                    "strength": "strong" if base_adj > 0.05 else "moderate",
-                    "detail": line_analysis.get("summary", "Market favoring away")
+                    "factor": "ML Line Movement",
+                    "strength": "strong" if base_adj > 0.03 else "moderate",
+                    "detail": f"ML moved {abs(ml_analysis.get('total_movement', 0)):.1f}% toward {away_team}"
                 })
+            analysis["factor_count"] += 1
+        
+        # Spread signals
+        if spread_analysis.get("value_side"):
+            conf = spread_analysis.get("confidence", 0.5)
+            base_adj = (conf - 0.5) * 0.25
             
+            if spread_analysis["value_side"] == home_team:
+                adjustment += base_adj
+                analysis["factors_home"].append({
+                    "factor": "Spread Movement",
+                    "strength": "strong" if base_adj > 0.03 else "moderate",
+                    "detail": f"Spread moved {abs(spread_analysis.get('total_movement', 0)):.1f}pts toward {home_team}"
+                })
+            else:
+                adjustment -= base_adj
+                analysis["factors_away"].append({
+                    "factor": "Spread Movement",
+                    "strength": "strong" if base_adj > 0.03 else "moderate",
+                    "detail": f"Spread moved {abs(spread_analysis.get('total_movement', 0)):.1f}pts toward {away_team}"
+                })
             analysis["factor_count"] += 1
         
         # Sharp money bonus
-        if line_analysis.get("sharp_money_side"):
-            sharp_side = line_analysis["sharp_money_side"]
-            if sharp_side == home_team:
-                adjustment += 0.03
-                analysis["factors_home"].append({
-                    "factor": "Sharp Money",
-                    "strength": "strong",
-                    "detail": f"Professional bettors backing {home_team}"
-                })
-            else:
-                adjustment -= 0.03
-                analysis["factors_away"].append({
-                    "factor": "Sharp Money",
-                    "strength": "strong",
-                    "detail": f"Professional bettors backing {away_team}"
-                })
-            analysis["factor_count"] += 1
+        for market_data in [ml_analysis, spread_analysis]:
+            if market_data.get("sharp_money_side"):
+                sharp_side = market_data["sharp_money_side"]
+                if sharp_side == home_team:
+                    adjustment += 0.02
+                else:
+                    adjustment -= 0.02
+                analysis["factor_count"] += 1
+                analysis["insights"].append(f"Sharp money detected on {sharp_side}")
         
         # RLM bonus
-        if line_analysis.get("reverse_line_movement"):
-            analysis["insights"].append(
-                "⚠️ Reverse Line Movement: Line moving opposite to public betting"
-            )
-            # RLM side gets a boost
-            if line_analysis.get("sharp_money_side") == home_team:
-                adjustment += 0.02
-            else:
-                adjustment -= 0.02
-            analysis["factor_count"] += 1
-        
-        # Steam moves
-        if line_analysis.get("steam_moves"):
-            for steam in line_analysis["steam_moves"][:2]:
-                steam_side = steam.get("side")
-                if steam_side == home_team:
-                    adjustment += 0.015
-                else:
-                    adjustment -= 0.015
-                analysis["insights"].append(
-                    f"Steam move: Rapid price change toward {steam_side}"
-                )
-        
-        # Add key insights
-        for insight in line_analysis.get("key_insights", [])[:3]:
-            analysis["insights"].append(insight)
+        for market_data in [ml_analysis, spread_analysis]:
+            if market_data.get("reverse_line_movement"):
+                analysis["insights"].append("⚠️ Reverse Line Movement detected")
+                analysis["factor_count"] += 1
         
         return max(-0.15, min(0.15, adjustment))
     
-    def _analyze_form(
+    def _process_totals_movement(
         self,
-        matchup_data: Dict,
-        analysis: Dict,
-        config: Dict
-    ) -> float:
-        """
-        Analyze recent form and momentum.
-        Returns: adjustment factor (-0.15 to +0.15)
-        """
+        totals_analysis: Dict,
+        analysis: Dict
+    ) -> Optional[str]:
+        """Process totals line movement and return direction."""
+        direction = None
+        
+        if totals_analysis.get("value_side"):
+            direction = totals_analysis["value_side"]  # "over" or "under"
+            conf = totals_analysis.get("confidence", 0.5)
+            
+            if direction == "over":
+                analysis["factors_over"].append({
+                    "factor": "Totals Movement",
+                    "strength": "strong" if conf > 0.6 else "moderate",
+                    "detail": f"Total moved {abs(totals_analysis.get('total_movement', 0)):.1f}pts up"
+                })
+            else:
+                analysis["factors_under"].append({
+                    "factor": "Totals Movement",
+                    "strength": "strong" if conf > 0.6 else "moderate",
+                    "detail": f"Total moved {abs(totals_analysis.get('total_movement', 0)):.1f}pts down"
+                })
+            analysis["factor_count"] += 1
+        
+        if totals_analysis.get("sharp_money_side"):
+            direction = totals_analysis["sharp_money_side"]
+            analysis["insights"].append(f"Sharp money on {direction.upper()}")
+            analysis["factor_count"] += 1
+        
+        return direction
+    
+    def _analyze_form(self, matchup_data: Dict, analysis: Dict, config: Dict) -> float:
+        """Analyze recent form and momentum."""
         adjustment = 0
         home_team = analysis["home_team"]
         away_team = analysis["away_team"]
@@ -286,7 +306,7 @@ class BetPredictorV5:
         home_form = home_data.get("form", {})
         away_form = away_data.get("form", {})
         
-        # Win percentage comparison
+        # Win percentage
         home_win_pct = home_form.get("win_pct", 0.5)
         away_win_pct = away_form.get("win_pct", 0.5)
         
@@ -297,53 +317,28 @@ class BetPredictorV5:
             adjustment += max(-0.05, min(0.05, adj))
             
             better = home_team if win_pct_diff > 0 else away_team
-            better_pct = home_win_pct if win_pct_diff > 0 else away_win_pct
-            worse_pct = away_win_pct if win_pct_diff > 0 else home_win_pct
-            
             factors_list = analysis["factors_home"] if win_pct_diff > 0 else analysis["factors_away"]
             factors_list.append({
                 "factor": "Win Rate",
                 "strength": "strong" if abs(win_pct_diff) > 0.25 else "moderate",
-                "detail": f"{better} winning {better_pct*100:.0f}% vs {worse_pct*100:.0f}%"
+                "detail": f"{better} has better record"
             })
             analysis["factor_count"] += 1
         
-        # Average margin comparison
-        home_margin = home_form.get("avg_margin", 0)
-        away_margin = away_form.get("avg_margin", 0)
-        
-        margin_diff = home_margin - away_margin
-        
-        if abs(margin_diff) > 5:
-            adj = margin_diff * 0.01
-            adjustment += max(-0.04, min(0.04, adj))
-            
-            better = home_team if margin_diff > 0 else away_team
-            better_margin = home_margin if margin_diff > 0 else away_margin
-            
-            factors_list = analysis["factors_home"] if margin_diff > 0 else analysis["factors_away"]
-            factors_list.append({
-                "factor": "Scoring Margin",
-                "strength": "moderate",
-                "detail": f"{better} winning by avg +{abs(better_margin):.1f} points"
-            })
-            analysis["factor_count"] += 1
-        
-        # Streak analysis
+        # Streak
         home_streak = home_form.get("streak", 0)
         away_streak = away_form.get("streak", 0)
         
         if abs(home_streak) >= 3:
-            streak_adj = home_streak * 0.01
-            adjustment += max(-0.03, min(0.03, streak_adj))
-            
             if home_streak > 0:
+                adjustment += 0.02
                 analysis["factors_home"].append({
                     "factor": "Hot Streak",
                     "strength": "moderate",
                     "detail": f"{home_team} on {home_streak}-game win streak"
                 })
             else:
+                adjustment -= 0.02
                 analysis["factors_away"].append({
                     "factor": "Cold Streak",
                     "strength": "moderate",
@@ -351,36 +346,10 @@ class BetPredictorV5:
                 })
             analysis["factor_count"] += 1
         
-        if abs(away_streak) >= 3:
-            streak_adj = -away_streak * 0.01
-            adjustment += max(-0.03, min(0.03, streak_adj))
-            
-            if away_streak > 0:
-                analysis["factors_away"].append({
-                    "factor": "Hot Streak",
-                    "strength": "moderate",
-                    "detail": f"{away_team} on {away_streak}-game win streak"
-                })
-            else:
-                analysis["factors_home"].append({
-                    "factor": "Cold Streak",
-                    "strength": "moderate",
-                    "detail": f"{away_team} on {abs(away_streak)}-game losing streak"
-                })
-            analysis["factor_count"] += 1
-        
-        return max(-0.15, min(0.15, adjustment))
+        return max(-0.10, min(0.10, adjustment))
     
-    def _analyze_squads(
-        self,
-        squad_data: Dict,
-        analysis: Dict,
-        config: Dict
-    ) -> float:
-        """
-        Analyze squad strength and injuries.
-        Returns: adjustment factor (-0.10 to +0.10)
-        """
+    def _analyze_squads(self, squad_data: Dict, analysis: Dict, config: Dict) -> float:
+        """Analyze squad strength and injuries."""
         adjustment = 0
         home_team = analysis["home_team"]
         away_team = analysis["away_team"]
@@ -388,11 +357,9 @@ class BetPredictorV5:
         home_squad = squad_data.get("home_team", {})
         away_squad = squad_data.get("away_team", {})
         
-        # Injury analysis
         home_injuries = home_squad.get("injuries", [])
         away_injuries = away_squad.get("injuries", [])
         
-        # Count significant injuries (starters/key players)
         home_key_out = sum(1 for inj in home_injuries 
                          if inj.get("status", "").lower() in ["out", "doubtful"])
         away_key_out = sum(1 for inj in away_injuries 
@@ -401,49 +368,32 @@ class BetPredictorV5:
         injury_diff = away_key_out - home_key_out
         
         if abs(injury_diff) >= 2:
-            key_player_impact = config.get("key_player_impact", 0.03)
-            adj = injury_diff * key_player_impact
+            adj = injury_diff * config.get("key_player_impact", 0.03)
             adjustment += max(-0.06, min(0.06, adj))
             
             if injury_diff > 0:
                 analysis["factors_home"].append({
                     "factor": "Injury Advantage",
                     "strength": "strong" if injury_diff >= 3 else "moderate",
-                    "detail": f"{away_team} missing {away_key_out} key players vs {home_key_out} for {home_team}"
+                    "detail": f"{away_team} missing {away_key_out} key players"
                 })
             else:
                 analysis["factors_away"].append({
                     "factor": "Injury Advantage",
                     "strength": "strong" if abs(injury_diff) >= 3 else "moderate",
-                    "detail": f"{home_team} missing {home_key_out} key players vs {away_key_out} for {away_team}"
+                    "detail": f"{home_team} missing {home_key_out} key players"
                 })
-            
             analysis["factor_count"] += 1
         
-        # Add injury warnings
-        if home_key_out >= 2:
-            analysis["warnings"].append(f"⚠️ {home_team} has {home_key_out} key players out/doubtful")
-        if away_key_out >= 2:
-            analysis["warnings"].append(f"⚠️ {away_team} has {away_key_out} key players out/doubtful")
-        
-        return max(-0.10, min(0.10, adjustment))
+        return max(-0.08, min(0.08, adjustment))
     
-    def _analyze_h2h(
-        self,
-        matchup_data: Dict,
-        analysis: Dict,
-        config: Dict
-    ) -> float:
-        """
-        Analyze head-to-head history.
-        Returns: adjustment factor (-0.08 to +0.08)
-        """
+    def _analyze_h2h(self, matchup_data: Dict, analysis: Dict, config: Dict) -> float:
+        """Analyze head-to-head history."""
         adjustment = 0
         home_team = analysis["home_team"]
         away_team = analysis["away_team"]
         
         h2h = matchup_data.get("h2h", {})
-        
         if not h2h:
             return 0
         
@@ -459,7 +409,7 @@ class BetPredictorV5:
                 analysis["factors_home"].append({
                     "factor": "H2H Dominance",
                     "strength": "moderate",
-                    "detail": f"{home_team} won {home_h2h_wins} of last {total_h2h} meetings"
+                    "detail": f"{home_team} won {home_h2h_wins}/{total_h2h} recent meetings"
                 })
                 analysis["factor_count"] += 1
             elif home_h2h_pct <= 0.35:
@@ -467,201 +417,234 @@ class BetPredictorV5:
                 analysis["factors_away"].append({
                     "factor": "H2H Dominance",
                     "strength": "moderate",
-                    "detail": f"{away_team} won {away_h2h_wins} of last {total_h2h} meetings"
+                    "detail": f"{away_team} won {away_h2h_wins}/{total_h2h} recent meetings"
                 })
                 analysis["factor_count"] += 1
         
-        return max(-0.08, min(0.08, adjustment))
+        return max(-0.06, min(0.06, adjustment))
     
-    def _analyze_venue(
-        self,
-        event: Dict,
-        matchup_data: Dict,
-        analysis: Dict,
-        config: Dict
-    ) -> float:
-        """
-        Analyze venue factors and home advantage.
-        Returns: adjustment factor (0 to +0.05)
-        """
+    def _analyze_venue(self, event: Dict, matchup_data: Dict, analysis: Dict, config: Dict) -> float:
+        """Analyze venue factors."""
         home_team = analysis["home_team"]
-        
-        # Base home advantage
         home_adv = config.get("home_adv_pct", 2.5) / 100
         
-        adjustment = home_adv
         analysis["factors_home"].append({
             "factor": "Home Court",
             "strength": "moderate",
-            "detail": f"{home_team} playing at home (+{config.get('home_adv_pct', 2.5)}% baseline)"
+            "detail": f"{home_team} playing at home"
         })
         
-        # Check home record
-        home_data = matchup_data.get("home_team", {})
-        home_form = home_data.get("form", {})
-        home_record = home_form.get("home_record", {})
-        
-        if home_record:
-            home_wins = home_record.get("wins", 0)
-            home_losses = home_record.get("losses", 0)
-            
-            if home_wins + home_losses >= 5:
-                home_win_rate = home_wins / (home_wins + home_losses)
-                
-                if home_win_rate >= 0.70:
-                    adjustment += 0.02
-                    analysis["factors_home"].append({
-                        "factor": "Home Dominance",
-                        "strength": "strong",
-                        "detail": f"{home_team} is {home_wins}-{home_losses} at home ({home_win_rate*100:.0f}%)"
-                    })
-                    analysis["factor_count"] += 1
-        
-        return max(0, min(0.05, adjustment))
+        return home_adv
     
-    def _analyze_odds_value(
-        self,
-        event: Dict,
-        analysis: Dict
-    ) -> Dict:
-        """
-        Analyze current odds for value.
-        """
-        odds = event.get("odds", {})
-        
-        home_ml = odds.get("home_ml_decimal", 1.91)
-        away_ml = odds.get("away_ml_decimal", 1.91)
-        
-        # Calculate implied probabilities
-        home_implied = 1 / home_ml if home_ml > 1 else 0.5
-        away_implied = 1 / away_ml if away_ml > 1 else 0.5
-        
-        # Remove vig
-        total = home_implied + away_implied
-        if total > 0:
-            home_implied /= total
-            away_implied /= total
-        
-        return {
-            "home_ml": home_ml,
-            "away_ml": away_ml,
-            "home_implied": home_implied,
-            "away_implied": away_implied
-        }
-    
-    def _generate_prediction(
+    def _generate_multi_market_prediction(
         self,
         analysis: Dict,
+        line_analysis: Dict,
         home_prob: float,
         away_prob: float,
-        odds_analysis: Dict,
-        line_analysis: Dict,
+        totals_direction: Optional[str],
+        event: Dict,
         home_team: str,
         away_team: str,
         sport_key: str
     ) -> Dict:
-        """
-        Generate final prediction with confidence and reasoning.
-        """
-        # Calculate edges
-        home_edge = home_prob - odds_analysis["home_implied"]
-        away_edge = away_prob - odds_analysis["away_implied"]
+        """Generate prediction for the best market (ML, Spread, or Totals)."""
         
-        # Determine best pick
-        best_side = None
-        best_edge = 0
-        best_odds = 0
-        best_prob = 0
+        # Get recommended market from line analysis
+        recommended = line_analysis.get("recommended_market")
+        markets = line_analysis.get("markets", {})
         
-        if home_edge >= self.min_edge:
-            best_side = home_team
-            best_edge = home_edge
-            best_odds = odds_analysis["home_ml"]
-            best_prob = home_prob
+        # Get current odds
+        odds = event.get("odds", {})
+        bookmakers = event.get("bookmakers", [])
         
-        if away_edge > best_edge and away_edge >= self.min_edge:
-            best_side = away_team
-            best_edge = away_edge
-            best_odds = odds_analysis["away_ml"]
-            best_prob = away_prob
+        current_spread = None
+        current_total = None
+        home_ml = odds.get("home_ml_decimal", 1.91)
+        away_ml = odds.get("away_ml_decimal", 1.91)
+        spread_odds = 1.91
+        over_odds = 1.91
+        under_odds = 1.91
         
-        # Calculate confidence based on factors
+        # Extract spread and total from bookmakers
+        for bm in bookmakers:
+            for market in bm.get("markets", []):
+                if market.get("key") == "spreads":
+                    for outcome in market.get("outcomes", []):
+                        if home_team.lower() in outcome.get("name", "").lower() or outcome.get("name", "").lower() == "home":
+                            current_spread = outcome.get("point")
+                            spread_odds = outcome.get("price", 1.91)
+                elif market.get("key") == "totals":
+                    for outcome in market.get("outcomes", []):
+                        if "over" in outcome.get("name", "").lower():
+                            current_total = outcome.get("point")
+                            over_odds = outcome.get("price", 1.91)
+                        elif "under" in outcome.get("name", "").lower():
+                            under_odds = outcome.get("price", 1.91)
+        
+        # Calculate factor counts
         factor_count = analysis["factor_count"]
-        base_confidence = 0.60
         
-        # Factor bonus
-        factor_bonus = min(0.15, factor_count * 0.025)
+        # Build candidates for each market
+        candidates = []
         
-        # Edge bonus
-        edge_bonus = min(0.10, best_edge * 1.5)
+        # ML candidate
+        ml_market = markets.get("moneyline", {})
+        if ml_market.get("value_side") and ml_market.get("confidence", 0) > 0.55:
+            ml_side = ml_market["value_side"]
+            ml_odds = home_ml if ml_side == home_team else away_ml
+            ml_prob = home_prob if ml_side == home_team else away_prob
+            
+            candidates.append({
+                "market": "moneyline",
+                "pick": ml_side,
+                "odds": ml_odds,
+                "our_prob": ml_prob,
+                "line_confidence": ml_market.get("confidence", 0.5),
+                "factors": analysis["factors_home"] if ml_side == home_team else analysis["factors_away"],
+                "has_sharp": ml_market.get("sharp_money_side") is not None,
+                "has_rlm": ml_market.get("reverse_line_movement", False)
+            })
         
-        # Line movement bonus
-        line_conf_adj = line_analysis.get("confidence_adjustment", 0)
+        # Spread candidate
+        spread_market = markets.get("spread", {})
+        if spread_market.get("value_side") and spread_market.get("confidence", 0) > 0.55 and current_spread is not None:
+            spread_side = spread_market["value_side"]
+            
+            candidates.append({
+                "market": "spread",
+                "pick": spread_side,
+                "pick_detail": f"{spread_side} {'+' if current_spread > 0 else ''}{current_spread}",
+                "odds": spread_odds,
+                "our_prob": 0.55,  # Spread is roughly 50/50
+                "line_confidence": spread_market.get("confidence", 0.5),
+                "factors": analysis["factors_home"] if spread_side == home_team else analysis["factors_away"],
+                "has_sharp": spread_market.get("sharp_money_side") is not None,
+                "has_rlm": spread_market.get("reverse_line_movement", False),
+                "spread_value": current_spread
+            })
         
-        confidence = base_confidence + factor_bonus + edge_bonus + line_conf_adj
-        confidence = max(0.50, min(0.85, confidence))
+        # Totals candidate
+        totals_market = markets.get("totals", {})
+        if totals_market.get("value_side") and totals_market.get("confidence", 0) > 0.55 and current_total is not None:
+            totals_side = totals_market["value_side"]  # "over" or "under"
+            t_odds = over_odds if totals_side == "over" else under_odds
+            
+            candidates.append({
+                "market": "total",
+                "pick": totals_side,
+                "pick_detail": f"{totals_side.upper()} {current_total}",
+                "odds": t_odds,
+                "our_prob": 0.55,
+                "line_confidence": totals_market.get("confidence", 0.5),
+                "factors": analysis["factors_over"] if totals_side == "over" else analysis["factors_under"],
+                "has_sharp": totals_market.get("sharp_money_side") is not None,
+                "has_rlm": totals_market.get("reverse_line_movement", False),
+                "total_value": current_total
+            })
         
-        # Build reasoning
-        reasoning_parts = []
+        # Select best candidate based on: 1) sharp money 2) RLM 3) highest confidence
+        best_candidate = None
+        best_score = 0
         
-        # Add line movement insights
-        if line_analysis.get("summary"):
-            reasoning_parts.append(f"📊 Line Movement: {line_analysis['summary']}")
+        for c in candidates:
+            score = c["line_confidence"]
+            if c["has_sharp"]:
+                score += 0.10
+            if c["has_rlm"]:
+                score += 0.08
+            if len(c.get("factors", [])) >= 2:
+                score += 0.05
+            
+            if score > best_score:
+                best_score = score
+                best_candidate = c
         
-        # Add key factors
-        if best_side == home_team and analysis["factors_home"]:
-            for f in analysis["factors_home"][:3]:
+        # Generate prediction
+        if best_candidate and best_score >= 0.60 and factor_count >= self.min_factors:
+            # Calculate final confidence
+            base_confidence = 0.60
+            factor_bonus = min(0.12, factor_count * 0.02)
+            line_bonus = (best_candidate["line_confidence"] - 0.5) * 0.3
+            sharp_bonus = 0.05 if best_candidate["has_sharp"] else 0
+            rlm_bonus = 0.04 if best_candidate["has_rlm"] else 0
+            
+            confidence = base_confidence + factor_bonus + line_bonus + sharp_bonus + rlm_bonus
+            confidence = max(0.55, min(0.82, confidence))
+            
+            # Build reasoning
+            reasoning_parts = []
+            reasoning_parts.append(f"📊 {line_analysis.get('summary', 'Line movement analyzed')}")
+            
+            for f in best_candidate.get("factors", [])[:3]:
                 reasoning_parts.append(f"✓ {f['factor']}: {f['detail']}")
-        elif best_side == away_team and analysis["factors_away"]:
-            for f in analysis["factors_away"][:3]:
-                reasoning_parts.append(f"✓ {f['factor']}: {f['detail']}")
-        
-        # Add warnings
-        for warning in analysis["warnings"][:2]:
-            reasoning_parts.append(warning)
-        
-        # Decision
-        if best_side and confidence >= self.min_confidence and factor_count >= self.min_factors:
-            ev = best_edge * (best_odds - 1) * 100
+            
+            for insight in analysis.get("insights", [])[:2]:
+                reasoning_parts.append(insight)
+            
+            for warning in analysis.get("warnings", [])[:1]:
+                reasoning_parts.append(warning)
+            
+            pick_display = best_candidate.get("pick_detail", best_candidate["pick"])
             
             return {
                 "has_pick": True,
-                "pick": best_side,
-                "pick_type": "moneyline",
-                "odds": best_odds,
+                "pick": best_candidate["pick"],
+                "pick_type": best_candidate["market"],
+                "pick_display": pick_display,
+                "odds": best_candidate["odds"],
                 "confidence": round(confidence * 100, 1),
-                "edge_percent": round(best_edge * 100, 1),
-                "expected_value": round(ev, 2),
-                "our_probability": round(best_prob * 100, 1),
-                "market_probability": round(odds_analysis["home_implied" if best_side == home_team else "away_implied"] * 100, 1),
+                "our_probability": round(best_candidate.get("our_prob", 0.55) * 100, 1),
                 "factor_count": factor_count,
                 "reasoning": "\n".join(reasoning_parts),
-                "key_factors": [f["factor"] for f in (analysis["factors_home"] if best_side == home_team else analysis["factors_away"])],
+                "key_factors": [f["factor"] for f in best_candidate.get("factors", [])],
                 "line_analysis_summary": line_analysis.get("summary"),
-                "insights": analysis["insights"],
-                "warnings": analysis["warnings"],
+                "market_analysis": {
+                    "ml": {
+                        "direction": markets.get("moneyline", {}).get("movement_direction"),
+                        "sharp_side": markets.get("moneyline", {}).get("sharp_money_side")
+                    },
+                    "spread": {
+                        "direction": markets.get("spread", {}).get("movement_direction"),
+                        "value": current_spread,
+                        "sharp_side": markets.get("spread", {}).get("sharp_money_side")
+                    },
+                    "totals": {
+                        "direction": markets.get("totals", {}).get("movement_direction"),
+                        "value": current_total,
+                        "sharp_side": markets.get("totals", {}).get("sharp_money_side")
+                    }
+                },
+                "cross_market_signals": line_analysis.get("cross_market_signals", []),
+                "insights": analysis.get("insights", []),
+                "warnings": analysis.get("warnings", []),
                 "algorithm": "betpredictor_v5"
             }
         else:
-            # No pick - explain why
+            # No pick
             reasons = []
             if factor_count < self.min_factors:
-                reasons.append(f"Only {factor_count}/{self.min_factors} required factors aligned")
-            if confidence < self.min_confidence:
-                reasons.append(f"Confidence {confidence*100:.0f}% below {self.min_confidence*100:.0f}% threshold")
-            if best_edge < self.min_edge:
-                reasons.append(f"Edge {best_edge*100:.1f}% below {self.min_edge*100:.0f}% minimum")
+                reasons.append(f"Only {factor_count}/{self.min_factors} factors aligned")
+            if not best_candidate:
+                reasons.append("No strong market signal detected")
+            elif best_score < 0.60:
+                reasons.append(f"Best market confidence ({best_score*100:.0f}%) below threshold")
             
             return {
                 "has_pick": False,
                 "reasoning": "No pick recommended: " + "; ".join(reasons),
-                "closest_confidence": round(confidence * 100, 1),
-                "closest_edge": round(max(home_edge, away_edge) * 100, 1),
                 "factor_count": factor_count,
+                "closest_market": best_candidate["market"] if best_candidate else None,
+                "closest_confidence": round(best_score * 100, 1) if best_candidate else 0,
                 "home_probability": round(home_prob * 100, 1),
                 "away_probability": round(away_prob * 100, 1),
+                "market_analysis": {
+                    "ml": markets.get("moneyline", {}),
+                    "spread": markets.get("spread", {}),
+                    "totals": markets.get("totals", {})
+                },
                 "line_analysis_summary": line_analysis.get("summary"),
-                "insights": analysis["insights"],
+                "insights": analysis.get("insights", []),
                 "algorithm": "betpredictor_v5"
             }
 
@@ -676,9 +659,7 @@ async def generate_v5_prediction(
     opening_odds: Dict,
     current_odds: Dict
 ) -> Dict:
-    """
-    Generate a prediction using BetPredictor V5.
-    """
+    """Generate a prediction using BetPredictor V5."""
     engine = BetPredictorV5()
     return await engine.analyze_and_predict(
         event,
