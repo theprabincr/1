@@ -407,6 +407,13 @@ const Dashboard = () => {
                       </div>
                       <p className="font-mono text-lg text-text-primary">@ {pick.odds_at_prediction?.toFixed(2)}</p>
                     </div>
+                    {/* Reasoning Section */}
+                    {pick.reasoning && (
+                      <div className="mt-3 pt-3 border-t border-zinc-700">
+                        <p className="text-xs text-text-muted mb-1">Why this pick?</p>
+                        <p className="text-text-secondary text-xs leading-relaxed">{pick.reasoning}</p>
+                      </div>
+                    )}
                   </div>
                 ))
               )}
