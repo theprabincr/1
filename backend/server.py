@@ -2253,20 +2253,17 @@ async def scheduled_pregame_predictor():
                                     sport_key
                                 )
                                 
-                                # 3. Get line movement history from database
+                                # 3. Get line movement history from database (ESPN snapshots every 15 min)
                                 line_history = await get_line_movement_history(event_id)
                                 
-                                # 4. Get multi-bookmaker odds (ESPN + aggregated)
-                                multi_book_odds = await fetch_aggregated_odds(sport_key, event_id, event)
-                                
-                                # 5. Run SMART prediction engine (no LLM required)
+                                # 4. Run SMART prediction engine (ESPN data only - no multi-book)
                                 smart_prediction = await generate_smart_prediction(
                                     event=event,
                                     sport_key=sport_key,
                                     squad_data=squad_data,
                                     matchup_data=matchup_data,
                                     line_movement=line_history,
-                                    multi_book_odds=multi_book_odds
+                                    multi_book_odds=None  # ESPN only
                                 )
                                 
                                 if smart_prediction and smart_prediction.get("has_pick") and smart_prediction.get("confidence", 0) >= 0.70:
