@@ -227,19 +227,7 @@ class SmartPredictionEngine:
                     home_prob += line_adj
                     factors.append(f"Sharp money on {away_team} (line moved {movement:.1f}%)")
         
-        # 7. Multi-book odds analysis
-        if multi_book_odds and multi_book_odds.get("best_odds"):
-            best = multi_book_odds["best_odds"]
-            best_home = best.get("home", {}).get("odds", home_ml)
-            best_away = best.get("away", {}).get("odds", away_ml)
-            avg_home = best.get("avg_home", home_ml)
-            avg_away = best.get("avg_away", away_ml)
-            
-            # Check for odds discrepancy (value opportunity)
-            if best_home > avg_home * 1.03:
-                factors.append(f"Value on {home_team} ({best_home:.2f} vs avg {avg_home:.2f})")
-            if best_away > avg_away * 1.03:
-                factors.append(f"Value on {away_team} ({best_away:.2f} vs avg {avg_away:.2f})")
+        # Note: ESPN provides DraftKings odds only - no multi-book comparison available
         
         # Clamp probability
         home_prob = max(0.30, min(0.70, home_prob))
