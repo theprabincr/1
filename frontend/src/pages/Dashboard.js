@@ -486,12 +486,12 @@ const Dashboard = () => {
           )}
         </div>
 
-        {/* Live Events */}
+        {/* Upcoming Events */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="font-mono font-bold text-lg text-text-primary flex items-center gap-2">
-              <Activity className="w-5 h-5 text-semantic-success" />
-              Live Events
+              <Calendar className="w-5 h-5 text-brand-primary" />
+              Upcoming Events
             </h2>
           </div>
           
