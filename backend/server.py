@@ -2173,19 +2173,19 @@ async def scheduled_pregame_predictor():
                             if window_start <= commence_time <= window_end:
                                 event_id = event.get("id")
                                 
-                                # Check if we already have an AI V4 prediction for this event
+                                # Check if we already have a Smart V4 prediction for this event
                                 existing = await db.predictions.find_one({
                                     "event_id": event_id, 
                                     "result": "pending",
-                                    "ai_model": "ai_v4"
+                                    "ai_model": "smart_v4"
                                 })
                                 
                                 if existing:
-                                    logger.debug(f"Skipping {event_id} - already has AI V4 prediction")
+                                    logger.debug(f"Skipping {event_id} - already has Smart V4 prediction")
                                     continue
                                 
-                                # This game is ~1 hour away - time for AI analysis!
-                                logger.info(f"🤖 AI PRE-GAME ANALYSIS: {event.get('home_team')} vs {event.get('away_team')} "
+                                # This game is ~1 hour away - time for smart analysis!
+                                logger.info(f"📊 SMART PRE-GAME ANALYSIS: {event.get('home_team')} vs {event.get('away_team')} "
                                           f"(starts in {(commence_time - now).total_seconds() / 60:.0f} min)")
                                 
                                 # 1. Get comprehensive matchup data
