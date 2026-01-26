@@ -2413,9 +2413,9 @@ async def startup_event():
     asyncio.create_task(scheduled_recommendation_generator())
     logger.info("Started legacy recommendation generator - runs every 4 hours")
     
-    # START NEW PRE-GAME PREDICTOR - PRIMARY PREDICTION SYSTEM
+    # START AI PRE-GAME PREDICTOR V4 - PRIMARY PREDICTION SYSTEM
     asyncio.create_task(scheduled_pregame_predictor())
-    logger.info("🎯 Started PRE-GAME PREDICTOR V3 - analyzes games 1-2 hours before start, runs every 10 min")
+    logger.info("🤖 Started AI PRE-GAME PREDICTOR V4 - AI analyzes games 1 hour before start, runs every 10 min")
     
     # Start ESPN odds refresh - NOW EVERY 15 MINUTES
     asyncio.create_task(scheduled_espn_odds_refresh())
