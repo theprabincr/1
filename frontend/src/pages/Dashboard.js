@@ -118,6 +118,14 @@ const TopPickCard = ({ pick, onClick }) => {
           </p>
         </div>
       </div>
+      
+      {/* Reasoning Section */}
+      {pick.reasoning && (
+        <div className="mt-3 pt-3 border-t border-zinc-700/50">
+          <p className="text-xs text-text-muted mb-1">Analysis</p>
+          <p className="text-text-secondary text-xs leading-relaxed">{pick.reasoning}</p>
+        </div>
+      )}
     </div>
   );
 };
