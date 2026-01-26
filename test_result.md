@@ -321,11 +321,14 @@ backend:
     file: "backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: true
         agent: "main"
         comment: "Updated scheduled_result_checker to run every 2 MINUTES (was 15 min). Provides near real-time score updates via ESPN API."
+      - working: true
+        agent: "testing"
+        comment: "✅ CONTINUOUS SCORE SYNC WORKING: GET /api/live-scores returns live_games_count (4) and games array with real-time scores. Games have home_score, away_score, status fields. Sample verified: Minnesota Timberwolves 55-66 Golden State Warriors (in_progress). Structure correct."
 
   - task: "Roster/Lineup Integration"
     implemented: true
