@@ -1513,22 +1513,28 @@ async def get_v3_predictions(limit: int = 50, result: str = None):
         "description": "Predictions made 1-2 hours before game start with deep analysis"
     }
 
-# NEW: Compare V2 vs V3 algorithm performance
+# NEW: Compare V2 vs V3 vs Smart V4 algorithm performance
 @api_router.get("/predictions/comparison")
 async def compare_algorithms():
-    """Compare performance of V2 (legacy) vs V3 (enhanced) algorithms"""
+    """Compare performance of V2 (legacy) vs V3 (enhanced) vs Smart V4 algorithms"""
     
     # Get all predictions
     all_predictions = await db.predictions.find({}).to_list(10000)
     
     v2_predictions = [p for p in all_predictions if p.get("ai_model") in ["custom_algorithm_v1", "gpt-5.2", "claude"]]
     v3_predictions = [p for p in all_predictions if p.get("ai_model") == "enhanced_v3"]
+    v4_predictions = [p for p in all_predictions if p.get("ai_model") == "smart_v4"]
     
     def calculate_stats(predictions):
         completed = [p for p in predictions if p.get("result") in ["win", "loss"]]
         wins = len([p for p in completed if p.get("result") == "win"])
         losses = len([p for p in completed if p.get("result") == "loss"])
         pending = len([p for p in predictions if p.get("result") == "pending"])
+        
+        # Count by pick type
+        ml_picks = len([p for p in predictions if p.get("prediction_type") == "moneyline"])
+        spread_picks = len([p for p in predictions if p.get("prediction_type") == "spread"])
+        total_picks = len([p for p in predictions if p.get("prediction_type") == "total"])
         
         win_rate = wins / len(completed) * 100 if completed else 0
         avg_confidence = sum(p.get("confidence", 0) for p in predictions) / len(predictions) * 100 if predictions else 0
@@ -1540,13 +1546,23 @@ async def compare_algorithms():
             "losses": losses,
             "pending": pending,
             "win_rate": round(win_rate, 1),
-            "avg_confidence": round(avg_confidence, 1)
+            "avg_confidence": round(avg_confidence, 1),
+            "pick_types": {
+                "moneyline": ml_picks,
+                "spread": spread_picks,
+                "total": total_picks
+            }
         }
     
     return {
         "v2_legacy": calculate_stats(v2_predictions),
         "v3_enhanced": calculate_stats(v3_predictions),
-        "recommendation": "V3 Enhanced algorithm predicts 1-2 hours before games with deeper analysis"
+        "smart_v4": calculate_stats(v4_predictions),
+        "description": {
+            "v2_legacy": "Original algorithm with basic factors",
+            "v3_enhanced": "Enhanced factors without LLM",
+            "smart_v4": "Smart algorithm - diverse predictions (ML/Spread/Total), no LLM required"
+        }
     }
 
 # NEW: View upcoming games in prediction window
