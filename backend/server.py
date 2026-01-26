@@ -229,7 +229,7 @@ async def get_data_source_status():
         "lastUpdate": last_scrape_time,
         "cachedEvents": total_cached,
         "lineMovementSnapshots": snapshot_count,
-        "refreshInterval": "15 minutes",
+        "refreshInterval": "5 minutes",
         "predictionWindow": "1 hour before game",
         "sports": list(events_cache.keys())
     }
