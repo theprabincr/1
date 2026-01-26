@@ -42,8 +42,14 @@ from enhanced_betting_algorithm import calculate_enhanced_pick, EnhancedBettingA
 # Import multi-bookmaker odds provider
 from multi_book_odds import fetch_multi_book_odds, get_multi_book_provider
 
+# Import odds aggregator (OddsPortal + ESPN)
+from odds_aggregator import fetch_aggregated_odds, get_odds_aggregator
+
+# Import AI prediction engine V4
+from ai_prediction_engine import generate_ai_prediction, AIPredictionEngine
+
 # Import lineup/roster scraper
-from lineup_scraper import get_matchup_context
+from lineup_scraper import get_matchup_context, fetch_team_roster
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
