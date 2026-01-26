@@ -2467,21 +2467,21 @@ async def startup_event():
     asyncio.create_task(scheduled_result_checker())
     logger.info("Started INSTANT live score sync - runs every 10 SECONDS with ESPN API")
     
-    # Start line movement checker - NOW EVERY 15 MINUTES
+    # Start line movement checker - updates recommendations on significant line moves
     asyncio.create_task(scheduled_line_movement_checker())
-    logger.info("Started line movement checker - runs every 15 MINUTES")
+    logger.info("Started line movement checker - monitors for significant line moves")
     
-    # Start legacy recommendation generator (runs less frequently now)
+    # Legacy recommendation generator - DISABLED (only pregame predictor makes picks)
     asyncio.create_task(scheduled_recommendation_generator())
-    logger.info("Started legacy recommendation generator - runs every 4 hours")
+    logger.info("⚠️ Legacy recommendation generator DISABLED")
     
-    # START SMART PRE-GAME PREDICTOR V4 - PRIMARY PREDICTION SYSTEM (NO LLM)
+    # START SMART PRE-GAME PREDICTOR V4 - ONLY makes predictions 1 hour before games
     asyncio.create_task(scheduled_pregame_predictor())
-    logger.info("📊 Started SMART PRE-GAME PREDICTOR V4 - analyzes games 1 hour before start, runs every 10 min, NO LLM REQUIRED")
+    logger.info("📊 Started SMART PRE-GAME PREDICTOR V4 - ONLY predicts 1 hour before game, runs every 10 min")
     
-    # Start ESPN odds refresh - NOW EVERY 15 MINUTES
+    # Start ESPN odds refresh - EVERY 5 MINUTES for accurate line tracking
     asyncio.create_task(scheduled_espn_odds_refresh())
-    logger.info("Started ESPN odds refresh - runs every 15 MINUTES (pre-match events only)")
+    logger.info("📸 Started ESPN odds snapshots - runs every 5 MINUTES until 1 hour before game")
     
     # Start line movement data cleanup
     asyncio.create_task(scheduled_line_movement_cleanup())
