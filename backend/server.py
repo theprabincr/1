@@ -2223,17 +2223,7 @@ async def scheduled_line_movement_checker():
             logger.error(f"Scheduled line movement checker error: {e}")
             await asyncio.sleep(60)
 
-# Background task for auto-generating recommendations - DISABLED (only pregame predictor should make picks)
-async def scheduled_recommendation_generator():
-    """DISABLED: Legacy recommendation generator. Only scheduled_pregame_predictor should make predictions."""
-    # DO NOT run - we only want predictions 1 hour before games
-    logger.info("⚠️ Legacy recommendation generator DISABLED - only pregame predictor makes picks now")
-    
-    # Keep the task alive but don't do anything
-    while True:
-        await asyncio.sleep(86400)  # Sleep for 24 hours - effectively disabled
-
-# NEW: Pre-game predictor - runs predictions 1-2 hours before game start
+# BetPredictor V5 - Pre-game predictor - runs predictions 1 hour before game start
 async def scheduled_pregame_predictor():
     """
     BETPREDICTOR V5: Generates predictions 1 hour before game start.
