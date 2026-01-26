@@ -2879,13 +2879,13 @@ async def startup_event():
     asyncio.create_task(scheduled_recommendation_generator())
     logger.info("⚠️ Legacy recommendation generator DISABLED")
     
-    # START SMART PRE-GAME PREDICTOR V4 - ONLY makes predictions 1 hour before games
+    # START BETPREDICTOR V5 - Makes predictions 1 hour before games with comprehensive line movement analysis
     asyncio.create_task(scheduled_pregame_predictor())
-    logger.info("📊 Started SMART PRE-GAME PREDICTOR V4 - ONLY predicts 1 hour before game, runs every 10 min")
+    logger.info("📊 Started BETPREDICTOR V5 - Comprehensive line movement analysis 1 hour before game")
     
     # Start ESPN odds refresh - EVERY 5 MINUTES for accurate line tracking
     asyncio.create_task(scheduled_espn_odds_refresh())
-    logger.info("📸 Started ESPN odds snapshots - runs every 5 MINUTES until 1 hour before game")
+    logger.info("📸 Started ESPN odds snapshots - runs every 5 MINUTES for line movement tracking")
     
     # Start line movement data cleanup
     asyncio.create_task(scheduled_line_movement_cleanup())
