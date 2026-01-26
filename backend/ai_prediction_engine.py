@@ -109,11 +109,31 @@ If no value found:
                 system_message=system_message
             )
             
-            # Use GPT-5.2 for best analysis
-            chat.with_model("openai", "gpt-5.2")
+            # Try GPT-5.2 first, fallback to Claude if budget exceeded
+            models_to_try = [
+                ("openai", "gpt-5.2"),
+                ("anthropic", "claude-sonnet-4-5-20250929"),
+                ("openai", "gpt-4o-mini"),
+            ]
             
-            # Call LLM for analysis - send_message is async now
-            response = await chat.send_message(UserMessage(text=prompt))
+            response = None
+            for provider, model in models_to_try:
+                try:
+                    chat.with_model(provider, model)
+                    self.model = model
+                    response = await chat.send_message(UserMessage(text=prompt))
+                    break
+                except Exception as model_error:
+                    error_str = str(model_error).lower()
+                    if "budget" in error_str or "exceeded" in error_str or "rate" in error_str:
+                        logger.warning(f"Model {model} budget/rate limited, trying next model...")
+                        continue
+                    else:
+                        raise model_error
+            
+            if not response:
+                logger.error("All LLM models failed")
+                return None
             
             # Parse AI response
             prediction = self._parse_ai_response(response.content, event)
