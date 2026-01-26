@@ -51,6 +51,31 @@ const TopPickCard = ({ pick, onClick }) => {
     'total': { label: 'O/U', color: 'bg-orange-500/20 text-orange-400' }
   }[pick.prediction_type] || { label: 'ML', color: 'bg-blue-500/20 text-blue-400' };
   
+  // Format the pick display based on prediction type
+  const formatPick = () => {
+    const outcome = pick.predicted_outcome || '';
+    if (pick.prediction_type === 'spread') {
+      return outcome; // e.g., "Boston Celtics -5.5"
+    } else if (pick.prediction_type === 'total') {
+      return outcome; // e.g., "Over 225.5"
+    }
+    return outcome; // Moneyline just shows team name
+  };
+  
+  // Get time until game
+  const getTimeUntil = () => {
+    if (!pick.commence_time) return '';
+    const commence = new Date(pick.commence_time);
+    const now = new Date();
+    const diffMs = commence - now;
+    if (diffMs < 0) return 'Started';
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const days = Math.floor(hours / 24);
+    if (days > 0) return `${days}d ${hours % 24}h`;
+    if (hours > 0) return `${hours}h`;
+    return 'Soon';
+  };
+  
   return (
     <div 
       className="event-card cursor-pointer" 
@@ -64,13 +89,16 @@ const TopPickCard = ({ pick, onClick }) => {
             {marketBadge.label}
           </span>
         </div>
-        <span className={`px-2 py-1 rounded text-xs font-bold ${
-          confidence >= 70 ? "bg-semantic-success/20 text-semantic-success" :
-          confidence >= 50 ? "bg-semantic-warning/20 text-semantic-warning" :
-          "bg-text-muted/20 text-text-muted"
-        }`}>
-          {confidence.toFixed(0)}% conf
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-text-muted">{getTimeUntil()}</span>
+          <span className={`px-2 py-1 rounded text-xs font-bold ${
+            confidence >= 70 ? "bg-semantic-success/20 text-semantic-success" :
+            confidence >= 50 ? "bg-semantic-warning/20 text-semantic-warning" :
+            "bg-text-muted/20 text-text-muted"
+          }`}>
+            {confidence.toFixed(0)}%
+          </span>
+        </div>
       </div>
       
       <div className="mb-3">
@@ -78,14 +106,14 @@ const TopPickCard = ({ pick, onClick }) => {
         <p className="text-text-muted text-sm">vs {pick.away_team}</p>
       </div>
       
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pt-3 border-t border-zinc-700/50">
         <div>
-          <p className="text-xs text-text-muted">Pick</p>
-          <p className="font-mono font-bold text-brand-primary">{pick.predicted_outcome}</p>
+          <p className="text-xs text-text-muted mb-1">Pick ({marketBadge.label})</p>
+          <p className="font-mono font-bold text-brand-primary text-sm">{formatPick()}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs text-text-muted">Odds</p>
-          <p className="font-mono font-bold text-brand-primary">
+          <p className="text-xs text-text-muted mb-1">Odds</p>
+          <p className="font-mono font-bold text-lg text-brand-primary">
             {pick.odds_at_prediction?.toFixed(2)}
           </p>
         </div>
