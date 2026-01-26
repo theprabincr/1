@@ -3,17 +3,16 @@ import "./App.css";
 import { BrowserRouter, Routes, Route, NavLink, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { 
-  Home, TrendingUp, BarChart3, Trophy, 
-  Activity, Settings, ChevronRight, RefreshCw,
-  Calendar, Clock, Zap, Target, DollarSign, Wifi,
-  Bell, Globe
+  Home, TrendingUp, Trophy, 
+  Settings, ChevronRight, RefreshCw,
+  Calendar, Clock, Zap, DollarSign, Wifi,
+  Bell
 } from "lucide-react";
 
 // Pages
 import Dashboard from "./pages/Dashboard";
 import Events from "./pages/Events";
 import LineMovement from "./pages/LineMovement";
-import Predictions from "./pages/Predictions";
 import Performance from "./pages/Performance";
 import SettingsPage from "./pages/Settings";
 import Notifications from "./pages/Notifications";
@@ -21,12 +20,11 @@ import Notifications from "./pages/Notifications";
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
 
-// Navigation items - Removed Odds Compare (ESPN has only 1 bookmaker)
+// Navigation items - Removed Predictions tab (using algorithmic predictions only)
 const navItems = [
   { path: "/", icon: Home, label: "Dashboard" },
   { path: "/events", icon: Calendar, label: "Events" },
   { path: "/line-movement", icon: TrendingUp, label: "Line Movement" },
-  { path: "/predictions", icon: Target, label: "Predictions" },
   { path: "/performance", icon: Trophy, label: "Performance" },
   { path: "/settings", icon: Settings, label: "Settings" },
 ];
