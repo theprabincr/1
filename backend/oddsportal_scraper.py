@@ -574,7 +574,12 @@ def generate_estimated_bookmaker_odds(home_team: str, away_team: str, sport_key:
 
 
 def create_bookmaker_entry(bm_name: str, home_team: str, away_team: str, home_odds: float, away_odds: float, spread: float = None, total: float = None) -> Dict:
-    """Create a standardized bookmaker entry with all markets"""
+    """Create a standardized bookmaker entry with all markets
+    
+    Spread rules:
+    - If home_odds < away_odds (home favorite): spread should be NEGATIVE
+    - If home_odds > away_odds (home underdog): spread should be POSITIVE
+    """
     import random
     
     bm_key = bm_name.lower().replace(' ', '_').replace('.', '').replace('-', '_')
@@ -590,24 +595,49 @@ def create_bookmaker_entry(bm_name: str, home_team: str, away_team: str, home_od
         }
     ]
     
-    # Add spreads market if spread provided or generate realistic one
-    if spread is not None or True:  # Always generate spreads
-        if spread is None:
-            # Generate realistic spread based on odds differential
-            if home_odds < away_odds:
-                spread = round(random.uniform(-2, -8) * 0.5) * 2  # Home favorite
-            else:
-                spread = round(random.uniform(2, 8) * 0.5) * 2  # Away favorite
+    # Add spreads market - MUST be consistent with moneyline
+    if spread is None:
+        # Generate spread consistent with odds
+        odds_diff = away_odds - home_odds  # Positive if home is favorite
         
-        spread_price = round(random.uniform(1.87, 1.95), 2)  # Typical -110 line
-        markets.append({
-            "key": "spreads",
-            "last_update": datetime.now(timezone.utc).isoformat(),
-            "outcomes": [
-                {"name": home_team, "price": spread_price, "point": spread},
-                {"name": away_team, "price": spread_price, "point": -spread}
-            ]
-        })
+        if home_odds < away_odds:
+            # Home is favorite - they get NEGATIVE spread
+            spread = -round(abs(odds_diff) * 3 + 1, 1)  # -1 to -10
+        else:
+            # Home is underdog - they get POSITIVE spread
+            spread = round(abs(odds_diff) * 3 + 1, 1)  # +1 to +10
+    
+    spread_price = round(random.uniform(1.87, 1.95), 2)  # Typical -110 line
+    markets.append({
+        "key": "spreads",
+        "last_update": datetime.now(timezone.utc).isoformat(),
+        "outcomes": [
+            {"name": home_team, "price": spread_price, "point": spread},
+            {"name": away_team, "price": spread_price, "point": -spread}
+        ]
+    })
+    
+    # Add totals market
+    if total is None:
+        # Default totals based on team name patterns
+        total = 220.5  # NBA default
+    
+    total_price = round(random.uniform(1.87, 1.95), 2)
+    markets.append({
+        "key": "totals",
+        "last_update": datetime.now(timezone.utc).isoformat(),
+        "outcomes": [
+            {"name": "Over", "price": total_price, "point": total},
+            {"name": "Under", "price": total_price, "point": total}
+        ]
+    })
+    
+    return {
+        "key": bm_key,
+        "title": bm_name,
+        "last_update": datetime.now(timezone.utc).isoformat(),
+        "markets": markets
+    }
     
     # Add totals market if total provided or generate realistic one
     if total is not None or True:  # Always generate totals
