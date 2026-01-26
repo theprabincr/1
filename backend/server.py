@@ -533,20 +533,22 @@ async def get_event_details(event_id: str, sport_key: str = "basketball_nba"):
 
 @api_router.get("/line-movement/{event_id}")
 async def get_line_movement(event_id: str, sport_key: str = "basketball_nba"):
-    """Get line movement history for an event including opening odds and hourly snapshots"""
+    """Get line movement history for an event including ALL markets (ML, Spread, Totals)"""
     
     # Get opening odds
     opening = await db.opening_odds.find_one({"event_id": event_id}, {"_id": 0})
     
-    # Get all hourly snapshots sorted by timestamp
+    # Get all snapshots sorted by timestamp
     snapshots = await db.odds_history.find(
         {"event_id": event_id},
         {"_id": 0}
     ).sort("timestamp", 1).to_list(500)
     
-    # Get event info first
+    # Get event info
     event_info = None
     current_odds = None
+    current_spread = None
+    current_total = None
     events = await get_events(sport_key)
     for event in events:
         if event.get("id") == event_id:
@@ -560,6 +562,8 @@ async def get_line_movement(event_id: str, sport_key: str = "basketball_nba"):
             if bookmakers:
                 home_prices = []
                 away_prices = []
+                spreads = []
+                totals = []
                 for bm in bookmakers:
                     for market in bm.get("markets", []):
                         if market.get("key") == "h2h":
@@ -567,61 +571,122 @@ async def get_line_movement(event_id: str, sport_key: str = "basketball_nba"):
                             if len(outcomes) >= 2:
                                 home_prices.append(outcomes[0].get("price", 0))
                                 away_prices.append(outcomes[1].get("price", 0))
+                        elif market.get("key") == "spreads":
+                            for outcome in market.get("outcomes", []):
+                                if event.get("home_team", "").lower() in outcome.get("name", "").lower():
+                                    spreads.append(outcome.get("point"))
+                        elif market.get("key") == "totals":
+                            for outcome in market.get("outcomes", []):
+                                if "over" in outcome.get("name", "").lower():
+                                    totals.append(outcome.get("point"))
                 if home_prices and away_prices:
                     current_odds = {
                         "home": round(sum(home_prices) / len(home_prices), 2),
                         "away": round(sum(away_prices) / len(away_prices), 2)
                     }
+                if spreads:
+                    current_spread = round(sum(spreads) / len(spreads), 1)
+                if totals:
+                    current_total = round(sum(totals) / len(totals), 1)
             break
     
-    # Build chart data from ALL snapshots (every 5 minutes)
-    chart_data = []
+    # Build chart data for ALL markets
+    ml_chart = []
+    spread_chart = []
+    totals_chart = []
     seen_time_keys = set()
     
     for snap in snapshots:
         ts = snap.get("timestamp")
-        # Use time_key for 5-minute grouping (YYYY-MM-DD-HH-MM format)
         time_key = snap.get("time_key", ts[:16] if ts else None)
         
         if time_key and time_key not in seen_time_keys:
             seen_time_keys.add(time_key)
+            
+            # ML data
             home = snap.get("home_odds")
             away = snap.get("away_odds")
-            
             if home and away:
-                chart_data.append({
+                ml_chart.append({
                     "timestamp": ts,
                     "home_odds": round(home, 2),
                     "away_odds": round(away, 2),
                     "num_bookmakers": snap.get("num_bookmakers", 1)
                 })
+            
+            # Spread data
+            spread = snap.get("spread")
+            if spread is not None:
+                spread_chart.append({
+                    "timestamp": ts,
+                    "spread": round(spread, 1),
+                    "odds": snap.get("spread_odds", 1.91)
+                })
+            
+            # Totals data
+            total = snap.get("total")
+            if total is not None:
+                totals_chart.append({
+                    "timestamp": ts,
+                    "total": round(total, 1),
+                    "over_odds": snap.get("over_odds", 1.91),
+                    "under_odds": snap.get("under_odds", 1.91)
+                })
     
-    # If we have opening odds but no chart data, create initial point
-    if opening and not chart_data:
-        chart_data.append({
-            "timestamp": opening.get("timestamp"),
-            "home_odds": opening.get("home_odds"),
-            "away_odds": opening.get("away_odds"),
-            "num_bookmakers": len(opening.get("bookmakers", []))
-        })
+    # Add opening data if no chart data
+    if opening:
+        if not ml_chart and opening.get("home_odds"):
+            ml_chart.append({
+                "timestamp": opening.get("timestamp"),
+                "home_odds": opening.get("home_odds"),
+                "away_odds": opening.get("away_odds"),
+                "num_bookmakers": len(opening.get("bookmakers", []))
+            })
+        if not spread_chart and opening.get("spread") is not None:
+            spread_chart.append({
+                "timestamp": opening.get("timestamp"),
+                "spread": opening.get("spread"),
+                "odds": opening.get("spread_odds", 1.91)
+            })
+        if not totals_chart and opening.get("total") is not None:
+            totals_chart.append({
+                "timestamp": opening.get("timestamp"),
+                "total": opening.get("total"),
+                "over_odds": opening.get("over_odds", 1.91),
+                "under_odds": opening.get("under_odds", 1.91)
+            })
     
-    # Add current odds as latest point if different from last snapshot
-    if current_odds and chart_data:
-        last = chart_data[-1]
-        if abs(last["home_odds"] - current_odds["home"]) > 0.01 or abs(last["away_odds"] - current_odds["away"]) > 0.01:
-            chart_data.append({
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+    # Add current values if different from last
+    now_ts = datetime.now(timezone.utc).isoformat()
+    
+    if current_odds and ml_chart:
+        last = ml_chart[-1]
+        if abs(last["home_odds"] - current_odds["home"]) > 0.01:
+            ml_chart.append({
+                "timestamp": now_ts,
                 "home_odds": current_odds["home"],
                 "away_odds": current_odds["away"],
-                "num_bookmakers": 0  # Current snapshot
+                "num_bookmakers": 0
             })
-    elif current_odds and not chart_data:
-        chart_data.append({
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "home_odds": current_odds["home"],
-            "away_odds": current_odds["away"],
-            "num_bookmakers": 0
-        })
+    
+    if current_spread is not None and spread_chart:
+        last = spread_chart[-1]
+        if abs(last["spread"] - current_spread) > 0.1:
+            spread_chart.append({
+                "timestamp": now_ts,
+                "spread": current_spread,
+                "odds": 1.91
+            })
+    
+    if current_total is not None and totals_chart:
+        last = totals_chart[-1]
+        if abs(last["total"] - current_total) > 0.1:
+            totals_chart.append({
+                "timestamp": now_ts,
+                "total": current_total,
+                "over_odds": 1.91,
+                "under_odds": 1.91
+            })
     
     # Group by bookmaker for detailed view
     by_bookmaker = {}
@@ -636,20 +701,37 @@ async def get_line_movement(event_id: str, sport_key: str = "basketball_nba"):
                 }
             by_bookmaker[bm_key]["snapshots"].append({
                 "timestamp": snap.get("timestamp"),
-                "home_odds": bm_snap.get("home_odds"),
-                "away_odds": bm_snap.get("away_odds")
+                "home_ml": bm_snap.get("home_ml"),
+                "away_ml": bm_snap.get("away_ml"),
+                "spread": bm_snap.get("home_spread"),
+                "total": bm_snap.get("total_line")
             })
     
-    # Sort chart data by timestamp
-    chart_data.sort(key=lambda x: x["timestamp"] if x.get("timestamp") else "")
+    # Sort charts
+    ml_chart.sort(key=lambda x: x.get("timestamp", "") or "")
+    spread_chart.sort(key=lambda x: x.get("timestamp", "") or "")
+    totals_chart.sort(key=lambda x: x.get("timestamp", "") or "")
     
     return {
         "event_id": event_id,
         "event_info": event_info,
-        "opening_odds": opening,
-        "current_odds": current_odds,
+        "opening_odds": {
+            "ml": {"home": opening.get("home_odds"), "away": opening.get("away_odds")} if opening else None,
+            "spread": opening.get("spread") if opening else None,
+            "total": opening.get("total") if opening else None,
+            "timestamp": opening.get("timestamp") if opening else None
+        },
+        "current_odds": {
+            "ml": current_odds,
+            "spread": current_spread,
+            "total": current_total
+        },
         "bookmakers": list(by_bookmaker.values()),
-        "chart_data": chart_data,
+        "chart_data": {
+            "moneyline": ml_chart,
+            "spread": spread_chart,
+            "totals": totals_chart
+        },
         "total_snapshots": len(snapshots)
     }
 
