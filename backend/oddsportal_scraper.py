@@ -638,36 +638,6 @@ def create_bookmaker_entry(bm_name: str, home_team: str, away_team: str, home_od
         "last_update": datetime.now(timezone.utc).isoformat(),
         "markets": markets
     }
-    
-    # Add totals market if total provided or generate realistic one
-    if total is not None or True:  # Always generate totals
-        if total is None:
-            # Generate realistic total based on sport (determined by team name patterns)
-            if any(s in bm_name.lower() for s in ['nba', 'basketball', 'heat', 'celtics', 'lakers']):
-                total = round(random.uniform(210, 235) * 2) / 2  # NBA-like total
-            elif any(s in bm_name.lower() for s in ['nfl', 'football', 'chiefs', 'eagles']):
-                total = round(random.uniform(40, 52) * 2) / 2  # NFL-like total
-            elif any(s in bm_name.lower() for s in ['nhl', 'hockey', 'bruins', 'penguins']):
-                total = round(random.uniform(5.5, 7) * 2) / 2  # NHL-like total
-            else:
-                total = round(random.uniform(2.5, 4) * 2) / 2  # Soccer-like total
-        
-        total_price = round(random.uniform(1.87, 1.95), 2)
-        markets.append({
-            "key": "totals",
-            "last_update": datetime.now(timezone.utc).isoformat(),
-            "outcomes": [
-                {"name": "Over", "price": total_price, "point": total},
-                {"name": "Under", "price": total_price, "point": total}
-            ]
-        })
-    
-    return {
-        "key": bm_key,
-        "title": bm_name,
-        "last_update": datetime.now(timezone.utc).isoformat(),
-        "markets": markets
-    }
 
 
 def create_event_with_estimated_odds(event_id: str, sport_key: str, home_team: str, away_team: str, source_url: str, existing_odds: Dict) -> Dict:
