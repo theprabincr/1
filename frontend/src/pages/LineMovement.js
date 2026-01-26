@@ -125,8 +125,18 @@ const MovementChart = ({ chartData, homeTeam, awayTeam, openingOdds }) => {
   );
 };
 
-// Opening vs Current Odds Comparison
+// Opening vs Current Odds Comparison - updated to handle new API structure
 const OddsComparison = ({ opening, current, homeTeam, awayTeam }) => {
+  // Handle both old and new API structure
+  const openingHomeOdds = opening?.ml?.home || opening?.home_odds;
+  const openingAwayOdds = opening?.ml?.away || opening?.away_odds;
+  const openingTimestamp = opening?.timestamp;
+  const openingSpread = opening?.spread;
+  const openingTotal = opening?.total;
+  
+  const currentHomeOdds = current?.home;
+  const currentAwayOdds = current?.away;
+  
   const getChangeIndicator = (open, curr) => {
     if (!open || !curr) return null;
     const change = curr - open;
@@ -157,19 +167,19 @@ const OddsComparison = ({ opening, current, homeTeam, awayTeam }) => {
             <div className="text-center">
               <p className="text-text-muted text-xs">Opening</p>
               <p className="font-mono text-xl font-bold text-text-primary">
-                {opening?.home_odds?.toFixed(2) || "—"}
+                {openingHomeOdds?.toFixed(2) || "—"}
               </p>
             </div>
             <ArrowRight className="w-5 h-5 text-text-muted" />
             <div className="text-center">
               <p className="text-text-muted text-xs">Current</p>
               <p className="font-mono text-xl font-bold text-brand-primary">
-                {current?.home?.toFixed(2) || "—"}
+                {currentHomeOdds?.toFixed(2) || "—"}
               </p>
             </div>
             <div className="text-center min-w-[60px]">
               <p className="text-text-muted text-xs">Change</p>
-              {getChangeIndicator(opening?.home_odds, current?.home)}
+              {getChangeIndicator(openingHomeOdds, currentHomeOdds)}
             </div>
           </div>
         </div>
@@ -181,27 +191,49 @@ const OddsComparison = ({ opening, current, homeTeam, awayTeam }) => {
             <div className="text-center">
               <p className="text-text-muted text-xs">Opening</p>
               <p className="font-mono text-xl font-bold text-text-primary">
-                {opening?.away_odds?.toFixed(2) || "—"}
+                {openingAwayOdds?.toFixed(2) || "—"}
               </p>
             </div>
             <ArrowRight className="w-5 h-5 text-text-muted" />
             <div className="text-center">
               <p className="text-text-muted text-xs">Current</p>
               <p className="font-mono text-xl font-bold text-brand-secondary">
-                {current?.away?.toFixed(2) || "—"}
+                {currentAwayOdds?.toFixed(2) || "—"}
               </p>
             </div>
             <div className="text-center min-w-[60px]">
               <p className="text-text-muted text-xs">Change</p>
-              {getChangeIndicator(opening?.away_odds, current?.away)}
+              {getChangeIndicator(openingAwayOdds, currentAwayOdds)}
             </div>
           </div>
         </div>
+        
+        {/* Spread and Total if available */}
+        {(openingSpread !== null || openingTotal !== null) && (
+          <div className="flex gap-4 pt-2 border-t border-zinc-700">
+            {openingSpread !== null && (
+              <div className="text-center flex-1">
+                <p className="text-text-muted text-xs">Opening Spread</p>
+                <p className="font-mono text-lg font-bold text-text-primary">
+                  {openingSpread > 0 ? '+' : ''}{openingSpread}
+                </p>
+              </div>
+            )}
+            {openingTotal !== null && (
+              <div className="text-center flex-1">
+                <p className="text-text-muted text-xs">Opening Total</p>
+                <p className="font-mono text-lg font-bold text-text-primary">
+                  {openingTotal}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
       
-      {opening?.timestamp && (
+      {openingTimestamp && (
         <p className="text-text-muted text-xs mt-4">
-          Market opened: {format(parseISO(opening.timestamp), 'MMM d, yyyy HH:mm')}
+          Market opened: {format(parseISO(openingTimestamp), 'MMM d, yyyy HH:mm')}
         </p>
       )}
     </div>
