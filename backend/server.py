@@ -1513,6 +1513,51 @@ async def get_v3_predictions(limit: int = 50, result: str = None):
         "description": "Predictions made 1-2 hours before game start with deep analysis"
     }
 
+# NEW: Get Smart V4 predictions specifically
+@api_router.get("/predictions/smart-v4")
+async def get_smart_v4_predictions(limit: int = 50, result: str = None):
+    """Get predictions made by Smart V4 algorithm (no LLM required)"""
+    query = {"ai_model": "smart_v4"}
+    if result:
+        query["result"] = result
+    
+    predictions = await db.predictions.find(
+        query, 
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    # Calculate V4 stats
+    all_v4 = await db.predictions.find({"ai_model": "smart_v4"}).to_list(10000)
+    
+    wins = len([p for p in all_v4 if p.get("result") == "win"])
+    losses = len([p for p in all_v4 if p.get("result") == "loss"])
+    pending = len([p for p in all_v4 if p.get("result") == "pending"])
+    
+    # Count by pick type
+    ml_picks = len([p for p in all_v4 if p.get("prediction_type") == "moneyline"])
+    spread_picks = len([p for p in all_v4 if p.get("prediction_type") == "spread"])
+    total_picks = len([p for p in all_v4 if p.get("prediction_type") == "total"])
+    
+    win_rate = wins / (wins + losses) * 100 if (wins + losses) > 0 else 0
+    
+    return {
+        "predictions": predictions,
+        "stats": {
+            "total": len(all_v4),
+            "wins": wins,
+            "losses": losses,
+            "pending": pending,
+            "win_rate": round(win_rate, 1),
+            "pick_types": {
+                "moneyline": ml_picks,
+                "spread": spread_picks,
+                "total": total_picks
+            }
+        },
+        "algorithm": "smart_v4",
+        "description": "Smart predictions 1 hour before game - analyzes squads, form, line movement. NO LLM required."
+    }
+
 # NEW: Compare V2 vs V3 vs Smart V4 algorithm performance
 @api_router.get("/predictions/comparison")
 async def compare_algorithms():
