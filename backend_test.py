@@ -871,6 +871,16 @@ def main():
     tester.test_check_results_trigger()
     tester.test_performance_stats_updated()
     
+    print("\n🎯 Testing ENHANCED BetPredictor Features...")
+    tester.test_all_markets_ml_spread_total()
+    tester.test_pre_match_only_filter()
+    tester.test_continuous_score_sync()
+    tester.test_line_movement_cleanup()
+    tester.test_performance_stats_enhanced()
+    tester.test_espn_scores_api_enhanced()
+    tester.test_pending_results_enhanced()
+    tester.test_recommendations_70_percent_enhanced()
+    
     print("\n🏀 Testing Events & Odds...")
     tester.test_events_endpoints()
     tester.test_line_movement()
