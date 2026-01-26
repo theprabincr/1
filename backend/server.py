@@ -45,8 +45,8 @@ from multi_book_odds import fetch_multi_book_odds, get_multi_book_provider
 # Import odds aggregator (OddsPortal + ESPN)
 from odds_aggregator import fetch_aggregated_odds, get_odds_aggregator
 
-# Import AI prediction engine V4
-from ai_prediction_engine import generate_ai_prediction, AIPredictionEngine
+# Import SMART prediction engine V4 (no LLM required)
+from smart_prediction_engine import generate_smart_prediction, SmartPredictionEngine
 
 # Import lineup/roster scraper
 from lineup_scraper import get_matchup_context, fetch_team_roster
