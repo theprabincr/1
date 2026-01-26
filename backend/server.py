@@ -1021,6 +1021,7 @@ async def update_recommendations_on_line_movement():
             event_id = prediction.get("event_id")
             sport_key = prediction.get("sport_key")
             original_odds = prediction.get("odds_at_prediction", 0)
+            prediction_type = prediction.get("prediction_type", "moneyline")
             
             if not event_id or not sport_key:
                 continue
@@ -1036,35 +1037,100 @@ async def update_recommendations_on_line_movement():
             if not current_event:
                 continue
             
-            # Get current best odds for predicted outcome
-            predicted_team = prediction.get("predicted_outcome")
-            current_best = 1.0
+            # Get predicted team/side
+            predicted_outcome = prediction.get("predicted_outcome", "")
+            home_team = prediction.get("home_team", current_event.get("home_team", ""))
+            away_team = prediction.get("away_team", current_event.get("away_team", ""))
+            
+            # Determine if prediction is for home or away team
+            is_home_pick = False
+            is_away_pick = False
+            
+            # Check if predicted outcome matches home team
+            if predicted_outcome and home_team:
+                if predicted_outcome.lower() in home_team.lower() or home_team.lower() in predicted_outcome.lower():
+                    is_home_pick = True
+            
+            # Check if predicted outcome matches away team
+            if predicted_outcome and away_team:
+                if predicted_outcome.lower() in away_team.lower() or away_team.lower() in predicted_outcome.lower():
+                    is_away_pick = True
+            
+            # If still not determined, check for "over"/"under" for totals
+            if not is_home_pick and not is_away_pick:
+                if "over" in predicted_outcome.lower():
+                    is_home_pick = True  # Use home_odds position for over
+                elif "under" in predicted_outcome.lower():
+                    is_away_pick = True  # Use away_odds position for under
+            
+            # Get current odds for the CORRECT team
+            current_odds_value = None
             
             for bm in current_event.get("bookmakers", []):
                 for market in bm.get("markets", []):
-                    if market.get("key") == "h2h":
+                    market_key = market.get("key", "h2h")
+                    
+                    # Match market type to prediction type
+                    if prediction_type == "moneyline" and market_key == "h2h":
+                        outcomes = market.get("outcomes", [])
+                        if len(outcomes) >= 2:
+                            # First outcome is typically home, second is away
+                            if is_home_pick:
+                                current_odds_value = outcomes[0].get("price")
+                            elif is_away_pick:
+                                current_odds_value = outcomes[1].get("price")
+                            else:
+                                # Try to match by name
+                                for outcome in outcomes:
+                                    name = outcome.get("name", "").lower()
+                                    if predicted_outcome.lower() in name or name in predicted_outcome.lower():
+                                        current_odds_value = outcome.get("price")
+                                        break
+                    
+                    elif prediction_type == "spread" and market_key == "spreads":
                         for outcome in market.get("outcomes", []):
-                            if outcome.get("name") == predicted_team and outcome.get("price", 1) > current_best:
-                                current_best = outcome.get("price")
+                            name = outcome.get("name", "").lower()
+                            if (is_home_pick and (home_team.lower() in name or "home" in name)) or \
+                               (is_away_pick and (away_team.lower() in name or "away" in name)):
+                                current_odds_value = outcome.get("price")
+                                break
+                    
+                    elif prediction_type == "total" and market_key == "totals":
+                        for outcome in market.get("outcomes", []):
+                            name = outcome.get("name", "").lower()
+                            if ("over" in predicted_outcome.lower() and "over" in name) or \
+                               ("under" in predicted_outcome.lower() and "under" in name):
+                                current_odds_value = outcome.get("price")
+                                break
+                    
+                    if current_odds_value:
+                        break
+                if current_odds_value:
+                    break
+            
+            # Skip if we couldn't find current odds
+            if not current_odds_value or current_odds_value <= 1.0:
+                logger.debug(f"Could not find current odds for {predicted_outcome} in {home_team} vs {away_team}")
+                continue
             
             # Check for significant line movement
             if original_odds > 0:
-                change_pct = abs(current_best - original_odds) / original_odds * 100
+                change_pct = abs(current_odds_value - original_odds) / original_odds * 100
                 
                 if change_pct >= threshold:
                     # Line moved significantly - add note to analysis
-                    new_analysis = prediction.get("analysis", "") + f"\n\n[LINE MOVEMENT UPDATE: Odds moved from {original_odds:.2f} to {current_best:.2f} ({change_pct:.1f}% change)]"
+                    new_analysis = prediction.get("analysis", "") + f"\n\n[LINE MOVEMENT UPDATE: {predicted_outcome} odds moved from {original_odds:.2f} to {current_odds_value:.2f} ({change_pct:.1f}% change)]"
                     
                     # Adjust confidence based on movement direction
                     new_confidence = prediction.get("confidence", 0.6)
-                    movement_direction = "favorable" if current_best > original_odds else "adverse"
+                    movement_direction = "favorable" if current_odds_value > original_odds else "adverse"
                     
-                    if current_best > original_odds:
-                        # Line moving in our favor (better value)
+                    if current_odds_value > original_odds:
+                        # Line moving in our favor (better value/higher payout)
                         new_confidence = min(new_confidence + 0.05, 0.95)
                         new_analysis += " [Favorable movement - increased confidence]"
                     else:
-                        # Line moving against us
+                        # Line moving against us (lower value)
                         new_confidence = max(new_confidence - 0.1, 0.3)
                         new_analysis += " [Adverse movement - decreased confidence]"
                     
@@ -1073,24 +1139,25 @@ async def update_recommendations_on_line_movement():
                         {"$set": {
                             "analysis": new_analysis,
                             "confidence": new_confidence,
-                            "current_odds": current_best,
+                            "current_odds": current_odds_value,
                             "line_movement_pct": change_pct,
                             "last_updated": datetime.now(timezone.utc).isoformat()
                         }}
                     )
-                    logger.info(f"Updated prediction {prediction.get('id')} - line moved {change_pct:.1f}%")
+                    logger.info(f"Updated prediction {prediction.get('id')} - {predicted_outcome} odds moved {change_pct:.1f}%: {original_odds:.2f} → {current_odds_value:.2f}")
                     
                     # Create notification for significant line movement
                     if settings and settings.get('notification_preferences', {}).get('line_movement_alerts', True):
                         await create_notification(
                             "line_movement",
-                            f"Line Movement Alert: {prediction.get('home_team')} vs {prediction.get('away_team')}",
-                            f"Odds moved {change_pct:.1f}% ({movement_direction}): {original_odds:.2f} → {current_best:.2f}",
+                            f"Line Movement Alert: {home_team} vs {away_team}",
+                            f"{predicted_outcome} odds moved {change_pct:.1f}% ({movement_direction}): {original_odds:.2f} → {current_odds_value:.2f}",
                             {
                                 "prediction_id": prediction.get("id"),
                                 "event_id": event_id,
+                                "predicted_outcome": predicted_outcome,
                                 "original_odds": original_odds,
-                                "current_odds": current_best,
+                                "current_odds": current_odds_value,
                                 "change_pct": change_pct,
                                 "direction": movement_direction
                             }
@@ -1098,6 +1165,8 @@ async def update_recommendations_on_line_movement():
                     
     except Exception as e:
         logger.error(f"Error in update_recommendations_on_line_movement: {e}")
+        import traceback
+        traceback.print_exc()
 
 @api_router.put("/result")
 async def update_result(update: ResultUpdate):
