@@ -570,16 +570,17 @@ async def get_line_movement(event_id: str, sport_key: str = "basketball_nba"):
                     }
             break
     
-    # Build chart data from snapshots
+    # Build chart data from ALL snapshots (every 5 minutes)
     chart_data = []
-    seen_hours = set()
+    seen_time_keys = set()
     
     for snap in snapshots:
         ts = snap.get("timestamp")
-        hour_key = snap.get("hour_key", ts[:13] if ts else None)  # YYYY-MM-DD-HH
+        # Use time_key for 5-minute grouping (YYYY-MM-DD-HH-MM format)
+        time_key = snap.get("time_key", ts[:16] if ts else None)
         
-        if hour_key and hour_key not in seen_hours:
-            seen_hours.add(hour_key)
+        if time_key and time_key not in seen_time_keys:
+            seen_time_keys.add(time_key)
             home = snap.get("home_odds")
             away = snap.get("away_odds")
             
