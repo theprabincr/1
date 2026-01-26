@@ -555,9 +555,20 @@ const LineMovement = () => {
         <>
           <div className="stat-card" data-testid="line-chart-card">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-mono font-bold text-lg text-text-primary">
-                {selectedEvent.home_team} vs {selectedEvent.away_team}
-              </h2>
+              <div className="flex items-center gap-3">
+                <h2 className="font-mono font-bold text-lg text-text-primary">
+                  {selectedEvent.home_team} vs {selectedEvent.away_team}
+                </h2>
+                {isAutoRefresh && (
+                  <span className="flex items-center gap-1 text-xs text-semantic-success">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-semantic-success opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-semantic-success"></span>
+                    </span>
+                    Live
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-3">
                 {lineData?.total_snapshots > 0 && (
                   <span className="text-text-muted text-sm">
