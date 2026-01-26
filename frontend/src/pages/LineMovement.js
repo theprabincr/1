@@ -362,9 +362,12 @@ const LineMovement = () => {
     fetchLineMovement(event.id);
   };
 
-  // Process chart data for the chart
-  const processChartData = () => {
-    if (!lineData?.chart_data || lineData.chart_data.length === 0) {
+  // Process chart data for the chart - now handles the new structure with moneyline, spread, totals
+  const processChartData = (marketType = 'moneyline') => {
+    // chart_data is now an object: { moneyline: [], spread: [], totals: [] }
+    const chartData = lineData?.chart_data?.[marketType] || lineData?.chart_data?.moneyline || [];
+    
+    if (!chartData || chartData.length === 0) {
       // If no stored snapshots, create data from current event odds
       if (selectedEvent?.bookmakers?.length > 0) {
         const now = new Date();
@@ -394,16 +397,34 @@ const LineMovement = () => {
       return [];
     }
     
-    return lineData.chart_data.map(item => ({
-      time: item.timestamp ? format(parseISO(item.timestamp), 'MM/dd HH:mm') : 'N/A',
-      home_odds: item.home_odds,
-      away_odds: item.away_odds
-    }));
+    if (marketType === 'moneyline') {
+      return chartData.map(item => ({
+        time: item.timestamp ? format(parseISO(item.timestamp), 'MM/dd HH:mm') : 'N/A',
+        home_odds: item.home_odds,
+        away_odds: item.away_odds
+      }));
+    } else if (marketType === 'spread') {
+      return chartData.map(item => ({
+        time: item.timestamp ? format(parseISO(item.timestamp), 'MM/dd HH:mm') : 'N/A',
+        spread: item.spread
+      }));
+    } else if (marketType === 'totals') {
+      return chartData.map(item => ({
+        time: item.timestamp ? format(parseISO(item.timestamp), 'MM/dd HH:mm') : 'N/A',
+        total: item.total
+      }));
+    }
+    
+    return [];
   };
 
   // Get current odds from selected event
   const getCurrentOdds = () => {
-    if (lineData?.current_odds) {
+    // Handle new structure: current_odds.ml instead of current_odds directly
+    if (lineData?.current_odds?.ml) {
+      return lineData.current_odds.ml;
+    }
+    if (lineData?.current_odds?.home) {
       return lineData.current_odds;
     }
     
