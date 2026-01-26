@@ -1515,6 +1515,9 @@ def main():
     tester.test_sports_endpoint()
     tester.test_enhanced_api_usage()  # Test the enhanced API usage endpoint
     
+    print("\n📊 Testing Line Movement Functionality (PRIORITY)...")
+    tester.test_line_movement_functionality_complete()
+    
     print("\n🚀 Testing NEW Smart V4 Prediction Engine (NO LLM REQUIRED)...")
     tester.test_smart_v4_prediction_engine_complete()
     
