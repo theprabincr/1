@@ -35,14 +35,18 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null;
 };
 
-// Line Movement Chart Component
+// Line Movement Chart Component - updated to handle new API structure
 const MovementChart = ({ chartData, homeTeam, awayTeam, openingOdds }) => {
+  // Handle both old and new API structure for opening odds
+  const openingHomeOdds = openingOdds?.ml?.home || openingOdds?.home_odds;
+  const openingAwayOdds = openingOdds?.ml?.away || openingOdds?.away_odds;
+  
   if (!chartData || chartData.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-64 bg-zinc-900 rounded-lg">
         <Clock className="w-12 h-12 text-text-muted mb-3" />
         <p className="text-text-muted">No line movement data yet</p>
-        <p className="text-text-muted text-sm mt-1">No line movement data yet</p>
+        <p className="text-text-muted text-sm mt-1">Data will appear as odds change</p>
       </div>
     );
   }
@@ -77,17 +81,17 @@ const MovementChart = ({ chartData, homeTeam, awayTeam, openingOdds }) => {
             wrapperStyle={{ paddingTop: '10px' }}
           />
           {/* Opening odds reference lines */}
-          {openingOdds?.home_odds && (
+          {openingHomeOdds && (
             <ReferenceLine 
-              y={openingOdds.home_odds} 
+              y={openingHomeOdds} 
               stroke="#ADFF2F" 
               strokeDasharray="5 5" 
               strokeOpacity={0.5}
             />
           )}
-          {openingOdds?.away_odds && (
+          {openingAwayOdds && (
             <ReferenceLine 
-              y={openingOdds.away_odds} 
+              y={openingAwayOdds} 
               stroke="#00CED1" 
               strokeDasharray="5 5" 
               strokeOpacity={0.5}
