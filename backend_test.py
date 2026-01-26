@@ -1253,6 +1253,244 @@ class BettingPredictorAPITester:
         
         print(f"\n   ✅ Smart V4 Prediction Engine testing complete")
 
+    def test_data_source_status_api(self):
+        """Test Data Source Status API - Line Movement Feature"""
+        print("\n📊 Testing Data Source Status API...")
+        
+        success, data = self.run_test("Data Source Status", "GET", "data-source-status", 200)
+        if success and data:
+            source = data.get('source', '')
+            line_movement_snapshots = data.get('lineMovementSnapshots', 0)
+            status = data.get('status', '')
+            
+            print(f"   Source: {source}")
+            print(f"   Status: {status}")
+            print(f"   Line Movement Snapshots: {line_movement_snapshots}")
+            
+            # Verify source is ESPN/DraftKings (not OddsPortal)
+            if 'ESPN' in source and 'DraftKings' in source:
+                print(f"   ✅ Source correctly shows ESPN/DraftKings")
+            else:
+                print(f"   ❌ Expected ESPN/DraftKings, got: {source}")
+            
+            # Verify lineMovementSnapshots count > 0
+            if line_movement_snapshots > 0:
+                print(f"   ✅ Line movement snapshots available: {line_movement_snapshots}")
+            else:
+                print(f"   ⚠️  No line movement snapshots found: {line_movement_snapshots}")
+            
+            # Check other required fields
+            required_fields = ['source', 'status', 'lineMovementSnapshots', 'refreshInterval']
+            missing_fields = []
+            for field in required_fields:
+                if field not in data:
+                    missing_fields.append(field)
+            
+            if missing_fields:
+                print(f"   ❌ Missing fields: {missing_fields}")
+            else:
+                print(f"   ✅ All required fields present")
+
+    def test_line_movement_api_detailed(self):
+        """Test Line Movement API with detailed verification"""
+        print("\n📈 Testing Line Movement API (Detailed)...")
+        
+        # First get events from basketball_nba with pre_match_only=true
+        success, events = self.run_test("Get NBA Events for Line Movement", "GET", "events/basketball_nba?pre_match_only=true", 200)
+        if success and events and len(events) > 0:
+            event = events[0]
+            event_id = event.get('id')
+            
+            print(f"   Testing with event: {event.get('home_team')} vs {event.get('away_team')}")
+            print(f"   Event ID: {event_id}")
+            
+            if event_id:
+                # Test line movement API
+                success, data = self.run_test("Line Movement Data", "GET", f"line-movement/{event_id}?sport_key=basketball_nba", 200)
+                if success and data:
+                    # Verify required response fields
+                    required_fields = ['event_id', 'event_info', 'opening_odds', 'current_odds', 'bookmakers', 'chart_data', 'total_snapshots']
+                    missing_fields = []
+                    
+                    for field in required_fields:
+                        if field in data:
+                            if field == 'event_info':
+                                event_info = data[field]
+                                if event_info and isinstance(event_info, dict):
+                                    info_fields = ['home_team', 'away_team', 'commence_time']
+                                    missing_info = [f for f in info_fields if f not in event_info]
+                                    if not missing_info:
+                                        print(f"   ✅ event_info complete: {event_info.get('home_team')} vs {event_info.get('away_team')}")
+                                    else:
+                                        print(f"   ⚠️  event_info missing: {missing_info}")
+                                else:
+                                    print(f"   ⚠️  event_info is null or invalid")
+                            
+                            elif field == 'opening_odds':
+                                opening_odds = data[field]
+                                if opening_odds and isinstance(opening_odds, dict):
+                                    opening_fields = ['home_odds', 'away_odds', 'timestamp']
+                                    missing_opening = [f for f in opening_fields if f not in opening_odds]
+                                    if not missing_opening:
+                                        print(f"   ✅ opening_odds complete: home={opening_odds.get('home_odds')}, away={opening_odds.get('away_odds')}")
+                                    else:
+                                        print(f"   ⚠️  opening_odds missing: {missing_opening}")
+                                else:
+                                    print(f"   ℹ️  opening_odds is null (may be normal for new events)")
+                            
+                            elif field == 'current_odds':
+                                current_odds = data[field]
+                                if current_odds and isinstance(current_odds, dict):
+                                    print(f"   ✅ current_odds: home={current_odds.get('home')}, away={current_odds.get('away')}")
+                                else:
+                                    print(f"   ℹ️  current_odds is null")
+                            
+                            elif field == 'chart_data':
+                                chart_data = data[field]
+                                if isinstance(chart_data, list):
+                                    print(f"   ✅ chart_data: {len(chart_data)} data points")
+                                    if chart_data:
+                                        sample = chart_data[0]
+                                        chart_fields = ['timestamp', 'home_odds', 'away_odds']
+                                        if all(f in sample for f in chart_fields):
+                                            print(f"   ✅ chart_data structure correct")
+                                        else:
+                                            print(f"   ⚠️  chart_data structure incomplete")
+                                else:
+                                    print(f"   ⚠️  chart_data is not a list")
+                            
+                            elif field == 'bookmakers':
+                                bookmakers = data[field]
+                                if isinstance(bookmakers, list):
+                                    print(f"   ✅ bookmakers: {len(bookmakers)} bookmaker sources")
+                                else:
+                                    print(f"   ⚠️  bookmakers is not a list")
+                            
+                            elif field == 'total_snapshots':
+                                total_snapshots = data[field]
+                                print(f"   ✅ total_snapshots: {total_snapshots}")
+                            
+                            else:
+                                print(f"   ✅ {field}: present")
+                        else:
+                            missing_fields.append(field)
+                    
+                    if missing_fields:
+                        print(f"   ❌ Missing required fields: {missing_fields}")
+                    else:
+                        print(f"   ✅ All required line movement fields present")
+                    
+                    # Verify event_id matches
+                    if data.get('event_id') == event_id:
+                        print(f"   ✅ Event ID matches request")
+                    else:
+                        print(f"   ❌ Event ID mismatch: expected {event_id}, got {data.get('event_id')}")
+                else:
+                    print(f"   ❌ Line movement API failed")
+            else:
+                print(f"   ⚠️  No event ID available")
+        else:
+            print(f"   ⚠️  No NBA events available for line movement testing")
+
+    def test_line_movement_cleanup_api(self):
+        """Test Line Movement Cleanup API"""
+        print("\n🧹 Testing Line Movement Cleanup API...")
+        
+        success, data = self.run_test("Line Movement Cleanup", "POST", "cleanup-line-movement", 200)
+        if success and data:
+            # Verify required response fields
+            required_fields = ['message', 'deleted_history_count', 'deleted_opening_count', 'total_deleted']
+            missing_fields = []
+            
+            for field in required_fields:
+                if field in data:
+                    value = data[field]
+                    print(f"   ✅ {field}: {value}")
+                else:
+                    missing_fields.append(field)
+            
+            if missing_fields:
+                print(f"   ❌ Missing fields: {missing_fields}")
+            else:
+                print(f"   ✅ All cleanup response fields present")
+            
+            # Verify message contains expected content
+            message = data.get('message', '')
+            if 'cleaned up' in message.lower() or 'cleanup' in message.lower():
+                print(f"   ✅ Message indicates cleanup operation")
+            else:
+                print(f"   ⚠️  Unexpected message format: {message}")
+            
+            # Verify numeric fields are integers
+            numeric_fields = ['deleted_history_count', 'deleted_opening_count', 'total_deleted']
+            for field in numeric_fields:
+                if field in data:
+                    value = data[field]
+                    if isinstance(value, int) and value >= 0:
+                        print(f"   ✅ {field} is valid integer: {value}")
+                    else:
+                        print(f"   ⚠️  {field} is not a valid non-negative integer: {value}")
+        else:
+            print(f"   ❌ Line movement cleanup API failed")
+
+    def test_manual_odds_refresh_api(self):
+        """Test Manual Odds Refresh API"""
+        print("\n🔄 Testing Manual Odds Refresh API...")
+        
+        success, data = self.run_test("Manual Odds Refresh", "POST", "refresh-odds?sport_key=basketball_nba", 200, timeout=30)
+        if success and data:
+            message = data.get('message', '')
+            snapshots_stored = data.get('snapshots_stored', 0)
+            source = data.get('source', '')
+            
+            print(f"   Message: {message}")
+            print(f"   Snapshots stored: {snapshots_stored}")
+            print(f"   Source: {source}")
+            
+            # Verify message contains "ESPN"
+            if 'ESPN' in message:
+                print(f"   ✅ Message contains ESPN reference")
+            else:
+                print(f"   ❌ Message should contain ESPN reference: {message}")
+            
+            # Verify snapshots_stored > 0 (if events are available)
+            if snapshots_stored > 0:
+                print(f"   ✅ Snapshots stored successfully: {snapshots_stored}")
+            else:
+                print(f"   ⚠️  No snapshots stored (may be normal if no pre-match events): {snapshots_stored}")
+            
+            # Verify source is ESPN-related
+            if source and 'ESPN' in source:
+                print(f"   ✅ Source correctly indicates ESPN")
+            else:
+                print(f"   ⚠️  Source field missing or incorrect: {source}")
+            
+            # Check required fields
+            required_fields = ['message', 'snapshots_stored']
+            missing_fields = []
+            for field in required_fields:
+                if field not in data:
+                    missing_fields.append(field)
+            
+            if missing_fields:
+                print(f"   ❌ Missing required fields: {missing_fields}")
+            else:
+                print(f"   ✅ All required refresh fields present")
+        else:
+            print(f"   ❌ Manual odds refresh API failed")
+
+    def test_line_movement_functionality_complete(self):
+        """Complete test suite for Line Movement functionality"""
+        print("\n📊 Testing Complete Line Movement Functionality...")
+        
+        # Test all line movement endpoints in sequence
+        self.test_data_source_status_api()
+        self.test_line_movement_api_detailed()
+        self.test_line_movement_cleanup_api()
+        self.test_manual_odds_refresh_api()
+        
+        print(f"\n   ✅ Line Movement functionality testing complete")
+
     def test_v3_enhanced_betting_algorithm_complete(self):
         """Complete test suite for NEW Enhanced V3 Betting Algorithm"""
         print("\n🎯 Testing Complete V3 Enhanced Betting Algorithm Suite...")
