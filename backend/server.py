@@ -1747,7 +1747,7 @@ async def analyze_event_v5(event_id: str, sport_key: str = "basketball_nba"):
 # NEW: Compare V2 vs V3 vs Smart V4 vs V5 algorithm performance
 @api_router.get("/predictions/comparison")
 async def compare_algorithms():
-    """Compare performance of V2 (legacy) vs V3 (enhanced) vs Smart V4 algorithms"""
+    """Compare performance of V2 (legacy) vs V3 (enhanced) vs Smart V4 vs V5 algorithms"""
     
     # Get all predictions
     all_predictions = await db.predictions.find({}).to_list(10000)
@@ -1755,6 +1755,7 @@ async def compare_algorithms():
     v2_predictions = [p for p in all_predictions if p.get("ai_model") in ["custom_algorithm_v1", "gpt-5.2", "claude"]]
     v3_predictions = [p for p in all_predictions if p.get("ai_model") == "enhanced_v3"]
     v4_predictions = [p for p in all_predictions if p.get("ai_model") == "smart_v4"]
+    v5_predictions = [p for p in all_predictions if p.get("ai_model") == "betpredictor_v5"]
     
     def calculate_stats(predictions):
         completed = [p for p in predictions if p.get("result") in ["win", "loss"]]
@@ -1789,10 +1790,12 @@ async def compare_algorithms():
         "v2_legacy": calculate_stats(v2_predictions),
         "v3_enhanced": calculate_stats(v3_predictions),
         "smart_v4": calculate_stats(v4_predictions),
+        "betpredictor_v5": calculate_stats(v5_predictions),
         "description": {
             "v2_legacy": "Original algorithm with basic factors",
             "v3_enhanced": "Enhanced factors without LLM",
-            "smart_v4": "Smart algorithm - diverse predictions (ML/Spread/Total), no LLM required"
+            "smart_v4": "Smart algorithm - diverse predictions (ML/Spread/Total), no LLM required",
+            "betpredictor_v5": "Comprehensive line movement analysis with sharp money detection, squad/H2H/venue factors"
         }
     }
 
