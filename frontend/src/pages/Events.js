@@ -290,7 +290,6 @@ const Events = () => {
             <EventCard 
               key={event.id} 
               event={event} 
-              onAnalyze={handleAnalyze}
               onCompare={handleCompare}
             />
           ))}
