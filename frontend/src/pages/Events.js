@@ -191,7 +191,6 @@ const Events = () => {
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState([]);
   const [selectedSport, setSelectedSport] = useState("basketball_nba");
-  const [analyzing, setAnalyzing] = useState(null);
 
   const sports = [
     { key: "basketball_nba", label: "NBA" },
@@ -199,8 +198,6 @@ const Events = () => {
     { key: "baseball_mlb", label: "MLB" },
     { key: "icehockey_nhl", label: "NHL" },
     { key: "soccer_epl", label: "EPL" },
-    { key: "soccer_spain_la_liga", label: "La Liga" },
-    { key: "mma_mixed_martial_arts", label: "MMA" },
   ];
 
   const fetchEvents = async () => {
@@ -218,21 +215,6 @@ const Events = () => {
   useEffect(() => {
     fetchEvents();
   }, [selectedSport]);
-
-  const handleAnalyze = async (event) => {
-    setAnalyzing(event.id);
-    try {
-      // Navigate to predictions page with analysis
-      navigate('/predictions', { 
-        state: { 
-          analyzeEvent: event,
-          sportKey: selectedSport 
-        } 
-      });
-    } finally {
-      setAnalyzing(null);
-    }
-  };
 
   const handleCompare = (event) => {
     navigate('/odds-comparison', { 
