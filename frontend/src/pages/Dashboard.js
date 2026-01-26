@@ -267,7 +267,7 @@ const Dashboard = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard
           title="Win Rate"
           value={`${performance?.win_rate || 0}%`}
@@ -300,7 +300,73 @@ const Dashboard = () => {
           color="yellow"
           onClick={() => setShowActivePicksModal(true)}
         />
+        <StatCard
+          title="Live Games"
+          value={liveScores.length}
+          subtitle="Click for scores"
+          icon={Activity}
+          color={liveScores.length > 0 ? "green" : "blue"}
+          onClick={() => setShowLiveScoresModal(true)}
+        />
       </div>
+
+      {/* Live Scores Modal */}
+      {showLiveScoresModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-zinc-900 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+              <h2 className="font-mono font-bold text-lg text-text-primary flex items-center gap-2">
+                <Activity className="w-5 h-5 text-semantic-success animate-pulse" />
+                Live Games ({liveScores.length})
+                <span className="text-xs text-text-muted ml-2">Auto-updates every 10s</span>
+              </h2>
+              <button 
+                onClick={() => setShowLiveScoresModal(false)}
+                className="p-2 rounded-lg hover:bg-zinc-800 text-text-muted hover:text-text-primary"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto max-h-[60vh] space-y-3">
+              {liveScores.length === 0 ? (
+                <p className="text-text-muted text-center py-8">No live games at the moment.</p>
+              ) : (
+                liveScores.map((game, i) => (
+                  <div key={game.espn_id || i} className="bg-zinc-800 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-mono text-brand-primary uppercase flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-semantic-success animate-pulse"></span>
+                        {game.sport_key?.replace(/_/g, ' ')}
+                      </span>
+                      <span className="text-xs text-text-muted">
+                        {game.clock} - {game.period ? `Q${game.period}` : 'Live'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 items-center gap-4">
+                      <div className="text-left">
+                        <p className="text-text-primary font-semibold text-sm">{game.away_team}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="font-mono text-2xl font-bold text-brand-primary">
+                          {game.away_score} - {game.home_score}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-text-primary font-semibold text-sm">{game.home_team}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="p-4 border-t border-zinc-800 text-center">
+              <p className="text-text-muted text-xs">
+                Scores powered by ESPN • Updates automatically
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Active Picks Modal */}
       {showActivePicksModal && (
