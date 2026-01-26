@@ -1360,7 +1360,158 @@ async def cleanup_line_movement_data():
         "deleted_count": deleted_count
     }
 
-@api_router.get("/odds-comparison/{event_id}")
+# NEW: Endpoint to manually trigger V3 prediction for a specific event
+@api_router.post("/analyze-pregame/{event_id}")
+async def analyze_pregame(event_id: str, sport_key: str = "basketball_nba"):
+    """
+    Manually trigger enhanced V3 analysis for a specific event.
+    Use this to force analysis before the 1-2 hour window.
+    """
+    try:
+        # Fetch event
+        events = await fetch_espn_events_with_odds(sport_key, days_ahead=3)
+        event = None
+        for e in events:
+            if e.get("id") == event_id:
+                event = e
+                break
+        
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
+        
+        # Check if game has already started
+        commence_str = event.get("commence_time", "")
+        if commence_str:
+            commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
+            if commence_time <= datetime.now(timezone.utc):
+                raise HTTPException(status_code=400, detail="Event has already started")
+        
+        # Get comprehensive matchup data
+        matchup_data = await get_comprehensive_matchup_data(event, sport_key)
+        
+        # Get line movement history
+        line_history = await get_line_movement_history(event_id)
+        
+        # Get multi-bookmaker odds if available
+        odds_api_key = os.environ.get('ODDS_API_KEY', '')
+        multi_book_odds = None
+        if odds_api_key:
+            multi_book_odds = await fetch_multi_book_odds(sport_key, event_id, odds_api_key)
+        
+        # Run ENHANCED V3 algorithm
+        pick_result = await calculate_enhanced_pick(
+            event, sport_key, matchup_data, line_history, multi_book_odds
+        )
+        
+        if pick_result and pick_result.get("confidence", 0) >= 0.70:
+            # Create prediction
+            prediction = PredictionCreate(
+                event_id=event_id,
+                sport_key=sport_key,
+                home_team=event.get("home_team"),
+                away_team=event.get("away_team"),
+                commence_time=event.get("commence_time"),
+                prediction_type=pick_result.get("pick_type", "moneyline"),
+                predicted_outcome=pick_result.get("pick", ""),
+                confidence=pick_result.get("confidence", 0.70),
+                analysis=pick_result.get("reasoning", ""),
+                ai_model="enhanced_v3",
+                odds_at_prediction=pick_result.get("odds", 1.91)
+            )
+            
+            await create_recommendation(prediction)
+            
+            return {
+                "status": "prediction_created",
+                "event": f"{event.get('home_team')} vs {event.get('away_team')}",
+                "prediction": pick_result
+            }
+        else:
+            return {
+                "status": "no_pick",
+                "event": f"{event.get('home_team')} vs {event.get('away_team')}",
+                "reason": "Confidence too low or no edge found",
+                "analysis": pick_result or {"message": "Algorithm returned no pick - market likely efficient"}
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in manual pregame analysis: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+# NEW: Get V3 predictions specifically
+@api_router.get("/predictions/v3")
+async def get_v3_predictions(limit: int = 50, result: str = None):
+    """Get predictions made by Enhanced V3 algorithm"""
+    query = {"ai_model": "enhanced_v3"}
+    if result:
+        query["result"] = result
+    
+    predictions = await db.predictions.find(
+        query, 
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    # Calculate V3 stats
+    all_v3 = await db.predictions.find({"ai_model": "enhanced_v3"}).to_list(10000)
+    
+    wins = len([p for p in all_v3 if p.get("result") == "win"])
+    losses = len([p for p in all_v3 if p.get("result") == "loss"])
+    pending = len([p for p in all_v3 if p.get("result") == "pending"])
+    
+    win_rate = wins / (wins + losses) * 100 if (wins + losses) > 0 else 0
+    
+    return {
+        "predictions": predictions,
+        "stats": {
+            "total": len(all_v3),
+            "wins": wins,
+            "losses": losses,
+            "pending": pending,
+            "win_rate": round(win_rate, 1)
+        },
+        "algorithm": "enhanced_v3",
+        "description": "Predictions made 1-2 hours before game start with deep analysis"
+    }
+
+# NEW: Compare V2 vs V3 algorithm performance
+@api_router.get("/predictions/comparison")
+async def compare_algorithms():
+    """Compare performance of V2 (legacy) vs V3 (enhanced) algorithms"""
+    
+    # Get all predictions
+    all_predictions = await db.predictions.find({}).to_list(10000)
+    
+    v2_predictions = [p for p in all_predictions if p.get("ai_model") in ["custom_algorithm_v1", "gpt-5.2", "claude"]]
+    v3_predictions = [p for p in all_predictions if p.get("ai_model") == "enhanced_v3"]
+    
+    def calculate_stats(predictions):
+        completed = [p for p in predictions if p.get("result") in ["win", "loss"]]
+        wins = len([p for p in completed if p.get("result") == "win"])
+        losses = len([p for p in completed if p.get("result") == "loss"])
+        pending = len([p for p in predictions if p.get("result") == "pending"])
+        
+        win_rate = wins / len(completed) * 100 if completed else 0
+        avg_confidence = sum(p.get("confidence", 0) for p in predictions) / len(predictions) * 100 if predictions else 0
+        
+        return {
+            "total": len(predictions),
+            "completed": len(completed),
+            "wins": wins,
+            "losses": losses,
+            "pending": pending,
+            "win_rate": round(win_rate, 1),
+            "avg_confidence": round(avg_confidence, 1)
+        }
+    
+    return {
+        "v2_legacy": calculate_stats(v2_predictions),
+        "v3_enhanced": calculate_stats(v3_predictions),
+        "recommendation": "V3 Enhanced algorithm predicts 1-2 hours before games with deeper analysis"
+    }
 async def get_odds_comparison(event_id: str, sport_key: str = "basketball_nba"):
     """Get odds comparison for an event - uses ESPN data in European/decimal format"""
     # Try multiple sports if not found
