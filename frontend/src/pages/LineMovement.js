@@ -452,14 +452,40 @@ const LineMovement = () => {
             Track odds changes from opening to current — updated every 5 minutes via ESPN
           </p>
         </div>
-        <button 
-          onClick={fetchEvents}
-          className="btn-outline flex items-center gap-2"
-          data-testid="refresh-events-btn"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Refresh
-        </button>
+        <div className="flex items-center gap-4">
+          {/* Auto-refresh toggle */}
+          <div className="flex items-center gap-2">
+            <span className="text-text-muted text-sm">Auto-refresh</span>
+            <button
+              onClick={() => setIsAutoRefresh(!isAutoRefresh)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                isAutoRefresh ? 'bg-brand-primary' : 'bg-zinc-700'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  isAutoRefresh ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+          {lastUpdate && (
+            <span className="text-text-muted text-xs">
+              Updated: {lastUpdate.toLocaleTimeString()}
+            </span>
+          )}
+          <button 
+            onClick={() => {
+              fetchEvents();
+              if (selectedEvent) fetchLineMovement(selectedEvent.id);
+            }}
+            className="btn-outline flex items-center gap-2"
+            data-testid="refresh-events-btn"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Sport Selector */}
