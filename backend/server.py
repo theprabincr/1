@@ -33,8 +33,14 @@ from espn_scores import (
     get_final_games
 )
 
-# Import custom betting algorithm
+# Import custom betting algorithm (V2 - legacy)
 from betting_algorithm import calculate_pick
+
+# Import ENHANCED betting algorithm V3
+from enhanced_betting_algorithm import calculate_enhanced_pick, EnhancedBettingAlgorithm
+
+# Import multi-bookmaker odds provider
+from multi_book_odds import fetch_multi_book_odds, get_multi_book_provider
 
 # Import lineup/roster scraper
 from lineup_scraper import get_matchup_context
