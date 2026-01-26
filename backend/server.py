@@ -1562,7 +1562,189 @@ async def get_smart_v4_predictions(limit: int = 50, result: str = None):
         "description": "Smart predictions 1 hour before game - analyzes squads, form, line movement. NO LLM required."
     }
 
-# NEW: Compare V2 vs V3 vs Smart V4 algorithm performance
+
+# NEW: BetPredictor V5 - Comprehensive Line Movement Analysis
+@api_router.get("/predictions/v5")
+async def get_v5_predictions(limit: int = 50, result: str = None):
+    """Get predictions made by BetPredictor V5 algorithm (comprehensive line movement analysis)"""
+    query = {"ai_model": "betpredictor_v5"}
+    if result:
+        query["result"] = result
+    
+    predictions = await db.predictions.find(
+        query, 
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    # Calculate V5 stats
+    all_v5 = await db.predictions.find({"ai_model": "betpredictor_v5"}).to_list(10000)
+    
+    wins = len([p for p in all_v5 if p.get("result") == "win"])
+    losses = len([p for p in all_v5 if p.get("result") == "loss"])
+    pending = len([p for p in all_v5 if p.get("result") == "pending"])
+    
+    win_rate = wins / (wins + losses) * 100 if (wins + losses) > 0 else 0
+    avg_confidence = sum(p.get("confidence", 0) for p in all_v5) / len(all_v5) if all_v5 else 0
+    
+    return {
+        "predictions": predictions,
+        "stats": {
+            "total": len(all_v5),
+            "wins": wins,
+            "losses": losses,
+            "pending": pending,
+            "win_rate": round(win_rate, 1),
+            "avg_confidence": round(avg_confidence, 1)
+        },
+        "algorithm": "betpredictor_v5",
+        "description": "Comprehensive analysis: Complete line movement study, sharp money detection, squad/H2H/venue analysis. Only recommends when 4+ factors align."
+    }
+
+
+# NEW: Analyze event with V5 engine - comprehensive line movement study
+@api_router.post("/analyze-v5/{event_id}")
+async def analyze_event_v5(event_id: str, sport_key: str = "basketball_nba"):
+    """
+    Comprehensive V5 analysis for an event including:
+    - Complete line movement study from opening to now
+    - Sharp money detection
+    - Squad and injury analysis
+    - H2H historical analysis
+    - Venue factors
+    - Confidence based on factor alignment
+    """
+    try:
+        # 1. Fetch event
+        events = await fetch_espn_events_with_odds(sport_key, days_ahead=3)
+        event = None
+        for e in events:
+            if e.get("id") == event_id:
+                event = e
+                break
+        
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
+        
+        home_team = event.get("home_team")
+        away_team = event.get("away_team")
+        commence_time = event.get("commence_time")
+        
+        logger.info(f"🎯 V5 Analysis: {home_team} vs {away_team}")
+        
+        # 2. Get complete line movement history
+        opening_odds = await db.opening_odds.find_one({"event_id": event_id}, {"_id": 0})
+        line_history = await db.odds_history.find(
+            {"event_id": event_id},
+            {"_id": 0}
+        ).sort("timestamp", 1).to_list(500)
+        
+        # Current odds from event
+        current_odds = {}
+        bookmakers = event.get("bookmakers", [])
+        if bookmakers:
+            for bm in bookmakers:
+                for market in bm.get("markets", []):
+                    if market.get("key") == "h2h":
+                        outcomes = market.get("outcomes", [])
+                        if len(outcomes) >= 2:
+                            current_odds["home"] = outcomes[0].get("price", 1.91)
+                            current_odds["away"] = outcomes[1].get("price", 1.91)
+                        break
+        
+        # 3. Get squad data
+        squad_data = await get_matchup_context(home_team, away_team, sport_key)
+        
+        # 4. Get matchup data
+        matchup_data = await get_comprehensive_matchup_data(event, sport_key)
+        
+        # 5. Run V5 analysis
+        prediction = await generate_v5_prediction(
+            event,
+            sport_key,
+            squad_data,
+            matchup_data,
+            line_history,
+            opening_odds or {},
+            current_odds
+        )
+        
+        # 6. Also run standalone line movement analysis for detailed view
+        line_analysis = await analyze_line_movement(
+            line_history,
+            opening_odds or {},
+            current_odds,
+            commence_time,
+            home_team,
+            away_team
+        )
+        
+        # 7. If has pick, optionally store it
+        if prediction.get("has_pick"):
+            # Check if prediction already exists
+            existing = await db.predictions.find_one({
+                "event_id": event_id,
+                "ai_model": "betpredictor_v5"
+            })
+            
+            if not existing:
+                prediction_record = {
+                    "id": str(uuid.uuid4()),
+                    "event_id": event_id,
+                    "sport_key": sport_key,
+                    "home_team": home_team,
+                    "away_team": away_team,
+                    "prediction": prediction["pick"],
+                    "prediction_type": prediction["pick_type"],
+                    "odds": prediction["odds"],
+                    "confidence": prediction["confidence"] / 100,
+                    "edge_percent": prediction["edge_percent"],
+                    "reasoning": prediction["reasoning"],
+                    "result": "pending",
+                    "commence_time": commence_time,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "ai_model": "betpredictor_v5",
+                    "factor_count": prediction.get("factor_count", 0),
+                    "line_analysis_summary": prediction.get("line_analysis_summary")
+                }
+                await db.predictions.insert_one(prediction_record)
+                logger.info(f"✅ Stored V5 prediction: {prediction['pick']} @ {prediction['confidence']}%")
+        
+        return {
+            "event": {
+                "id": event_id,
+                "home_team": home_team,
+                "away_team": away_team,
+                "commence_time": commence_time,
+                "sport_key": sport_key
+            },
+            "prediction": prediction,
+            "line_movement_analysis": {
+                "total_movement_pct": line_analysis.get("total_movement_pct"),
+                "movement_direction": line_analysis.get("movement_direction"),
+                "sharp_money_side": line_analysis.get("sharp_money_side"),
+                "reverse_line_movement": line_analysis.get("reverse_line_movement"),
+                "steam_moves": line_analysis.get("steam_moves", []),
+                "key_insights": line_analysis.get("key_insights", []),
+                "summary": line_analysis.get("summary"),
+                "phases": line_analysis.get("movement_phases", [])
+            },
+            "data_summary": {
+                "line_movement_snapshots": len(line_history),
+                "has_opening_odds": opening_odds is not None,
+                "squad_data_available": bool(squad_data.get("home_team") or squad_data.get("away_team"))
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"V5 analysis error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+
+# NEW: Compare V2 vs V3 vs Smart V4 vs V5 algorithm performance
 @api_router.get("/predictions/comparison")
 async def compare_algorithms():
     """Compare performance of V2 (legacy) vs V3 (enhanced) vs Smart V4 algorithms"""
