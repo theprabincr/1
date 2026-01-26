@@ -42,7 +42,7 @@ const Sidebar = () => {
       try {
         const [notifRes, statusRes, liveRes] = await Promise.all([
           axios.get(`${API}/notifications?unread_only=true&limit=1`),
-          axios.get(`${API}/scraper-status`),
+          axios.get(`${API}/data-source-status`),
           axios.get(`${API}/live-scores`)
         ]);
         setUnreadNotifications(notifRes.data.unread_count);
