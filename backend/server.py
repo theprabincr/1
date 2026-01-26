@@ -18,6 +18,12 @@ import io
 import json
 import re
 
+# Import ESPN data provider for REAL odds
+from espn_data_provider import (
+    fetch_espn_events_with_odds,
+    get_comprehensive_matchup_data
+)
+
 # Import ESPN scores integration
 from espn_scores import (
     fetch_espn_scores, 
@@ -27,7 +33,10 @@ from espn_scores import (
     get_final_games
 )
 
-# Import lineup/roster scraper for AI analysis
+# Import custom betting algorithm
+from betting_algorithm import calculate_pick
+
+# Import lineup/roster scraper
 from lineup_scraper import get_matchup_context
 
 ROOT_DIR = Path(__file__).parent
