@@ -845,6 +845,7 @@ async def auto_generate_recommendations():
                 
                 # Get comprehensive matchup data for algorithm
                 try:
+                    logger.info(f"Analyzing: {event.get('home_team')} vs {event.get('away_team')}")
                     matchup_data = await get_comprehensive_matchup_data(event, sport_key)
                     
                     # Get line movement data from our database
@@ -853,32 +854,39 @@ async def auto_generate_recommendations():
                     # Run custom betting algorithm
                     pick_result = calculate_pick(matchup_data, line_movement)
                     
-                    if pick_result and pick_result.get("confidence", 0) >= 0.70:
-                        # Create prediction from algorithm result
-                        prediction = PredictionCreate(
-                            event_id=event_id,
-                            sport_key=sport_key,
-                            home_team=event.get("home_team"),
-                            away_team=event.get("away_team"),
-                            commence_time=event.get("commence_time"),
-                            prediction_type=pick_result.get("pick_type", "moneyline"),
-                            predicted_outcome=pick_result.get("pick", ""),
-                            confidence=pick_result.get("confidence", 0.70),
-                            analysis=pick_result.get("reasoning", ""),
-                            ai_model="custom_algorithm_v1",
-                            odds_at_prediction=pick_result.get("odds", 1.91)
-                        )
+                    if pick_result:
+                        logger.info(f"Algorithm result: {pick_result.get('pick')} conf={pick_result.get('confidence', 0)}")
                         
-                        await create_recommendation(prediction)
-                        picks_generated += 1
-                        logger.info(f"ALGORITHM PICK: {event.get('home_team')} vs {event.get('away_team')} - "
-                                  f"{pick_result.get('pick')} @ {pick_result.get('confidence')*100:.0f}% conf, "
-                                  f"{pick_result.get('edge', 0):.1f}% edge")
+                        if pick_result.get("confidence", 0) >= 0.70:
+                            # Create prediction from algorithm result
+                            prediction = PredictionCreate(
+                                event_id=event_id,
+                                sport_key=sport_key,
+                                home_team=event.get("home_team"),
+                                away_team=event.get("away_team"),
+                                commence_time=event.get("commence_time"),
+                                prediction_type=pick_result.get("pick_type", "moneyline"),
+                                predicted_outcome=pick_result.get("pick", ""),
+                                confidence=pick_result.get("confidence", 0.70),
+                                analysis=pick_result.get("reasoning", ""),
+                                ai_model="custom_algorithm_v1",
+                                odds_at_prediction=pick_result.get("odds", 1.91)
+                            )
+                            
+                            await create_recommendation(prediction)
+                            picks_generated += 1
+                            logger.info(f"ALGORITHM PICK: {event.get('home_team')} vs {event.get('away_team')} - "
+                                      f"{pick_result.get('pick')} @ {pick_result.get('confidence')*100:.0f}% conf, "
+                                      f"{pick_result.get('edge', 0):.1f}% edge")
+                        else:
+                            logger.info(f"Confidence too low: {pick_result.get('confidence', 0)*100:.0f}%")
                     else:
-                        logger.debug(f"No high-confidence pick for {event.get('home_team')} vs {event.get('away_team')}")
+                        logger.info(f"No pick returned for {event.get('home_team')} vs {event.get('away_team')}")
                         
                 except Exception as e:
                     logger.error(f"Error analyzing {event_id}: {e}")
+                    import traceback
+                    traceback.print_exc()
                     continue
                     
         except Exception as e:
