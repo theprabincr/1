@@ -114,7 +114,7 @@ If no value found:
             
             response = await asyncio.to_thread(
                 chat.send_message,
-                UserMessage(content=prompt)
+                UserMessage(text=prompt)
             )
             
             # Parse AI response
