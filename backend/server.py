@@ -229,16 +229,15 @@ async def get_scraper_status():
         "sports": list(events_cache.keys())
     }
 
-# ==================== MANUAL SCRAPE ENDPOINT ====================
+# ==================== ESPN LINE MOVEMENT TRACKING ====================
 
-@api_router.post("/scrape-odds")
-async def manual_scrape_odds(sport_key: str = "basketball_nba"):
-    """Manually trigger OddsPortal scraping for a sport"""
+@api_router.post("/refresh-odds")
+async def manual_refresh_odds(sport_key: str = "basketball_nba"):
+    """Manually trigger ESPN odds refresh and store snapshot for line movement"""
     global events_cache, last_scrape_time
     
     try:
-        from oddsportal_scraper import scrape_oddsportal_events
-        events = await scrape_oddsportal_events(sport_key)
+        events = await fetch_espn_events_with_odds(sport_key, days_ahead=3)
         
         if events:
             # Store in cache
@@ -247,19 +246,30 @@ async def manual_scrape_odds(sport_key: str = "basketball_nba"):
             last_scrape_time = datetime.now(timezone.utc).isoformat()
             
             # Store odds snapshots for line movement tracking
+            snapshots_stored = 0
             for event in events:
-                await store_odds_snapshot(event)
+                # Only store for pre-match events
+                commence_str = event.get("commence_time", "")
+                if commence_str:
+                    try:
+                        commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
+                        if commence_time > datetime.now(timezone.utc):
+                            await store_odds_snapshot(event)
+                            snapshots_stored += 1
+                    except:
+                        pass
             
             return {
-                "message": f"Successfully scraped {len(events)} events from OddsPortal",
-                "events": events
+                "message": f"Refreshed {len(events)} events from ESPN",
+                "snapshots_stored": snapshots_stored,
+                "source": "ESPN/DraftKings"
             }
         else:
             return {"message": "No events found", "events": []}
             
     except Exception as e:
-        logger.error(f"Manual scrape failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Scraping failed: {str(e)}")
+        logger.error(f"Manual refresh failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Refresh failed: {str(e)}")
 
 # ==================== NOTIFICATIONS ENDPOINTS ====================
 
