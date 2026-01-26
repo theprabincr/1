@@ -528,8 +528,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "15-minute Line Movement Tracking"
-    - "OddsPortal Aggregation"
+    - "Line Movement Functionality"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
