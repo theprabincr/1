@@ -516,7 +516,6 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Smart V4 Prediction Engine"
     - "15-minute Line Movement Tracking"
     - "OddsPortal Aggregation"
   stuck_tasks: []
