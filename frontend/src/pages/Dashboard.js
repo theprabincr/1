@@ -120,10 +120,10 @@ const TopPickCard = ({ pick, onClick }) => {
       </div>
       
       {/* Reasoning Section */}
-      {pick.reasoning && (
+      {(pick.reasoning || pick.analysis) && (
         <div className="mt-3 pt-3 border-t border-zinc-700/50">
           <p className="text-xs text-text-muted mb-1">Analysis</p>
-          <p className="text-text-secondary text-xs leading-relaxed">{pick.reasoning}</p>
+          <p className="text-text-secondary text-xs leading-relaxed">{pick.reasoning || pick.analysis}</p>
         </div>
       )}
     </div>
