@@ -336,6 +336,7 @@ const LineMovement = () => {
   const [selectedSport, setSelectedSport] = useState("basketball_nba");
   const [lastUpdate, setLastUpdate] = useState(null);
   const [isAutoRefresh, setIsAutoRefresh] = useState(true);
+  const [selectedMarket, setSelectedMarket] = useState("moneyline"); // moneyline, spread, totals
 
   const sports = [
     { key: "basketball_nba", label: "NBA" },
@@ -343,6 +344,12 @@ const LineMovement = () => {
     { key: "baseball_mlb", label: "MLB" },
     { key: "icehockey_nhl", label: "NHL" },
     { key: "soccer_epl", label: "EPL" },
+  ];
+
+  const markets = [
+    { key: "moneyline", label: "Moneyline" },
+    { key: "spread", label: "Spread" },
+    { key: "totals", label: "Totals" },
   ];
 
   const fetchEvents = async () => {
