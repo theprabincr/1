@@ -1503,6 +1503,167 @@ class BettingPredictorAPITester:
         
         print(f"\n   ✅ V3 Enhanced Betting Algorithm testing complete")
 
+    def test_betpredictor_v5_endpoints(self):
+        """Test NEW BetPredictor V5 comprehensive analysis endpoints"""
+        print("\n🎯 Testing BetPredictor V5 Comprehensive Analysis...")
+        
+        # 1. First get events from basketball_nba
+        success, events = self.run_test("Get NBA Events for V5", "GET", "events/basketball_nba", 200)
+        if success and events and len(events) > 0:
+            event = events[0]
+            event_id = event.get('id')
+            home_team = event.get('home_team')
+            away_team = event.get('away_team')
+            
+            print(f"   Testing V5 analysis with: {home_team} vs {away_team}")
+            print(f"   Event ID: {event_id}")
+            
+            if event_id:
+                # 2. Test V5 Analysis Endpoint
+                success, data = self.run_test("V5 Analysis Endpoint", "POST", f"analyze-v5/{event_id}?sport_key=basketball_nba", 200, timeout=90)
+                if success and data:
+                    # Verify response structure
+                    required_fields = ['event', 'prediction', 'line_movement_analysis', 'data_summary']
+                    missing_fields = []
+                    
+                    for field in required_fields:
+                        if field in data:
+                            print(f"   ✅ {field}: Present")
+                            
+                            # Detailed verification for each section
+                            if field == 'event':
+                                event_data = data[field]
+                                event_fields = ['id', 'home_team', 'away_team', 'commence_time']
+                                missing_event_fields = [f for f in event_fields if f not in event_data]
+                                if not missing_event_fields:
+                                    print(f"     ✅ Event data complete")
+                                else:
+                                    print(f"     ⚠️  Event missing: {missing_event_fields}")
+                            
+                            elif field == 'prediction':
+                                prediction = data[field]
+                                pred_fields = ['has_pick', 'reasoning', 'factor_count', 'algorithm']
+                                missing_pred_fields = [f for f in pred_fields if f not in prediction]
+                                if not missing_pred_fields:
+                                    print(f"     ✅ Prediction data complete")
+                                    # Verify algorithm is betpredictor_v5
+                                    if prediction.get('algorithm') == 'betpredictor_v5':
+                                        print(f"     ✅ Algorithm correctly set to betpredictor_v5")
+                                    else:
+                                        print(f"     ⚠️  Expected betpredictor_v5, got: {prediction.get('algorithm')}")
+                                else:
+                                    print(f"     ⚠️  Prediction missing: {missing_pred_fields}")
+                            
+                            elif field == 'line_movement_analysis':
+                                line_analysis = data[field]
+                                line_fields = ['total_movement_pct', 'movement_direction', 'sharp_money_side', 'key_insights', 'summary', 'phases']
+                                missing_line_fields = [f for f in line_fields if f not in line_analysis]
+                                if not missing_line_fields:
+                                    print(f"     ✅ Line movement analysis complete")
+                                else:
+                                    print(f"     ⚠️  Line analysis missing: {missing_line_fields}")
+                            
+                            elif field == 'data_summary':
+                                data_summary = data[field]
+                                summary_fields = ['line_movement_snapshots', 'has_opening_odds', 'squad_data_available']
+                                missing_summary_fields = [f for f in summary_fields if f not in data_summary]
+                                if not missing_summary_fields:
+                                    print(f"     ✅ Data summary complete")
+                                else:
+                                    print(f"     ⚠️  Data summary missing: {missing_summary_fields}")
+                        else:
+                            missing_fields.append(field)
+                    
+                    if missing_fields:
+                        print(f"   ❌ V5 Analysis missing fields: {missing_fields}")
+                    else:
+                        print(f"   ✅ V5 Analysis response structure complete")
+                else:
+                    print(f"   ❌ V5 Analysis endpoint failed")
+            else:
+                print(f"   ⚠️  No event ID available for V5 testing")
+        else:
+            print(f"   ⚠️  No events available for V5 testing")
+        
+        # 3. Test V5 Predictions List
+        success, data = self.run_test("V5 Predictions List", "GET", "predictions/v5", 200)
+        if success and data:
+            predictions = data.get('predictions', [])
+            stats = data.get('stats', {})
+            algorithm = data.get('algorithm', '')
+            
+            print(f"   Found {len(predictions)} V5 predictions")
+            print(f"   Algorithm: {algorithm}")
+            
+            # Verify stats structure
+            required_stats = ['total', 'wins', 'losses', 'pending', 'win_rate', 'avg_confidence']
+            missing_stats = []
+            
+            for stat in required_stats:
+                if stat in stats:
+                    print(f"   ✅ {stat}: {stats[stat]}")
+                else:
+                    missing_stats.append(stat)
+            
+            if missing_stats:
+                print(f"   ❌ V5 stats missing: {missing_stats}")
+            else:
+                print(f"   ✅ V5 predictions stats complete")
+            
+            # Verify algorithm is betpredictor_v5
+            if algorithm == 'betpredictor_v5':
+                print(f"   ✅ V5 predictions algorithm correct")
+            else:
+                print(f"   ⚠️  Expected betpredictor_v5, got: {algorithm}")
+        
+        # 4. Test Predictions Comparison (should include V5)
+        success, data = self.run_test("Predictions Comparison with V5", "GET", "predictions/comparison", 200)
+        if success and data:
+            # Check if betpredictor_v5 is included
+            if 'betpredictor_v5' in data:
+                v5_stats = data['betpredictor_v5']
+                print(f"   ✅ V5 included in comparison")
+                
+                # Check V5 description
+                description = data.get('description', {})
+                if 'betpredictor_v5' in description:
+                    v5_desc = description['betpredictor_v5']
+                    if 'comprehensive' in v5_desc.lower() or 'line movement' in v5_desc.lower():
+                        print(f"   ✅ V5 description includes comprehensive analysis")
+                    else:
+                        print(f"   ⚠️  V5 description may be incomplete")
+                else:
+                    print(f"   ⚠️  V5 description missing")
+            else:
+                print(f"   ❌ betpredictor_v5 not found in comparison")
+        
+        # 5. Test Line Movement Endpoint (detailed verification)
+        success, events = self.run_test("Get Events for Line Movement", "GET", "events/basketball_nba", 200)
+        if success and events and len(events) > 0:
+            event_id = events[0].get('id')
+            if event_id:
+                success, data = self.run_test("Line Movement Detailed", "GET", f"line-movement/{event_id}?sport_key=basketball_nba", 200)
+                if success and data:
+                    chart_data = data.get('chart_data', [])
+                    total_snapshots = data.get('total_snapshots', 0)
+                    
+                    print(f"   Chart data points: {len(chart_data)}")
+                    print(f"   Total snapshots: {total_snapshots}")
+                    
+                    # Verify chart_data has multiple snapshots
+                    if len(chart_data) > 1:
+                        print(f"   ✅ Multiple line movement snapshots available")
+                    else:
+                        print(f"   ⚠️  Limited line movement data: {len(chart_data)} points")
+                    
+                    # Verify total_snapshots matches chart_data length (approximately)
+                    if total_snapshots >= len(chart_data):
+                        print(f"   ✅ Snapshot count consistent")
+                    else:
+                        print(f"   ⚠️  Snapshot count mismatch: {total_snapshots} vs {len(chart_data)}")
+                else:
+                    print(f"   ❌ Line movement endpoint failed")
+
 def main():
     print("🚀 Starting BetPredictor API Testing...")
     print("=" * 60)
