@@ -1685,6 +1685,9 @@ def main():
     print("\n🚀 Testing NEW V3 Enhanced Betting Algorithm...")
     tester.test_v3_enhanced_betting_algorithm_complete()
     
+    print("\n🎯 Testing NEW BetPredictor V5 Comprehensive Analysis...")
+    tester.test_betpredictor_v5_endpoints()
+    
     print("\n🔧 Testing Existing Endpoints Still Work...")
     tester.test_existing_endpoints_still_work()
     
