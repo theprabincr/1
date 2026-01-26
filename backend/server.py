@@ -2263,7 +2263,7 @@ async def scheduled_pregame_predictor():
             await asyncio.sleep(600)
             
         except Exception as e:
-            logger.error(f"Scheduled AI pregame predictor error: {e}")
+            logger.error(f"Scheduled smart pregame predictor error: {e}")
             await asyncio.sleep(120)
 
 
