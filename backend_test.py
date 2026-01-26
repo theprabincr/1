@@ -826,14 +826,193 @@ class BettingPredictorAPITester:
                 else:
                     print(f"   ℹ️  No low confidence predictions available")
 
+    def test_v3_predictions_endpoint(self):
+        """Test NEW V3 Predictions endpoint"""
+        print("\n🚀 Testing V3 Predictions Endpoint...")
+        
+        success, data = self.run_test("V3 Predictions List", "GET", "predictions/v3?limit=20", 200)
+        if success and data:
+            predictions = data.get('predictions', [])
+            stats = data.get('stats', {})
+            algorithm = data.get('algorithm', '')
+            
+            print(f"   Found {len(predictions)} V3 predictions")
+            print(f"   Algorithm: {algorithm}")
+            
+            # Check stats structure
+            required_stats = ['total', 'wins', 'losses', 'pending', 'win_rate']
+            missing_stats = []
+            
+            for stat in required_stats:
+                if stat in stats:
+                    print(f"   ✅ {stat}: {stats[stat]}")
+                else:
+                    missing_stats.append(stat)
+            
+            if missing_stats:
+                print(f"   ❌ Missing stats: {missing_stats}")
+            else:
+                print(f"   ✅ All V3 stats present")
+            
+            # Verify predictions are from enhanced_v3 model
+            if predictions:
+                v3_predictions = [p for p in predictions if p.get('ai_model') == 'enhanced_v3']
+                if len(v3_predictions) == len(predictions):
+                    print(f"   ✅ All predictions are from enhanced_v3 model")
+                else:
+                    print(f"   ⚠️  Mixed models: {len(v3_predictions)}/{len(predictions)} are V3")
+        
+        # Test with result filter
+        success, data = self.run_test("V3 Predictions - Wins Only", "GET", "predictions/v3?result=win", 200)
+        if success and data:
+            predictions = data.get('predictions', [])
+            wins_only = all(p.get('result') == 'win' for p in predictions)
+            if wins_only:
+                print(f"   ✅ Result filter working - {len(predictions)} wins")
+            else:
+                print(f"   ⚠️  Result filter not working properly")
+
+    def test_v3_algorithm_comparison(self):
+        """Test NEW V2 vs V3 Algorithm Comparison endpoint"""
+        print("\n⚖️ Testing V2 vs V3 Algorithm Comparison...")
+        
+        success, data = self.run_test("Algorithm Comparison", "GET", "predictions/comparison", 200)
+        if success and data:
+            v2_stats = data.get('v2_legacy', {})
+            v3_stats = data.get('v3_enhanced', {})
+            recommendation = data.get('recommendation', '')
+            
+            print(f"   Recommendation: {recommendation}")
+            
+            # Check V2 stats
+            if v2_stats:
+                print(f"   V2 Legacy Stats:")
+                for key, value in v2_stats.items():
+                    print(f"     {key}: {value}")
+            else:
+                print(f"   ⚠️  No V2 legacy stats found")
+            
+            # Check V3 stats
+            if v3_stats:
+                print(f"   V3 Enhanced Stats:")
+                for key, value in v3_stats.items():
+                    print(f"     {key}: {value}")
+            else:
+                print(f"   ⚠️  No V3 enhanced stats found")
+            
+            # Verify required fields in both
+            required_fields = ['total', 'wins', 'losses', 'win_rate', 'avg_confidence']
+            
+            v2_missing = [f for f in required_fields if f not in v2_stats]
+            v3_missing = [f for f in required_fields if f not in v3_stats]
+            
+            if not v2_missing and not v3_missing:
+                print(f"   ✅ Both V2 and V3 stats complete")
+            else:
+                if v2_missing:
+                    print(f"   ❌ V2 missing fields: {v2_missing}")
+                if v3_missing:
+                    print(f"   ❌ V3 missing fields: {v3_missing}")
+
+    def test_upcoming_predictions_window(self):
+        """Test NEW Upcoming Predictions Window endpoint"""
+        print("\n🕐 Testing Upcoming Predictions Window...")
+        
+        success, data = self.run_test("Upcoming Predictions Window", "GET", "upcoming-predictions-window", 200)
+        if success and data:
+            current_time = data.get('current_time', '')
+            prediction_window = data.get('prediction_window', {})
+            games_in_window = data.get('games_in_window', [])
+            upcoming_games = data.get('upcoming_games', [])
+            total_in_window = data.get('total_in_window', 0)
+            message = data.get('message', '')
+            
+            print(f"   Current time: {current_time}")
+            print(f"   Games in window: {len(games_in_window)}")
+            print(f"   Upcoming games: {len(upcoming_games)}")
+            print(f"   Total in window: {total_in_window}")
+            print(f"   Message: {message}")
+            
+            # Check prediction window structure
+            if prediction_window:
+                window_start = prediction_window.get('start', '')
+                window_end = prediction_window.get('end', '')
+                print(f"   Window: {window_start} to {window_end}")
+                
+                if window_start and window_end:
+                    print(f"   ✅ Prediction window properly defined")
+                else:
+                    print(f"   ❌ Prediction window incomplete")
+            
+            # Check games structure
+            if games_in_window:
+                game = games_in_window[0]
+                required_fields = ['event_id', 'sport', 'home_team', 'away_team', 'commence_time', 'minutes_to_start', 'has_v3_prediction']
+                missing_fields = [f for f in required_fields if f not in game]
+                
+                if not missing_fields:
+                    print(f"   ✅ Game structure complete")
+                    print(f"   Sample: {game.get('home_team')} vs {game.get('away_team')} ({game.get('minutes_to_start')} min)")
+                else:
+                    print(f"   ❌ Game missing fields: {missing_fields}")
+            
+            # Verify total matches count
+            if len(games_in_window) == total_in_window:
+                print(f"   ✅ Total count matches games list")
+            else:
+                print(f"   ⚠️  Count mismatch: {len(games_in_window)} vs {total_in_window}")
+
+    def test_manual_v3_analysis(self):
+        """Test NEW Manual V3 Analysis endpoint"""
+        print("\n🔬 Testing Manual V3 Analysis...")
+        
+        # First get an event to analyze
+        success, events = self.run_test("Get Events for V3 Analysis", "GET", "events/basketball_nba?pre_match_only=true", 200)
+        if success and events and len(events) > 0:
+            event_id = events[0].get('id')
+            if event_id:
+                print(f"   Analyzing event: {events[0].get('home_team')} vs {events[0].get('away_team')}")
+                
+                success, data = self.run_test("Manual V3 Analysis", "POST", f"analyze-pregame/{event_id}?sport_key=basketball_nba", 200, timeout=60)
+                if success and data:
+                    status = data.get('status', '')
+                    event_info = data.get('event', '')
+                    prediction = data.get('prediction', {})
+                    reason = data.get('reason', '')
+                    analysis = data.get('analysis', {})
+                    
+                    print(f"   Status: {status}")
+                    print(f"   Event: {event_info}")
+                    
+                    if status == 'prediction_created':
+                        print(f"   ✅ V3 prediction created successfully")
+                        if prediction:
+                            confidence = prediction.get('confidence', 0)
+                            pick = prediction.get('pick', '')
+                            edge = prediction.get('edge', 0)
+                            print(f"   Pick: {pick} (Confidence: {confidence:.1%}, Edge: {edge:.1f}%)")
+                    elif status == 'no_pick':
+                        print(f"   ✅ V3 algorithm correctly declined to make pick")
+                        print(f"   Reason: {reason}")
+                    else:
+                        print(f"   ⚠️  Unexpected status: {status}")
+                else:
+                    print(f"   ❌ Manual V3 analysis failed")
+            else:
+                print(f"   ⚠️  No event ID found")
+        else:
+            print(f"   ⚠️  No events available for V3 analysis testing")
+
     def test_existing_endpoints_still_work(self):
-        """Test that existing endpoints still work after updates"""
-        print("\n🔧 Testing Existing Endpoints...")
+        """Test that existing endpoints still work after V3 updates"""
+        print("\n🔧 Testing Existing Endpoints Still Work...")
         
         # Test core endpoints that should still work
         endpoints_to_test = [
+            ("Events NBA Pre-match", "GET", "events/basketball_nba?pre_match_only=true"),
+            ("Recommendations", "GET", "recommendations"),
+            ("Live Scores", "GET", "live-scores"),
             ("Sports List", "GET", "sports"),
-            ("Events NBA", "GET", "events/basketball_nba"),
             ("Notifications", "GET", "notifications"),
             ("Settings", "GET", "settings")
         ]
@@ -842,6 +1021,27 @@ class BettingPredictorAPITester:
             success, data = self.run_test(f"Existing - {name}", method, endpoint, 200)
             if not success:
                 print(f"   ❌ CRITICAL: Existing endpoint {endpoint} is broken!")
+        
+        # Test line movement with event ID
+        success, events = self.run_test("Get Events for Line Movement", "GET", "events/basketball_nba", 200)
+        if success and events and len(events) > 0:
+            event_id = events[0].get('id')
+            if event_id:
+                success, data = self.run_test("Existing - Line Movement", "GET", f"line-movement/{event_id}?sport_key=basketball_nba", 200)
+                if not success:
+                    print(f"   ❌ CRITICAL: Line movement endpoint is broken!")
+
+    def test_v3_enhanced_betting_algorithm_complete(self):
+        """Complete test suite for NEW Enhanced V3 Betting Algorithm"""
+        print("\n🎯 Testing Complete V3 Enhanced Betting Algorithm Suite...")
+        
+        # Test all V3 endpoints in sequence
+        self.test_v3_predictions_endpoint()
+        self.test_v3_algorithm_comparison()
+        self.test_upcoming_predictions_window()
+        self.test_manual_v3_analysis()
+        
+        print(f"\n   ✅ V3 Enhanced Betting Algorithm testing complete")
 
 def main():
     print("🚀 Starting BetPredictor API Testing...")
