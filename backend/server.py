@@ -1118,21 +1118,22 @@ async def update_recommendations_on_line_movement():
                 change_pct = abs(current_odds_value - original_odds) / original_odds * 100
                 
                 if change_pct >= threshold:
-                    # Line moved significantly - add note to analysis
-                    new_analysis = prediction.get("analysis", "") + f"\n\n[LINE MOVEMENT UPDATE: {predicted_outcome} odds moved from {original_odds:.2f} to {current_odds_value:.2f} ({change_pct:.1f}% change)]"
-                    
-                    # Adjust confidence based on movement direction
-                    new_confidence = prediction.get("confidence", 0.6)
-                    movement_direction = "favorable" if current_odds_value > original_odds else "adverse"
-                    
-                    if current_odds_value > original_odds:
-                        # Line moving in our favor (better value/higher payout)
-                        new_confidence = min(new_confidence + 0.05, 0.95)
-                        new_analysis += " [Favorable movement - increased confidence]"
+                    # Determine movement direction
+                    # Odds DECREASING = market moving TOWARD our pick = FAVORABLE
+                    # Odds INCREASING = market moving AGAINST our pick = ADVERSE
+                    if current_odds_value < original_odds:
+                        movement_direction = "favorable"
+                        # Market agrees with our pick - slight confidence boost
+                        new_confidence = min(prediction.get("confidence", 0.6) + 0.03, 0.95)
+                        movement_note = "Market moving toward our pick"
                     else:
-                        # Line moving against us (lower value)
-                        new_confidence = max(new_confidence - 0.1, 0.3)
-                        new_analysis += " [Adverse movement - decreased confidence]"
+                        movement_direction = "adverse"
+                        # Market moving against our pick - decrease confidence
+                        new_confidence = max(prediction.get("confidence", 0.6) - 0.08, 0.3)
+                        movement_note = "Market moving against our pick"
+                    
+                    # Line moved significantly - add note to analysis
+                    new_analysis = prediction.get("analysis", "") + f"\n\n[LINE MOVEMENT UPDATE: {predicted_outcome} odds moved from {original_odds:.2f} to {current_odds_value:.2f} ({change_pct:.1f}% {movement_direction}). {movement_note}]"
                     
                     await db.predictions.update_one(
                         {"id": prediction.get("id")},
@@ -1144,14 +1145,14 @@ async def update_recommendations_on_line_movement():
                             "last_updated": datetime.now(timezone.utc).isoformat()
                         }}
                     )
-                    logger.info(f"Updated prediction {prediction.get('id')} - {predicted_outcome} odds moved {change_pct:.1f}%: {original_odds:.2f} → {current_odds_value:.2f}")
+                    logger.info(f"Updated prediction {prediction.get('id')} - {predicted_outcome} odds moved {change_pct:.1f}% ({movement_direction}): {original_odds:.2f} → {current_odds_value:.2f}")
                     
                     # Create notification for significant line movement
                     if settings and settings.get('notification_preferences', {}).get('line_movement_alerts', True):
                         await create_notification(
                             "line_movement",
                             f"Line Movement Alert: {home_team} vs {away_team}",
-                            f"{predicted_outcome} odds moved {change_pct:.1f}% ({movement_direction}): {original_odds:.2f} → {current_odds_value:.2f}",
+                            f"{predicted_outcome} odds moved {change_pct:.1f}% ({movement_direction}): {original_odds:.2f} → {current_odds_value:.2f}. {movement_note}.",
                             {
                                 "prediction_id": prediction.get("id"),
                                 "event_id": event_id,
