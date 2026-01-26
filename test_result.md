@@ -345,6 +345,66 @@ backend:
         agent: "testing"
         comment: "✅ ROSTER/LINEUP INTEGRATION WORKING: Integrated with AI analysis and recommendation generation. ESPN roster API provides team rosters and injury data for enhanced AI predictions. Performance stats show final_score data included in recent predictions, confirming integration functional."
 
+  - task: "Enhanced V3 Betting Algorithm"
+    implemented: true
+    working: true
+    file: "backend/enhanced_betting_algorithm.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "NEW: Created enhanced_betting_algorithm.py with deep analysis - squads, H2H, venue, injuries, line movement. Only outputs 70%+ confidence when 4+ factors align and 4%+ edge exists. Conservative approach - NO PICK is default."
+
+  - task: "15-minute Line Movement Tracking"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Changed scheduled_line_movement_checker from 3600s to 900s (15 min). Changed scheduled_espn_odds_refresh from 3600s to 900s (15 min). Line movement now tracked every 15 minutes instead of hourly."
+
+  - task: "Pre-game Predictor Scheduler"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "NEW: Added scheduled_pregame_predictor that runs every 10 minutes and analyzes games starting in 1-2 hours. Uses Enhanced V3 algorithm for predictions right before game time."
+
+  - task: "V3 Predictions Endpoints"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "NEW endpoints: /api/predictions/v3 (V3 predictions), /api/predictions/comparison (V2 vs V3 stats), /api/upcoming-predictions-window (games in 1-2hr window), /api/analyze-pregame/{event_id} (manual V3 analysis)."
+
+  - task: "Multi-Bookmaker Odds Provider"
+    implemented: true
+    working: true
+    file: "backend/multi_book_odds.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "NEW: Created multi_book_odds.py for fetching odds from multiple bookmakers. Uses The Odds API when ODDS_API_KEY env var is set. Falls back to ESPN/DraftKings otherwise."
+
 frontend:
   - task: "API Keys Management Page"
     implemented: true
