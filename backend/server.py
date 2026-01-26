@@ -2204,44 +2204,42 @@ async def scheduled_pregame_predictor():
                                 # 4. Get multi-bookmaker odds (ESPN + aggregated)
                                 multi_book_odds = await fetch_aggregated_odds(sport_key, event_id, event)
                                 
-                                # 5. Run AI prediction engine
-                                ai_prediction = await generate_ai_prediction(
+                                # 5. Run SMART prediction engine (no LLM required)
+                                smart_prediction = await generate_smart_prediction(
                                     event=event,
                                     sport_key=sport_key,
                                     squad_data=squad_data,
                                     matchup_data=matchup_data,
                                     line_movement=line_history,
-                                    multi_book_odds=multi_book_odds,
-                                    h2h_records=None,  # Could be enhanced later
-                                    api_key=EMERGENT_LLM_KEY
+                                    multi_book_odds=multi_book_odds
                                 )
                                 
-                                if ai_prediction and ai_prediction.get("has_pick") and ai_prediction.get("confidence", 0) >= 0.70:
-                                    # Create prediction from AI result
+                                if smart_prediction and smart_prediction.get("has_pick") and smart_prediction.get("confidence", 0) >= 0.70:
+                                    # Create prediction from smart algorithm result
                                     prediction = PredictionCreate(
                                         event_id=event_id,
                                         sport_key=sport_key,
                                         home_team=event.get("home_team"),
                                         away_team=event.get("away_team"),
                                         commence_time=event.get("commence_time"),
-                                        prediction_type=ai_prediction.get("pick_type", "moneyline"),
-                                        predicted_outcome=ai_prediction.get("pick", ""),
-                                        confidence=ai_prediction.get("confidence", 0.70),
-                                        analysis=ai_prediction.get("reasoning", ""),
-                                        ai_model="ai_v4",
-                                        odds_at_prediction=ai_prediction.get("odds", 1.91)
+                                        prediction_type=smart_prediction.get("pick_type", "moneyline"),
+                                        predicted_outcome=smart_prediction.get("pick", ""),
+                                        confidence=smart_prediction.get("confidence", 0.70),
+                                        analysis=smart_prediction.get("reasoning", ""),
+                                        ai_model="smart_v4",
+                                        odds_at_prediction=smart_prediction.get("odds", 1.91)
                                     )
                                     
                                     await create_recommendation(prediction)
                                     predictions_made += 1
                                     
-                                    logger.info(f"✅ AI V4 PREDICTION: {event.get('home_team')} vs {event.get('away_team')} - "
-                                              f"{ai_prediction.get('pick_type')}: {ai_prediction.get('pick')} "
-                                              f"@ {ai_prediction.get('confidence')*100:.0f}% conf, "
-                                              f"odds {ai_prediction.get('odds', 1.91)}")
+                                    logger.info(f"✅ SMART V4 PREDICTION: {event.get('home_team')} vs {event.get('away_team')} - "
+                                              f"{smart_prediction.get('pick_type')}: {smart_prediction.get('pick')} "
+                                              f"@ {smart_prediction.get('confidence')*100:.0f}% conf, "
+                                              f"EV: {smart_prediction.get('expected_value', 0):.1f}%")
                                 else:
-                                    reason = ai_prediction.get("reasoning", "No value found") if ai_prediction else "AI analysis failed"
-                                    logger.info(f"⏭️ NO AI PICK: {event.get('home_team')} vs {event.get('away_team')} - {reason[:100]}")
+                                    reason = smart_prediction.get("reasoning", "No value found") if smart_prediction else "Analysis failed"
+                                    logger.info(f"⏭️ NO PICK: {event.get('home_team')} vs {event.get('away_team')} - {reason[:100]}")
                                 
                                 # Store odds snapshot for line movement tracking
                                 await store_odds_snapshot(event)
