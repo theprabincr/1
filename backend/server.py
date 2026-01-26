@@ -39,12 +39,6 @@ from betting_algorithm import calculate_pick
 # Import ENHANCED betting algorithm V3
 from enhanced_betting_algorithm import calculate_enhanced_pick, EnhancedBettingAlgorithm
 
-# Import multi-bookmaker odds provider
-from multi_book_odds import fetch_multi_book_odds, get_multi_book_provider
-
-# Import odds aggregator (OddsPortal + ESPN)
-from odds_aggregator import fetch_aggregated_odds, get_odds_aggregator
-
 # Import SMART prediction engine V4 (no LLM required)
 from smart_prediction_engine import generate_smart_prediction, SmartPredictionEngine
 
