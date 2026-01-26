@@ -1826,21 +1826,21 @@ async def store_odds_snapshot(event: dict):
         })
         logger.info(f"Stored opening odds for {home_team} vs {away_team}: {avg_home:.2f}/{avg_away:.2f}")
     
-    # Store hourly snapshot for line movement tracking (avoid duplicates within same hour)
+    # Store 5-minute snapshot for line movement tracking (avoid duplicates within same 5-min window)
     if not existing_snapshot and avg_home and avg_away:
         snapshot = {
             "event_id": event_id,
             "home_team": home_team,
             "away_team": away_team,
             "timestamp": timestamp,
-            "hour_key": hour_key,
+            "time_key": time_key,
             "home_odds": round(avg_home, 2),
             "away_odds": round(avg_away, 2),
             "bookmakers": bookmaker_snapshots,
             "num_bookmakers": len(bookmaker_snapshots)
         }
         await db.odds_history.insert_one(snapshot)
-        logger.info(f"Stored hourly snapshot for {home_team} vs {away_team}: H={avg_home:.2f} A={avg_away:.2f}")
+        logger.debug(f"Stored 5-min snapshot for {home_team} vs {away_team}: H={avg_home:.2f} A={avg_away:.2f}")
 
 def format_odds_for_analysis(odds_data: dict) -> str:
     """Format odds data for AI analysis (decimal format)"""
