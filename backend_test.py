@@ -1031,6 +1031,228 @@ class BettingPredictorAPITester:
                 if not success:
                     print(f"   ❌ CRITICAL: Line movement endpoint is broken!")
 
+    def test_smart_v4_predictions_endpoint(self):
+        """Test NEW Smart V4 Predictions endpoint (NO LLM REQUIRED)"""
+        print("\n🧠 Testing Smart V4 Predictions Endpoint...")
+        
+        success, data = self.run_test("Smart V4 Predictions List", "GET", "predictions/smart-v4?limit=20", 200)
+        if success and data:
+            predictions = data.get('predictions', [])
+            stats = data.get('stats', {})
+            algorithm = data.get('algorithm', '')
+            description = data.get('description', '')
+            
+            print(f"   Found {len(predictions)} Smart V4 predictions")
+            print(f"   Algorithm: {algorithm}")
+            print(f"   Description: {description}")
+            
+            # Check stats structure
+            required_stats = ['total', 'wins', 'losses', 'pending', 'win_rate', 'pick_types']
+            missing_stats = []
+            
+            for stat in required_stats:
+                if stat in stats:
+                    if stat == 'pick_types':
+                        pick_types = stats[stat]
+                        print(f"   ✅ {stat}: ML={pick_types.get('moneyline', 0)}, Spread={pick_types.get('spread', 0)}, Total={pick_types.get('total', 0)}")
+                    else:
+                        print(f"   ✅ {stat}: {stats[stat]}")
+                else:
+                    missing_stats.append(stat)
+            
+            if missing_stats:
+                print(f"   ❌ Missing stats: {missing_stats}")
+            else:
+                print(f"   ✅ All Smart V4 stats present including pick_types breakdown")
+            
+            # Verify predictions are from smart_v4 model
+            if predictions:
+                v4_predictions = [p for p in predictions if p.get('ai_model') == 'smart_v4']
+                if len(v4_predictions) == len(predictions):
+                    print(f"   ✅ All predictions are from smart_v4 model")
+                else:
+                    print(f"   ⚠️  Mixed models: {len(v4_predictions)}/{len(predictions)} are Smart V4")
+                
+                # Check for diverse prediction types
+                prediction_types = set(p.get('prediction_type') for p in predictions)
+                if len(prediction_types) > 1:
+                    print(f"   ✅ Diverse predictions found: {list(prediction_types)}")
+                else:
+                    print(f"   ℹ️  Prediction types: {list(prediction_types)}")
+
+    def test_smart_v4_algorithm_comparison(self):
+        """Test NEW V2 vs V3 vs Smart V4 Algorithm Comparison endpoint"""
+        print("\n⚖️ Testing V2 vs V3 vs Smart V4 Algorithm Comparison...")
+        
+        success, data = self.run_test("Algorithm Comparison (V2/V3/V4)", "GET", "predictions/comparison", 200)
+        if success and data:
+            v2_stats = data.get('v2_legacy', {})
+            v3_stats = data.get('v3_enhanced', {})
+            v4_stats = data.get('smart_v4', {})
+            description = data.get('description', {})
+            
+            # Check all three algorithms are present
+            algorithms = ['v2_legacy', 'v3_enhanced', 'smart_v4']
+            missing_algorithms = []
+            
+            for algo in algorithms:
+                if algo in data:
+                    stats = data[algo]
+                    print(f"   {algo.upper()} Stats:")
+                    for key, value in stats.items():
+                        if key == 'pick_types' and isinstance(value, dict):
+                            print(f"     {key}: ML={value.get('moneyline', 0)}, Spread={value.get('spread', 0)}, Total={value.get('total', 0)}")
+                        else:
+                            print(f"     {key}: {value}")
+                else:
+                    missing_algorithms.append(algo)
+            
+            if missing_algorithms:
+                print(f"   ❌ Missing algorithms: {missing_algorithms}")
+            else:
+                print(f"   ✅ All three algorithms (V2/V3/Smart V4) present")
+            
+            # Verify Smart V4 has pick_types breakdown
+            if v4_stats and 'pick_types' in v4_stats:
+                pick_types = v4_stats['pick_types']
+                if all(key in pick_types for key in ['moneyline', 'spread', 'total']):
+                    print(f"   ✅ Smart V4 has complete pick_types breakdown")
+                else:
+                    print(f"   ⚠️  Smart V4 pick_types incomplete")
+            
+            # Check descriptions
+            if description:
+                if 'smart_v4' in description:
+                    v4_desc = description['smart_v4']
+                    if 'no LLM' in v4_desc or 'NO LLM' in v4_desc:
+                        print(f"   ✅ Smart V4 description confirms NO LLM requirement")
+                    else:
+                        print(f"   ⚠️  Smart V4 description missing NO LLM confirmation")
+
+    def test_manual_smart_v4_analysis(self):
+        """Test NEW Manual Smart V4 Analysis endpoint (NO LLM REQUIRED)"""
+        print("\n🔬 Testing Manual Smart V4 Analysis...")
+        
+        # First get events to analyze
+        success, events = self.run_test("Get Events for Smart V4 Analysis", "GET", "events/basketball_nba?pre_match_only=true", 200)
+        if success and events and len(events) > 0:
+            # Test with 2-3 different event IDs as requested
+            events_to_test = events[:3] if len(events) >= 3 else events
+            
+            for i, event in enumerate(events_to_test, 1):
+                event_id = event.get('id')
+                if event_id:
+                    print(f"   Testing event {i}: {event.get('home_team')} vs {event.get('away_team')}")
+                    
+                    success, data = self.run_test(f"Manual Smart V4 Analysis #{i}", "POST", f"analyze-pregame/{event_id}?sport_key=basketball_nba", 200, timeout=60)
+                    if success and data:
+                        status = data.get('status', '')
+                        event_info = data.get('event', '')
+                        prediction = data.get('prediction', {})
+                        reason = data.get('reason', '')
+                        data_sources = data.get('data_sources', {})
+                        algorithm = data.get('algorithm', '')
+                        
+                        print(f"     Status: {status}")
+                        print(f"     Algorithm: {algorithm}")
+                        
+                        # Verify it's Smart V4
+                        if algorithm == 'smart_v4':
+                            print(f"     ✅ Using Smart V4 algorithm")
+                        else:
+                            print(f"     ⚠️  Expected smart_v4, got: {algorithm}")
+                        
+                        if status == 'prediction_created':
+                            print(f"     ✅ Smart V4 prediction created successfully")
+                            if prediction:
+                                confidence = prediction.get('confidence', 0)
+                                pick = prediction.get('pick', '')
+                                pick_type = prediction.get('pick_type', '')
+                                edge_percent = prediction.get('edge_percent', 0)
+                                reasoning = prediction.get('reasoning', '')
+                                key_factors = prediction.get('key_factors', [])
+                                
+                                print(f"     Pick: {pick} ({pick_type})")
+                                print(f"     Confidence: {confidence:.1%}")
+                                print(f"     Edge: {edge_percent:.1f}%")
+                                
+                                # Check for diverse prediction types
+                                if pick_type in ['moneyline', 'spread', 'total']:
+                                    print(f"     ✅ Diverse prediction type: {pick_type}")
+                                else:
+                                    print(f"     ⚠️  Unexpected pick type: {pick_type}")
+                                
+                                # Check for key factors and reasoning (NO AI errors)
+                                if reasoning and 'AI' not in reasoning and 'LLM' not in reasoning:
+                                    print(f"     ✅ Reasoning provided (NO AI/LLM errors)")
+                                elif 'AI' in reasoning or 'LLM' in reasoning:
+                                    print(f"     ❌ CRITICAL: AI/LLM error in reasoning: {reasoning[:100]}...")
+                                
+                                if key_factors and isinstance(key_factors, list):
+                                    print(f"     ✅ Key factors provided: {len(key_factors)} factors")
+                                
+                        elif status == 'no_pick':
+                            print(f"     ✅ Smart V4 correctly declined to make pick")
+                            print(f"     Reason: {reason}")
+                            
+                            # Should NOT return AI errors
+                            if 'AI' in reason or 'LLM' in reason or 'unavailable' in reason:
+                                print(f"     ❌ CRITICAL: AI/LLM error when NO LLM required: {reason}")
+                            else:
+                                print(f"     ✅ No AI/LLM errors (as expected)")
+                        
+                        # Check data sources
+                        if data_sources:
+                            sources = data_sources.get('multi_book_sources', [])
+                            print(f"     Data sources: {len(sources)} bookmaker sources")
+                            if sources:
+                                print(f"     ✅ Multi-book odds integration working")
+                    else:
+                        print(f"     ❌ Manual Smart V4 analysis failed for event {i}")
+                else:
+                    print(f"     ⚠️  No event ID found for event {i}")
+        else:
+            print(f"   ⚠️  No events available for Smart V4 analysis testing")
+
+    def test_upcoming_predictions_window_enhanced(self):
+        """Test Enhanced Upcoming Predictions Window endpoint"""
+        print("\n🕐 Testing Enhanced Upcoming Predictions Window...")
+        
+        success, data = self.run_test("Upcoming Predictions Window", "GET", "upcoming-predictions-window", 200)
+        if success and data:
+            games_in_window = data.get('games_in_window', [])
+            upcoming_games = data.get('upcoming_games', [])
+            
+            print(f"   Games in prediction window: {len(games_in_window)}")
+            print(f"   Upcoming games: {len(upcoming_games)}")
+            
+            # Check required fields
+            required_fields = ['games_in_window', 'upcoming_games']
+            missing_fields = []
+            
+            for field in required_fields:
+                if field in data:
+                    print(f"   ✅ {field}: {len(data[field])} items")
+                else:
+                    missing_fields.append(field)
+            
+            if missing_fields:
+                print(f"   ❌ Missing fields: {missing_fields}")
+            else:
+                print(f"   ✅ All required fields present")
+
+    def test_smart_v4_prediction_engine_complete(self):
+        """Complete test suite for NEW Smart V4 Prediction Engine (NO LLM REQUIRED)"""
+        print("\n🧠 Testing Complete Smart V4 Prediction Engine Suite...")
+        
+        # Test all Smart V4 endpoints in sequence
+        self.test_smart_v4_predictions_endpoint()
+        self.test_smart_v4_algorithm_comparison()
+        self.test_upcoming_predictions_window_enhanced()
+        self.test_manual_smart_v4_analysis()
+        
+        print(f"\n   ✅ Smart V4 Prediction Engine testing complete")
+
     def test_v3_enhanced_betting_algorithm_complete(self):
         """Complete test suite for NEW Enhanced V3 Betting Algorithm"""
         print("\n🎯 Testing Complete V3 Enhanced Betting Algorithm Suite...")
