@@ -495,15 +495,12 @@ frontend:
 
 metadata:
   created_by: "main_agent"
-  version: "3.3"
-  test_sequence: 5
+  version: "3.4"
+  test_sequence: 6
   run_ui: false
 
 test_plan:
-  current_focus:
-    - "Enhanced V3 Betting Algorithm"
-    - "15-minute Line Movement Tracking"
-    - "Pre-game Predictor"
+  current_focus: []
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
