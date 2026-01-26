@@ -1403,20 +1403,17 @@ async def analyze_pregame(event_id: str, sport_key: str = "basketball_nba"):
             sport_key
         )
         
-        # 3. Get line movement history
+        # 3. Get line movement history (ESPN only - snapshots every 15 min)
         line_history = await get_line_movement_history(event_id)
         
-        # 4. Get multi-bookmaker odds (ESPN + aggregated)
-        multi_book_odds = await fetch_aggregated_odds(sport_key, event_id, event)
-        
-        # 5. Run SMART prediction engine
+        # 4. Run SMART prediction engine (ESPN data only)
         smart_prediction = await generate_smart_prediction(
             event=event,
             sport_key=sport_key,
             squad_data=squad_data,
             matchup_data=matchup_data,
             line_movement=line_history,
-            multi_book_odds=multi_book_odds
+            multi_book_odds=None  # ESPN only - no multi-book
         )
         
         if smart_prediction and smart_prediction.get("has_pick") and smart_prediction.get("confidence", 0) >= 0.70:
@@ -1446,7 +1443,7 @@ async def analyze_pregame(event_id: str, sport_key: str = "basketball_nba"):
                     "matchup_data": bool(matchup_data),
                     "squad_data": bool(squad_data),
                     "line_movement_snapshots": len(line_history),
-                    "multi_book_sources": multi_book_odds.get("sources", []) if multi_book_odds else []
+                    "odds_source": "ESPN/DraftKings"
                 }
             }
         else:
@@ -1460,7 +1457,7 @@ async def analyze_pregame(event_id: str, sport_key: str = "basketball_nba"):
                     "matchup_data": bool(matchup_data),
                     "squad_data": bool(squad_data),
                     "line_movement_snapshots": len(line_history),
-                    "multi_book_sources": multi_book_odds.get("sources", []) if multi_book_odds else []
+                    "odds_source": "ESPN/DraftKings"
                 }
             }
             
