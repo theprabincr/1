@@ -42,7 +42,7 @@ const MovementChart = ({ chartData, homeTeam, awayTeam, openingOdds }) => {
       <div className="flex flex-col items-center justify-center h-64 bg-zinc-900 rounded-lg">
         <Clock className="w-12 h-12 text-text-muted mb-3" />
         <p className="text-text-muted">No line movement data yet</p>
-        <p className="text-text-muted text-sm mt-1">Data is collected hourly from OddsPortal</p>
+        <p className="text-text-muted text-sm mt-1">No line movement data yet</p>
       </div>
     );
   }
@@ -435,7 +435,7 @@ const LineMovement = () => {
             Line Movement
           </h1>
           <p className="text-text-muted text-sm mt-1">
-            Track odds changes from opening to current — updated hourly via OddsPortal
+            Track odds changes from opening to current — updated every 5 minutes via ESPN
           </p>
         </div>
         <button 
@@ -525,7 +525,7 @@ const LineMovement = () => {
                   </span>
                 )}
                 <span className="text-xs text-brand-primary bg-brand-primary/10 px-2 py-1 rounded">
-                  Source: OddsPortal
+                  Source: ESPN
                 </span>
               </div>
             </div>
