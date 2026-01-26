@@ -420,12 +420,15 @@ frontend:
 
 metadata:
   created_by: "main_agent"
-  version: "3.2"
-  test_sequence: 4
+  version: "3.3"
+  test_sequence: 5
   run_ui: false
 
 test_plan:
-  current_focus: []
+  current_focus:
+    - "Enhanced V3 Betting Algorithm"
+    - "15-minute Line Movement Tracking"
+    - "Pre-game Predictor"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -439,3 +442,5 @@ agent_communication:
     message: "✅ NEW BETPREDICTOR FEATURES TESTING COMPLETE - 76.8% success rate (43/56 tests passed). All NEW real-time score tracking features WORKING: ESPN Scores Integration (31 NBA games, status filters), Live Scores (3 live games across sports), Pending Results (categorized predictions), 70% Confidence Filter (correctly filtering), Check Results Trigger (background task), Performance Stats (wins/losses/ROI calculated). Missing endpoints: api-usage, api-keys, bankroll, analytics (404 errors). Core new functionality fully operational."
   - agent: "testing"
     message: "✅ ENHANCED BETPREDICTOR TESTING COMPLETE - 82.1% success rate (55/67 tests passed). ALL NEW ENHANCED FEATURES WORKING: (1) All Markets ML/Spread/Total - verified h2h, spreads with points, totals with Over/Under points, (2) Pre-match Filter - correctly filters 7 future vs 10 all events, (3) Continuous Score Sync - 4 live games with real-time scores, (4) Line Movement Cleanup - deleted 10 records successfully, (5) Performance Stats Enhanced - includes final_score data, (6) ESPN Scores API - 31 NBA games with proper structure, (7) Pending Results - categorized into awaiting_start/in_progress/awaiting_result, (8) 70% Confidence Filter - correctly filters recommendations. Missing: api-usage, api-keys, bankroll, analytics endpoints (404s). Core enhanced functionality fully verified."
+  - agent: "main"
+    message: "MAJOR UPDATE: Implemented Enhanced V3 Betting Algorithm with 15-minute line tracking. Changes: (1) Line movement tracking changed from 1 hour to 15 minutes, (2) ESPN odds refresh changed from 1 hour to 15 minutes, (3) NEW Pre-game Predictor runs every 10 minutes and analyzes games 1-2 hours before start, (4) New enhanced_betting_algorithm.py with deep analysis of squads, H2H, venue, injuries, line movement, (5) NEW multi_book_odds.py for multi-bookmaker odds (requires ODDS_API_KEY env var), (6) NEW endpoints: /api/predictions/v3, /api/predictions/comparison, /api/upcoming-predictions-window, /api/analyze-pregame/{event_id}. Algorithm is CONSERVATIVE - only 70%+ confidence picks when 4+ factors align and 4%+ edge exists. Ready for testing."
