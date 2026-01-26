@@ -2379,58 +2379,86 @@ async def scheduled_line_movement_cleanup():
             logger.error(f"Line movement cleanup error: {e}")
             await asyncio.sleep(300)
 
-# Background task for ESPN odds refresh - NOW EVERY 15 MINUTES for better line tracking
+# Background task for ESPN odds refresh - EVERY 5 MINUTES for accurate line tracking
 async def scheduled_espn_odds_refresh():
-    """Background task that refreshes ESPN odds every 15 MINUTES for pre-match events and line movement tracking"""
+    """Background task that refreshes ESPN odds every 5 MINUTES for pre-match events and line movement tracking"""
     global last_scrape_time
     
-    # Wait 2 minutes on startup
-    await asyncio.sleep(120)
+    # Run IMMEDIATELY on startup to get first snapshot
+    logger.info("📸 Running INITIAL ESPN odds snapshot on startup...")
     
     sports_to_refresh = ["basketball_nba", "americanfootball_nfl", "icehockey_nhl", "soccer_epl"]
     
+    # Initial run immediately
+    try:
+        now = datetime.now(timezone.utc)
+        for sport_key in sports_to_refresh:
+            events = await fetch_espn_events_with_odds(sport_key, days_ahead=3)
+            if events:
+                prematch_count = 0
+                for event in events:
+                    try:
+                        commence_str = event.get("commence_time", "")
+                        if commence_str:
+                            commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
+                            # Only store for games MORE than 1 hour away (stop at 1 hour before)
+                            if commence_time > now + timedelta(hours=1):
+                                await store_odds_snapshot(event)
+                                prematch_count += 1
+                    except Exception:
+                        pass
+                cache_key = f"{sport_key}_h2h,spreads,totals"
+                events_cache[cache_key] = (events, now)
+                last_scrape_time = now.isoformat()
+                logger.info(f"Initial snapshot: {prematch_count} pre-match events for {sport_key}")
+    except Exception as e:
+        logger.error(f"Initial ESPN snapshot error: {e}")
+    
     while True:
         try:
-            logger.info("Running ESPN odds refresh every 15 minutes (pre-match only)...")
+            # Wait 5 MINUTES between snapshots
+            await asyncio.sleep(300)  # 5 minutes = 300 seconds
+            
+            logger.info("📸 Running ESPN odds snapshot (every 5 min)...")
             now = datetime.now(timezone.utc)
+            total_snapshots = 0
             
             for sport_key in sports_to_refresh:
                 try:
                     events = await fetch_espn_events_with_odds(sport_key, days_ahead=3)
                     
                     if events:
-                        # Only store odds snapshots for PRE-MATCH events (not started)
+                        # Only store odds snapshots for PRE-MATCH events MORE than 1 hour away
                         prematch_count = 0
                         for event in events:
                             try:
                                 commence_str = event.get("commence_time", "")
                                 if commence_str:
                                     commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
-                                    if commence_time > now:
+                                    # Stop tracking at 1 hour before game (prediction time)
+                                    if commence_time > now + timedelta(hours=1):
                                         await store_odds_snapshot(event)
                                         prematch_count += 1
                             except Exception:
                                 pass
                         
+                        total_snapshots += prematch_count
+                        
                         # Update cache
                         cache_key = f"{sport_key}_h2h,spreads,totals"
                         events_cache[cache_key] = (events, now)
                         last_scrape_time = now.isoformat()
-                        
-                        logger.info(f"Refreshed {len(events)} events from ESPN for {sport_key} ({prematch_count} pre-match)")
                     
-                    await asyncio.sleep(5)  # Small delay between sports
+                    await asyncio.sleep(2)  # Small delay between sports
                     
                 except Exception as e:
                     logger.error(f"Error refreshing ESPN odds for {sport_key}: {e}")
             
-            logger.info("ESPN odds refresh complete (15 min interval)")
-            
-            await asyncio.sleep(900)  # Run every 15 MINUTES (was 3600)
+            logger.info(f"📸 ESPN snapshot complete: {total_snapshots} events tracked")
             
         except Exception as e:
             logger.error(f"Scheduled ESPN refresh error: {e}")
-            await asyncio.sleep(300)
+            await asyncio.sleep(60)
 
 @app.on_event("startup")
 async def startup_event():
