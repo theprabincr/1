@@ -419,8 +419,19 @@ def parse_recent_games(data: dict, team_id: str, num_games: int) -> List[Dict]:
                 continue
             
             is_home = our_team.get("homeAway") == "home"
-            our_score = int(our_team.get("score", 0))
-            opp_score = int(opponent.get("score", 0))
+            
+            # Handle score which can be string, int, or dict
+            our_score_raw = our_team.get("score", 0)
+            opp_score_raw = opponent.get("score", 0)
+            
+            # Convert to int safely
+            try:
+                our_score = int(our_score_raw) if isinstance(our_score_raw, (int, str)) and str(our_score_raw).isdigit() else 0
+                opp_score = int(opp_score_raw) if isinstance(opp_score_raw, (int, str)) and str(opp_score_raw).isdigit() else 0
+            except (ValueError, TypeError):
+                our_score = 0
+                opp_score = 0
+            
             won = our_score > opp_score
             
             games.append({
