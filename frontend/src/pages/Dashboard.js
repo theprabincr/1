@@ -479,14 +479,9 @@ const Dashboard = () => {
           ) : (
             <div className="stat-card text-center py-8">
               <AlertCircle className="w-12 h-12 text-text-muted mx-auto mb-3" />
-              <p className="text-text-muted">No active predictions</p>
-              <button 
-                onClick={() => navigate('/events')}
-                className="btn-primary mt-4"
-                data-testid="generate-picks-btn"
-              >
-                Generate Picks
-              </button>
+              <p className="text-text-muted mb-2">No picks available yet</p>
+              <p className="text-text-muted text-xs">Picks are generated automatically using our algorithm.</p>
+              <p className="text-brand-primary text-xs mt-2">Check back soon!</p>
             </div>
           )}
         </div>
