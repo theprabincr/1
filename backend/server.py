@@ -1580,6 +1580,7 @@ async def get_upcoming_prediction_window():
     }
 
 @api_router.get("/odds-comparison/{event_id}")
+async def get_odds_comparison(event_id: str, sport_key: str = "basketball_nba"):
     """Get odds comparison for an event - uses ESPN data in European/decimal format"""
     # Try multiple sports if not found
     sports_to_try = [sport_key, "basketball_nba", "americanfootball_nfl", "baseball_mlb", "icehockey_nhl", "soccer_epl"]
