@@ -1837,13 +1837,13 @@ async def scheduled_result_checker():
             logger.error(f"Scheduled result checker error: {e}")
             await asyncio.sleep(5)  # Wait 5 seconds before retrying
 
-# Background task for line movement checking and recommendation updates
+# Background task for line movement checking and recommendation updates - NOW EVERY 15 MINUTES
 async def scheduled_line_movement_checker():
-    """Background task that runs every hour to check line movements"""
+    """Background task that runs every 15 MINUTES to check line movements"""
     while True:
         try:
-            await asyncio.sleep(3600)  # Run every hour
-            logger.info("Running scheduled line movement check...")
+            await asyncio.sleep(900)  # Run every 15 MINUTES (was 3600)
+            logger.info("Running scheduled line movement check (every 15 min)...")
             await update_recommendations_on_line_movement()
         except Exception as e:
             logger.error(f"Scheduled line movement checker error: {e}")
