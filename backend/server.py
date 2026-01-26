@@ -2256,7 +2256,8 @@ async def scheduled_pregame_predictor():
                             traceback.print_exc()
                             continue
                     
-                logger.error(f"Error in smart pregame predictor for {sport_key}: {e}")
+                except Exception as e:
+                    logger.error(f"Error in smart pregame predictor for {sport_key}: {e}")
             
             if predictions_made > 0:
                 logger.info(f"📊 Smart pre-game predictor complete - {predictions_made} Smart V4 predictions created")
