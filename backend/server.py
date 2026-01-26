@@ -422,18 +422,16 @@ async def list_sports():
         {"key": "baseball_mlb", "group": "Baseball", "title": "MLB", "description": "US Baseball", "active": True, "has_outrights": False},
         {"key": "icehockey_nhl", "group": "Ice Hockey", "title": "NHL", "description": "US Ice Hockey", "active": True, "has_outrights": False},
         {"key": "soccer_epl", "group": "Soccer", "title": "EPL", "description": "English Premier League", "active": True, "has_outrights": False},
-        {"key": "soccer_spain_la_liga", "group": "Soccer", "title": "La Liga", "description": "Spanish La Liga", "active": True, "has_outrights": False},
-        {"key": "mma_mixed_martial_arts", "group": "MMA", "title": "MMA", "description": "Mixed Martial Arts", "active": True, "has_outrights": False},
     ]
 
 @api_router.get("/events/{sport_key}")
 async def get_events(sport_key: str, markets: str = "h2h,spreads,totals", force_refresh: bool = False, pre_match_only: bool = True):
-    """Get events with odds for a specific sport from OddsPortal (free scraping)
+    """Get events with REAL odds from ESPN API
     
     Args:
         sport_key: Sport identifier
         markets: Comma-separated market types
-        force_refresh: Force refresh from OddsPortal
+        force_refresh: Force refresh from ESPN
         pre_match_only: Only return events that haven't started yet (default True)
     """
     global events_cache, last_scrape_time
@@ -453,10 +451,9 @@ async def get_events(sport_key: str, markets: str = "h2h,spreads,totals", force_
                 events = filter_prematch_events(events, now)
             return events
     
-    # Scrape from OddsPortal
+    # Fetch from ESPN API (REAL ODDS from DraftKings)
     try:
-        from oddsportal_scraper import scrape_oddsportal_events
-        events = await scrape_oddsportal_events(sport_key)
+        events = await fetch_espn_events_with_odds(sport_key, days_ahead=3)
         
         if events:
             # Store odds snapshots for line movement tracking (only for pre-match events)
@@ -471,17 +468,17 @@ async def get_events(sport_key: str, markets: str = "h2h,spreads,totals", force_
                 except Exception:
                     pass
             
-            # Cache the results (all events - we filter on retrieval)
+            # Cache the results
             events_cache[cache_key] = (events, now)
             last_scrape_time = now.isoformat()
-            logger.info(f"Cached {len(events)} events from OddsPortal for {sport_key}")
+            logger.info(f"Cached {len(events)} events from ESPN for {sport_key}")
             
             # Filter to pre-match only if requested
             if pre_match_only:
                 events = filter_prematch_events(events, now)
             return events
         else:
-            logger.warning(f"OddsPortal returned no events for {sport_key}")
+            logger.warning(f"ESPN returned no events for {sport_key}")
             # Return cached if available
             if cache_key in events_cache:
                 events = events_cache[cache_key][0]
@@ -491,7 +488,7 @@ async def get_events(sport_key: str, markets: str = "h2h,spreads,totals", force_
             return []
             
     except Exception as e:
-        logger.error(f"OddsPortal scraping failed: {e}")
+        logger.error(f"ESPN API fetch failed: {e}")
         # Return cached if available
         if cache_key in events_cache:
             events = events_cache[cache_key][0]
