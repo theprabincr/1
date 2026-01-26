@@ -1850,6 +1850,10 @@ def main():
     
     tester = BettingPredictorAPITester()
     
+    # PRIORITY: Run Line Movement Tracking Review Tests
+    print("\n🎯 PRIORITY: Line Movement Tracking Review Tests...")
+    tester.test_line_movement_tracking_review()
+    
     # Run all tests
     print("\n📡 Testing Core API Endpoints...")
     tester.test_root_endpoint()
