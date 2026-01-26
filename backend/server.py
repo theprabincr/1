@@ -2097,27 +2097,30 @@ async def scheduled_recommendation_generator():
 # NEW: Pre-game predictor - runs predictions 1-2 hours before game start
 async def scheduled_pregame_predictor():
     """
-    ENHANCED V3 ALGORITHM: Generates predictions 1-2 hours before game start.
-    This is the PRIMARY prediction system that analyzes:
-    - Full squad player stats
-    - Line movement history
-    - Head-to-head records
-    - Venue factors
-    - Injury impact
-    - Multi-bookmaker odds comparison
+    AI-POWERED V4 ALGORITHM: Generates predictions 1 hour before game start.
+    Uses LLM (GPT-5.2) to analyze ALL available data and make diverse predictions.
+    
+    Features:
+    - Pulls full squad data 1 hour before game
+    - Analyzes player stats, H2H, venue, injuries
+    - Studies line movement across multiple bookmakers (ESPN + OddsPortal)
+    - Makes diverse predictions: Moneyline, Spread, Totals
+    - Only 70%+ confidence predictions
+    - Considers odds as low as 1.5x
     """
     # Wait 1 minute on startup
     await asyncio.sleep(60)
     
-    logger.info("🎯 Started PRE-GAME PREDICTOR - runs every 10 minutes, predicts 1-2 hours before games")
+    logger.info("🤖 Started AI PRE-GAME PREDICTOR V4 - runs every 10 minutes, AI analysis 1 hour before games")
     
     sports_to_analyze = ["basketball_nba", "americanfootball_nfl", "icehockey_nhl", "soccer_epl"]
     
     while True:
         try:
             now = datetime.now(timezone.utc)
-            window_start = now + timedelta(hours=1)  # Games starting in 1 hour
-            window_end = now + timedelta(hours=2)    # Games starting in 2 hours
+            # Changed to 1 hour window (45 min to 75 min before game)
+            window_start = now + timedelta(minutes=45)
+            window_end = now + timedelta(minutes=75)
             
             predictions_made = 0
             
@@ -2129,7 +2132,7 @@ async def scheduled_pregame_predictor():
                     if not events:
                         continue
                     
-                    # Filter to games starting in 1-2 hours
+                    # Filter to games starting in ~1 hour
                     for event in events:
                         try:
                             commence_str = event.get("commence_time", "")
@@ -2138,87 +2141,103 @@ async def scheduled_pregame_predictor():
                             
                             commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
                             
-                            # Check if game is in our target window (1-2 hours from now)
+                            # Check if game is in our target window (~1 hour from now)
                             if window_start <= commence_time <= window_end:
                                 event_id = event.get("id")
                                 
-                                # Check if we already have a prediction for this event
+                                # Check if we already have an AI V4 prediction for this event
                                 existing = await db.predictions.find_one({
                                     "event_id": event_id, 
                                     "result": "pending",
-                                    "algorithm": "enhanced_v3"  # Only check for V3 predictions
+                                    "ai_model": "ai_v4"
                                 })
                                 
                                 if existing:
-                                    logger.debug(f"Skipping {event_id} - already has V3 prediction")
+                                    logger.debug(f"Skipping {event_id} - already has AI V4 prediction")
                                     continue
                                 
-                                # This game is 1-2 hours away - time for deep analysis!
-                                logger.info(f"🔬 PRE-GAME ANALYSIS: {event.get('home_team')} vs {event.get('away_team')} "
+                                # This game is ~1 hour away - time for AI analysis!
+                                logger.info(f"🤖 AI PRE-GAME ANALYSIS: {event.get('home_team')} vs {event.get('away_team')} "
                                           f"(starts in {(commence_time - now).total_seconds() / 60:.0f} min)")
                                 
-                                # Get comprehensive matchup data
+                                # 1. Get comprehensive matchup data
                                 matchup_data = await get_comprehensive_matchup_data(event, sport_key)
                                 
-                                # Get line movement history
-                                line_history = await get_line_movement_history(event_id)
-                                
-                                # Get multi-bookmaker odds if available
-                                odds_api_key = os.environ.get('ODDS_API_KEY', '')
-                                multi_book_odds = None
-                                if odds_api_key:
-                                    multi_book_odds = await fetch_multi_book_odds(sport_key, event_id, odds_api_key)
-                                
-                                # Run ENHANCED V3 algorithm
-                                pick_result = await calculate_enhanced_pick(
-                                    event, sport_key, matchup_data, line_history, multi_book_odds
+                                # 2. Get full squad data for both teams
+                                squad_data = await get_matchup_context(
+                                    event.get("home_team"), 
+                                    event.get("away_team"), 
+                                    sport_key
                                 )
                                 
-                                if pick_result and pick_result.get("confidence", 0) >= 0.70:
-                                    # Create prediction
+                                # 3. Get line movement history from database
+                                line_history = await get_line_movement_history(event_id)
+                                
+                                # 4. Get multi-bookmaker odds (ESPN + aggregated)
+                                multi_book_odds = await fetch_aggregated_odds(sport_key, event_id, event)
+                                
+                                # 5. Run AI prediction engine
+                                ai_prediction = await generate_ai_prediction(
+                                    event=event,
+                                    sport_key=sport_key,
+                                    squad_data=squad_data,
+                                    matchup_data=matchup_data,
+                                    line_movement=line_history,
+                                    multi_book_odds=multi_book_odds,
+                                    h2h_records=None,  # Could be enhanced later
+                                    api_key=EMERGENT_LLM_KEY
+                                )
+                                
+                                if ai_prediction and ai_prediction.get("has_pick") and ai_prediction.get("confidence", 0) >= 0.70:
+                                    # Create prediction from AI result
                                     prediction = PredictionCreate(
                                         event_id=event_id,
                                         sport_key=sport_key,
                                         home_team=event.get("home_team"),
                                         away_team=event.get("away_team"),
                                         commence_time=event.get("commence_time"),
-                                        prediction_type=pick_result.get("pick_type", "moneyline"),
-                                        predicted_outcome=pick_result.get("pick", ""),
-                                        confidence=pick_result.get("confidence", 0.70),
-                                        analysis=pick_result.get("reasoning", ""),
-                                        ai_model="enhanced_v3",
-                                        odds_at_prediction=pick_result.get("odds", 1.91)
+                                        prediction_type=ai_prediction.get("pick_type", "moneyline"),
+                                        predicted_outcome=ai_prediction.get("pick", ""),
+                                        confidence=ai_prediction.get("confidence", 0.70),
+                                        analysis=ai_prediction.get("reasoning", ""),
+                                        ai_model="ai_v4",
+                                        odds_at_prediction=ai_prediction.get("odds", 1.91)
                                     )
                                     
                                     await create_recommendation(prediction)
                                     predictions_made += 1
                                     
-                                    logger.info(f"✅ V3 PREDICTION: {event.get('home_team')} vs {event.get('away_team')} - "
-                                              f"{pick_result.get('pick')} @ {pick_result.get('confidence')*100:.0f}% conf, "
-                                              f"{pick_result.get('edge', 0):.1f}% edge, "
-                                              f"{pick_result.get('supporting_factors_count', 0)} factors")
+                                    logger.info(f"✅ AI V4 PREDICTION: {event.get('home_team')} vs {event.get('away_team')} - "
+                                              f"{ai_prediction.get('pick_type')}: {ai_prediction.get('pick')} "
+                                              f"@ {ai_prediction.get('confidence')*100:.0f}% conf, "
+                                              f"odds {ai_prediction.get('odds', 1.91)}")
                                 else:
-                                    logger.info(f"⏭️ NO PICK: {event.get('home_team')} vs {event.get('away_team')} - "
-                                              f"confidence too low or no edge found")
+                                    reason = ai_prediction.get("reasoning", "No value found") if ai_prediction else "AI analysis failed"
+                                    logger.info(f"⏭️ NO AI PICK: {event.get('home_team')} vs {event.get('away_team')} - {reason[:100]}")
+                                
+                                # Store odds snapshot for line movement tracking
+                                await store_odds_snapshot(event)
                                 
                                 # Small delay between analyses
-                                await asyncio.sleep(2)
+                                await asyncio.sleep(3)
                                 
                         except Exception as e:
                             logger.error(f"Error analyzing event: {e}")
+                            import traceback
+                            traceback.print_exc()
                             continue
                     
                 except Exception as e:
-                    logger.error(f"Error in pregame predictor for {sport_key}: {e}")
+                    logger.error(f"Error in AI pregame predictor for {sport_key}: {e}")
             
             if predictions_made > 0:
-                logger.info(f"🎯 Pre-game predictor complete - {predictions_made} V3 predictions created")
+                logger.info(f"🤖 AI Pre-game predictor complete - {predictions_made} AI V4 predictions created")
             
-            # Run every 10 minutes to catch all games in the 1-2 hour window
+            # Run every 10 minutes to catch all games in the 1 hour window
             await asyncio.sleep(600)
             
         except Exception as e:
-            logger.error(f"Scheduled pregame predictor error: {e}")
+            logger.error(f"Scheduled AI pregame predictor error: {e}")
             await asyncio.sleep(120)
 
 
