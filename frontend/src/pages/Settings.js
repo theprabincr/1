@@ -121,11 +121,11 @@ const Settings = () => {
         </button>
       </div>
 
-      {/* OddsPortal Scraper Status */}
+      {/* ESPN Data Source Status */}
       <div className="stat-card">
         <h2 className="font-mono font-bold text-lg text-text-primary mb-4 flex items-center gap-2">
           <Globe className="w-5 h-5 text-brand-primary" />
-          Data Source: OddsPortal
+          Data Source: ESPN
         </h2>
         <div className="p-4 bg-zinc-800 rounded-lg">
           <div className="flex items-center justify-between mb-3">
@@ -151,7 +151,7 @@ const Settings = () => {
             )}
           </div>
           <p className="text-text-muted text-xs mt-3 pt-3 border-t border-zinc-700">
-            Free unlimited odds data from OddsPortal.com with hourly automatic updates.
+            Free real-time odds data from ESPN with automatic updates every 5 minutes.
           </p>
         </div>
       </div>
