@@ -33,16 +33,7 @@ from espn_scores import (
     get_final_games
 )
 
-# Import custom betting algorithm (V2 - legacy)
-from betting_algorithm import calculate_pick
-
-# Import ENHANCED betting algorithm V3
-from enhanced_betting_algorithm import calculate_enhanced_pick, EnhancedBettingAlgorithm
-
-# Import SMART prediction engine V4 (no LLM required)
-from smart_prediction_engine import generate_smart_prediction, SmartPredictionEngine
-
-# Import BetPredictor V5 with comprehensive line movement analysis
+# Import BetPredictor V5 - Comprehensive Line Movement Analysis Engine
 from betpredictor_v5 import generate_v5_prediction, BetPredictorV5
 from line_movement_analyzer import analyze_line_movement, LineMovementAnalyzer
 
