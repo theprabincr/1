@@ -129,6 +129,115 @@ const MovementChart = ({ chartData, homeTeam, awayTeam, openingOdds }) => {
   );
 };
 
+// Spread Movement Chart Component
+const SpreadChart = ({ chartData, homeTeam, openingSpread }) => {
+  if (!chartData || chartData.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 bg-zinc-900 rounded-lg">
+        <Clock className="w-12 h-12 text-text-muted mb-3" />
+        <p className="text-text-muted">No spread movement data yet</p>
+      </div>
+    );
+  }
+
+  const allSpreads = chartData.map(d => d.spread).filter(Boolean);
+  const minSpread = Math.floor(Math.min(...allSpreads) - 1);
+  const maxSpread = Math.ceil(Math.max(...allSpreads) + 1);
+
+  return (
+    <div className="bg-zinc-900 rounded-lg p-4">
+      <ResponsiveContainer width="100%" height={350}>
+        <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+          <XAxis dataKey="time" stroke="#71717A" fontSize={11} tickLine={false} axisLine={false} />
+          <YAxis 
+            stroke="#71717A" 
+            fontSize={11} 
+            tickLine={false} 
+            axisLine={false} 
+            domain={[minSpread, maxSpread]}
+            tickFormatter={(val) => val > 0 ? `+${val}` : val}
+          />
+          <Tooltip 
+            contentStyle={{ backgroundColor: '#18181b', border: '1px solid #333', borderRadius: '8px' }}
+            labelStyle={{ color: '#a1a1aa' }}
+            formatter={(value) => [value > 0 ? `+${value}` : value, 'Spread']}
+          />
+          {openingSpread !== null && openingSpread !== undefined && (
+            <ReferenceLine y={openingSpread} stroke="#ADFF2F" strokeDasharray="5 5" strokeOpacity={0.5} />
+          )}
+          <Line
+            type="monotone"
+            dataKey="spread"
+            name={`${homeTeam} Spread`}
+            stroke="#ADFF2F"
+            strokeWidth={2}
+            dot={{ fill: '#ADFF2F', r: 4 }}
+            connectNulls
+          />
+        </LineChart>
+      </ResponsiveContainer>
+      <div className="flex justify-center gap-6 mt-2 text-xs text-text-muted">
+        <span>Negative = Home Favorite | Positive = Home Underdog</span>
+      </div>
+    </div>
+  );
+};
+
+// Totals Movement Chart Component
+const TotalsChart = ({ chartData, openingTotal }) => {
+  if (!chartData || chartData.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 bg-zinc-900 rounded-lg">
+        <Clock className="w-12 h-12 text-text-muted mb-3" />
+        <p className="text-text-muted">No totals movement data yet</p>
+      </div>
+    );
+  }
+
+  const allTotals = chartData.map(d => d.total).filter(Boolean);
+  const minTotal = Math.floor(Math.min(...allTotals) - 2);
+  const maxTotal = Math.ceil(Math.max(...allTotals) + 2);
+
+  return (
+    <div className="bg-zinc-900 rounded-lg p-4">
+      <ResponsiveContainer width="100%" height={350}>
+        <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+          <XAxis dataKey="time" stroke="#71717A" fontSize={11} tickLine={false} axisLine={false} />
+          <YAxis 
+            stroke="#71717A" 
+            fontSize={11} 
+            tickLine={false} 
+            axisLine={false} 
+            domain={[minTotal, maxTotal]}
+          />
+          <Tooltip 
+            contentStyle={{ backgroundColor: '#18181b', border: '1px solid #333', borderRadius: '8px' }}
+            labelStyle={{ color: '#a1a1aa' }}
+            formatter={(value) => [value, 'Total']}
+          />
+          {openingTotal !== null && openingTotal !== undefined && (
+            <ReferenceLine y={openingTotal} stroke="#FFD700" strokeDasharray="5 5" strokeOpacity={0.5} />
+          )}
+          <Line
+            type="monotone"
+            dataKey="total"
+            name="Total Points Line"
+            stroke="#FFD700"
+            strokeWidth={2}
+            dot={{ fill: '#FFD700', r: 4 }}
+            connectNulls
+          />
+        </LineChart>
+      </ResponsiveContainer>
+      <div className="flex justify-center gap-6 mt-2 text-xs text-text-muted">
+        <span>Line moving up = Over action | Line moving down = Under action</span>
+      </div>
+    </div>
+  );
+};
+
 // Opening vs Current Odds Comparison - updated to handle new API structure
 const OddsComparison = ({ opening, current, homeTeam, awayTeam }) => {
   // Handle both old and new API structure
