@@ -129,7 +129,7 @@ def calculate_pick(matchup_data: Dict, line_movement: Dict = None) -> Dict:
     pick_options = []
     
     # Moneyline options
-    if home_edge > 0.03:  # At least 3% edge
+    if home_edge > 0.02:  # At least 2% edge
         pick_options.append({
             "type": "moneyline",
             "pick": home_team.get("name", "Home Team"),
@@ -138,7 +138,7 @@ def calculate_pick(matchup_data: Dict, line_movement: Dict = None) -> Dict:
             "our_prob": weighted_home_prob
         })
     
-    if away_edge > 0.03:
+    if away_edge > 0.02:
         pick_options.append({
             "type": "moneyline",
             "pick": away_team.get("name", "Away Team"),
@@ -149,7 +149,7 @@ def calculate_pick(matchup_data: Dict, line_movement: Dict = None) -> Dict:
     
     # Spread options - check if spread aligns with our probability
     spread_edge = calculate_spread_edge(weighted_home_prob, spread, sport_key)
-    if spread_edge["edge"] > 0.03:
+    if spread_edge["edge"] > 0.02:
         pick_options.append({
             "type": "spread",
             "pick": f"{spread_edge['team']} {spread_edge['spread']:+.1f}",
@@ -161,7 +161,7 @@ def calculate_pick(matchup_data: Dict, line_movement: Dict = None) -> Dict:
     
     # Total options - analyze scoring trends
     total_edge = calculate_total_edge(home_team, away_team, total, sport_key)
-    if total_edge["edge"] > 0.03:
+    if total_edge["edge"] > 0.02:
         pick_options.append({
             "type": "total",
             "pick": f"{total_edge['direction']} {total}",
