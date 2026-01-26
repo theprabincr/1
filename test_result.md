@@ -435,6 +435,18 @@ backend:
         agent: "testing"
         comment: "✅ SMART V4 PREDICTION ENGINE WORKING PERFECTLY: (1) GET /api/predictions/smart-v4 returns 6 predictions with complete stats including pick_types breakdown (ML=5, Spread=0, Total=1), (2) GET /api/predictions/comparison shows V2/V3/Smart V4 comparison with Smart V4 having 81% avg confidence, (3) POST /api/analyze-pregame/{event_id}?sport_key=basketball_nba tested with 3 different events - created 2 predictions (Philadelphia 76ers ML 85% confidence, Orlando Magic ML 79.1% confidence) and correctly declined 1 pick. NO AI/LLM errors found. Multi-book odds integration working with 2 bookmaker sources. Diverse predictions (moneyline, total) confirmed. Algorithm working as designed - NO LLM REQUIRED."
 
+  - task: "Line Movement Functionality"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ LINE MOVEMENT FUNCTIONALITY WORKING PERFECTLY: All 4 requested endpoints tested successfully. (1) GET /api/data-source-status returns source='ESPN/DraftKings' (not OddsPortal) with lineMovementSnapshots=52 > 0, (2) GET /api/line-movement/{event_id}?sport_key=basketball_nba returns complete structure with event_id, event_info (home_team, away_team, commence_time), opening_odds (home_odds=1.49, away_odds=2.7, timestamp), current_odds, bookmakers, chart_data (2 data points), total_snapshots=4, (3) POST /api/cleanup-line-movement returns message, deleted_history_count=0, deleted_opening_count=0, total_deleted=0, (4) POST /api/refresh-odds?sport_key=basketball_nba returns message with ESPN reference, snapshots_stored=31 > 0, source='ESPN/DraftKings'. All response structures verified correct. Line movement tracking fully functional with ESPN data source."
+
 frontend:
   - task: "API Keys Management Page"
     implemented: true
