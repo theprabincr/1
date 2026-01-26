@@ -203,15 +203,17 @@ const Dashboard = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [perfRes, recsRes, eventsRes] = await Promise.all([
+      const [perfRes, recsRes, eventsRes, liveRes] = await Promise.all([
         axios.get(`${API}/performance`),
         axios.get(`${API}/recommendations?limit=50&min_confidence=0.70`),
-        axios.get(`${API}/events/${selectedSport}`)
+        axios.get(`${API}/events/${selectedSport}`),
+        axios.get(`${API}/live-scores`)
       ]);
       
       setPerformance(perfRes.data);
       setRecommendations(recsRes.data);
       setEvents(eventsRes.data);
+      setLiveScores(liveRes.data.games || []);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     } finally {
