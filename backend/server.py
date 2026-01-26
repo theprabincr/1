@@ -1886,20 +1886,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Background task scheduler for auto-checking results - runs every 2 minutes for real-time updates
+# Background task scheduler for INSTANT live score sync - runs every 10 SECONDS for live games
 async def scheduled_result_checker():
-    """Background task that runs every 2 MINUTES for continuous score sync using ESPN API"""
+    """Background task that runs every 10 SECONDS for instant live score sync using ESPN API"""
     # Initial delay to let services start
-    await asyncio.sleep(60)
+    await asyncio.sleep(30)
     
     while True:
         try:
-            logger.info("Running continuous score sync (every 2 minutes)...")
-            await auto_check_results()
-            await asyncio.sleep(120)  # Run every 2 minutes (120 seconds) for real-time updates
+            # Check if there are any live games or pending predictions awaiting results
+            pending_count = await db.predictions.count_documents({"result": "pending"})
+            
+            if pending_count > 0:
+                logger.info(f"Running instant live score sync ({pending_count} pending predictions)...")
+                await auto_check_results()
+            
+            await asyncio.sleep(10)  # Run every 10 SECONDS for instant updates
         except Exception as e:
             logger.error(f"Scheduled result checker error: {e}")
-            await asyncio.sleep(30)  # Wait 30 seconds before retrying
+            await asyncio.sleep(5)  # Wait 5 seconds before retrying
 
 # Background task for line movement checking and recommendation updates
 async def scheduled_line_movement_checker():
@@ -1913,17 +1918,22 @@ async def scheduled_line_movement_checker():
             logger.error(f"Scheduled line movement checker error: {e}")
             await asyncio.sleep(60)
 
-# Background task for auto-generating recommendations (reduced frequency to save API calls)
+# Background task for auto-generating recommendations - runs more frequently on startup
 async def scheduled_recommendation_generator():
-    """Background task that generates 70%+ confidence recommendations every 4 hours"""
-    # Wait 60 seconds on startup to let services initialize
-    await asyncio.sleep(60)
+    """Background task that generates 70%+ confidence recommendations"""
+    # Run immediately on startup to generate picks
+    await asyncio.sleep(30)
+    
+    # Initial generation
+    logger.info("Running INITIAL recommendation generation on startup...")
+    await auto_generate_recommendations()
     
     while True:
         try:
-            logger.info("Running scheduled recommendation generation (70%+ confidence only)...")
+            # Run every 2 hours to keep picks fresh
+            await asyncio.sleep(7200)  # Run every 2 hours
+            logger.info("Running scheduled recommendation generation...")
             await auto_generate_recommendations()
-            await asyncio.sleep(14400)  # Run every 4 hours
         except Exception as e:
             logger.error(f"Scheduled recommendation generator error: {e}")
             await asyncio.sleep(300)
