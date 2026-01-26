@@ -1055,6 +1055,12 @@ def main():
     tester.test_sports_endpoint()
     tester.test_enhanced_api_usage()  # Test the enhanced API usage endpoint
     
+    print("\n🚀 Testing NEW V3 Enhanced Betting Algorithm...")
+    tester.test_v3_enhanced_betting_algorithm_complete()
+    
+    print("\n🔧 Testing Existing Endpoints Still Work...")
+    tester.test_existing_endpoints_still_work()
+    
     print("\n🔑 Testing New BetPredictor Enhancements...")
     tester.test_api_key_management()
     tester.test_bankroll_management()
@@ -1093,9 +1099,6 @@ def main():
     print("\n📊 Testing Performance & Predictions...")
     tester.test_performance()
     tester.test_prediction_workflow()
-    
-    print("\n🔧 Testing Backward Compatibility...")
-    tester.test_existing_endpoints_still_work()
     
     # Print final results
     print("\n" + "=" * 60)
