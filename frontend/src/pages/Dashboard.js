@@ -727,43 +727,6 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
-
-      {/* Performance by Sport */}
-      {performance?.by_sport && Object.keys(performance.by_sport).length > 0 && (
-        <div className="stat-card">
-          <h2 className="font-mono font-bold text-lg text-text-primary mb-4">Performance by Sport</h2>
-          <div className="overflow-x-auto">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Sport</th>
-                  <th>Wins</th>
-                  <th>Losses</th>
-                  <th>Win Rate</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(performance.by_sport).map(([sport, stats]) => {
-                  const winRate = stats.total > 0 ? ((stats.wins / stats.total) * 100).toFixed(1) : 0;
-                  return (
-                    <tr key={sport}>
-                      <td className="text-text-primary">{sport.replace(/_/g, ' ')}</td>
-                      <td className="font-mono text-semantic-success">{stats.wins}</td>
-                      <td className="font-mono text-semantic-danger">{stats.losses}</td>
-                      <td className={`font-mono font-bold ${
-                        winRate >= 55 ? "text-semantic-success" : 
-                        winRate >= 45 ? "text-semantic-warning" : "text-semantic-danger"
-                      }`}>
-                        {winRate}%
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
