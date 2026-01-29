@@ -672,11 +672,23 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
               )}
 
               {/* Analysis Preview */}
-              {analysis?.prediction?.has_pick && (
+              {analysis?.prediction?.has_pick ? (
                 <div className="bg-gradient-to-r from-brand-primary/10 to-brand-secondary/10 rounded-lg p-4 border border-brand-primary/30">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Star className="w-5 h-5 text-brand-primary" />
-                    <span className="font-semibold text-text-primary">Predictor Analysis</span>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Star className="w-5 h-5 text-brand-primary" />
+                      <span className="font-semibold text-text-primary">Predictor Analysis</span>
+                    </div>
+                    {!isWithinAnalysisWindow && !isGameStarted && (
+                      <span className="text-xs px-2 py-1 bg-semantic-warning/20 text-semantic-warning rounded">
+                        ⚠️ Preliminary - Final analysis available 40 min before game
+                      </span>
+                    )}
+                    {isWithinAnalysisWindow && (
+                      <span className="text-xs px-2 py-1 bg-semantic-success/20 text-semantic-success rounded">
+                        ✅ Final Analysis (Lineups Confirmed)
+                      </span>
+                    )}
                   </div>
                   <div className="bg-zinc-900/50 rounded-lg p-4">
                     {/* Clear Pick Display */}
@@ -712,12 +724,13 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
                       )}
                     </div>
                     
-                    {/* Reasoning */}
+                    {/* Detailed Reasoning */}
                     {analysis.prediction.reasoning && (
                       <div className="pt-3 border-t border-zinc-700">
-                        <p className="text-xs text-text-muted mb-2">WHY THIS PICK</p>
-                        <p className="text-text-secondary text-sm whitespace-pre-line leading-relaxed">
-                          {analysis.prediction.reasoning}
+                        <p className="text-xs text-text-muted mb-2">DETAILED ANALYSIS</p>
+                        <div className="bg-zinc-800/50 rounded-lg p-3 max-h-96 overflow-y-auto">
+                          <pre className="text-text-secondary text-xs font-mono whitespace-pre-wrap leading-relaxed">
+                            {analysis.prediction.reasoning}
                         </p>
                       </div>
                     )}
