@@ -582,7 +582,7 @@ const Dashboard = () => {
             </div>
             <div className="p-4 border-t border-zinc-800 text-center">
               <p className="text-text-muted text-xs">
-                Scores powered by ESPN • Updates automatically
+                Live scores • Updates automatically
               </p>
             </div>
           </div>
