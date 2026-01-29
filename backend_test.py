@@ -313,6 +313,32 @@ class BetPredictorTestSuite:
         
         self.log_test("Live Scores", True, 
                      f"Live games count: {live_count}, Games returned: {len(games)}")
+    
+    async def get_nba_events(self) -> List[str]:
+        """Get NBA event IDs for testing"""
+        print("\n📋 Getting NBA events for testing...")
+        
+        response = await self.make_request("GET", "/events/basketball_nba?pre_match_only=true")
+        
+        if response["status"] != 200:
+            self.log_test("Get NBA Events", False, f"Status: {response['status']}")
+            return []
+        
+        events = response["data"]
+        if not events or len(events) == 0:
+            self.log_test("Get NBA Events", False, "No events returned")
+            return []
+        
+        # Extract event IDs
+        event_ids = []
+        for event in events[:5]:  # Take first 5 events
+            event_id = event.get("id")
+            if event_id:
+                event_ids.append(event_id)
+                print(f"    Found event: {event.get('home_team')} vs {event.get('away_team')} (ID: {event_id})")
+        
+        self.log_test("Get NBA Events", len(event_ids) > 0, f"Found {len(event_ids)} events")
+        return event_ids
         """Get NBA event IDs for testing"""
         print("\n📋 Getting NBA events for testing...")
         
