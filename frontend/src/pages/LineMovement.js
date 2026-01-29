@@ -353,9 +353,9 @@ const OddsComparison = ({ opening, current, homeTeam, awayTeam }) => {
   );
 };
 
-// Bookmaker Breakdown Card
+// Odds Sources Card
 const BookmakerBreakdown = ({ bookmakers, currentBookmakers }) => {
-  // Use current bookmaker data from event if snapshots are empty
+  // Use current data from event if snapshots are empty
   const displayBookmakers = bookmakers && bookmakers.length > 0 
     ? bookmakers 
     : currentBookmakers;
@@ -368,7 +368,7 @@ const BookmakerBreakdown = ({ bookmakers, currentBookmakers }) => {
     <div className="stat-card">
       <h3 className="font-mono font-bold text-text-primary mb-4 flex items-center gap-2">
         <Calendar className="w-5 h-5 text-brand-secondary" />
-        Bookmakers ({displayBookmakers.length})
+        Odds Sources ({displayBookmakers.length})
       </h3>
       <div className="space-y-2 max-h-72 overflow-y-auto">
         {displayBookmakers.map((bm, i) => {
@@ -376,7 +376,7 @@ const BookmakerBreakdown = ({ bookmakers, currentBookmakers }) => {
           const latestSnap = bm.snapshots?.[bm.snapshots.length - 1];
           const firstSnap = bm.snapshots?.[0];
           
-          // For current bookmaker data from event
+          // For current data from event
           const currentOdds = bm.markets?.[0]?.outcomes;
           
           let homeOdds, awayOdds, homeChange = null;
@@ -396,7 +396,7 @@ const BookmakerBreakdown = ({ bookmakers, currentBookmakers }) => {
             <div key={bm.bookmaker || bm.key || i} className="bg-zinc-800 p-3 rounded-lg">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-text-primary font-medium">
-                  {bm.bookmaker_title || bm.title || bm.bookmaker}
+                  {bm.bookmaker_title || bm.title || bm.bookmaker || 'DraftKings'}
                 </span>
                 {bm.snapshots && (
                   <span className="text-text-muted text-xs">
