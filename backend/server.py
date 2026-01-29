@@ -2284,11 +2284,34 @@ async def analyze_event_unified(event_id: str, sport_key: str = "basketball_nba"
                 "result": "pending",
                 "reasoning": prediction.get("reasoning", ""),
                 "edge": prediction.get("edge", 0),
-                "consensus_level": prediction.get("consensus_level", "unknown")
+                "consensus_level": prediction.get("consensus_level", "unknown"),
+                "predicted_outcome": prediction.get("pick", "")  # For result tracking
             }
             
             await db.predictions.insert_one(prediction_doc)
             logger.info(f"✅ Unified prediction saved: {prediction.get('pick')} at {prediction.get('confidence')}% confidence")
+            
+            # 🧠 ADAPTIVE LEARNING: Store individual model predictions
+            if adaptive_learning:
+                try:
+                    # Get individual model predictions from V6 component
+                    v6_details = prediction.get("v6_details", {})
+                    ensemble_details = v6_details.get("ensemble_details", {})
+                    individual_preds = ensemble_details.get("individual_predictions", {})
+                    
+                    if individual_preds:
+                        await adaptive_learning.record_individual_model_predictions(
+                            prediction_id=prediction_doc["id"],
+                            event_id=event_id,
+                            sport_key=sport_key,
+                            model_predictions=individual_preds,
+                            final_pick=prediction.get("pick"),
+                            home_team=home_team,
+                            away_team=away_team
+                        )
+                        logger.info(f"🧠 Stored individual model predictions for unified prediction")
+                except Exception as learn_err:
+                    logger.warning(f"Could not store model predictions: {learn_err}")
         
         return {
             "event": {
