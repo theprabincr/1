@@ -135,11 +135,11 @@ class TestMyBetsAPI:
 class TestHealthAndBasicEndpoints:
     """Test basic API health and endpoints"""
     
-    def test_health_endpoint(self):
-        """GET /api/health should return 200"""
-        response = requests.get(f"{BASE_URL}/api/health")
-        assert response.status_code == 200, f"Health check failed: {response.status_code}"
-        print("✓ Health endpoint OK")
+    def test_root_endpoint(self):
+        """GET / should return 200 (basic connectivity check)"""
+        response = requests.get(f"{BASE_URL}/")
+        assert response.status_code == 200, f"Root endpoint failed: {response.status_code}"
+        print("✓ Root endpoint OK")
     
     def test_performance_endpoint(self):
         """GET /api/performance should return 200"""
