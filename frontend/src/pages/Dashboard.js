@@ -324,6 +324,56 @@ const Dashboard = () => {
         />
       </div>
 
+      {/* Live Games Section - Always Visible */}
+      {liveScores.length > 0 && (
+        <div className="bg-gradient-to-r from-zinc-900 to-zinc-800 border border-zinc-700 rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-mono font-bold text-lg text-text-primary flex items-center gap-2">
+              <Activity className="w-5 h-5 text-semantic-success animate-pulse" />
+              Live Games
+              <span className="text-xs text-text-muted ml-2 font-normal">Auto-updates every 10s</span>
+            </h2>
+            <button
+              onClick={() => setShowLiveScoresModal(true)}
+              className="text-brand-primary text-sm flex items-center gap-1 hover:underline"
+            >
+              View Details <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+          
+          <div className="grid md:grid-cols-2 gap-4">
+            {liveScores.map((game, i) => (
+              <div 
+                key={game.espn_id || i} 
+                className="bg-zinc-800/50 rounded-lg p-4 border border-zinc-700 hover:border-brand-primary/50 transition-all cursor-pointer"
+                onClick={() => setShowLiveScoresModal(true)}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-mono text-brand-primary uppercase flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-semantic-success animate-pulse"></span>
+                    {game.sport_key?.replace(/_/g, ' ')}
+                  </span>
+                  <span className="text-xs text-text-muted font-mono">
+                    {game.clock} • {game.period ? `Q${game.period}` : 'Live'}
+                  </span>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-text-primary font-medium">{game.away_team}</span>
+                    <span className="font-mono text-xl font-bold text-brand-primary">{game.away_score}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-text-primary font-medium">{game.home_team}</span>
+                    <span className="font-mono text-xl font-bold text-brand-primary">{game.home_score}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Live Scores Modal */}
       {showLiveScoresModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
