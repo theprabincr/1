@@ -1547,7 +1547,7 @@ async def get_v5_predictions(limit: int = 50, result: str = None):
     ).sort("created_at", -1).limit(limit).to_list(limit)
     
     # Calculate V5 stats
-    all_v5 = await db.predictions.find({"ai_model": "betpredictor_v5"}).to_list(10000)
+    all_v5 = await db.predictions.find({"ai_model": "betpredictor_v5"}, {"_id": 0}).to_list(10000)
     
     wins = len([p for p in all_v5 if p.get("result") == "win"])
     losses = len([p for p in all_v5 if p.get("result") == "loss"])
