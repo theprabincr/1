@@ -2851,23 +2851,22 @@ async def scheduled_line_movement_checker():
             logger.error(f"Scheduled line movement checker error: {e}")
             await asyncio.sleep(60)
 
-# NOTE: Standalone V5 scheduler removed - V5 is now only used as component of Unified Predictor
-
-# NOTE: Standalone V6 scheduler removed - V6 is now only used as component of Unified Predictor
-# The function below was: scheduled_pregame_predictor_v6()
-# V6 features (ELO, context, injuries, psychology, simulation, ML ensemble) are all
-# still available through the Unified Predictor which combines V5+V6
-
-async def _deprecated_scheduled_pregame_predictor_v6():
-    """
-    BETPREDICTOR V6: Advanced ML ensemble predictions 1 hour before game start.
-    Uses 5-model consensus (ELO, Context, Line Movement, Statistical, Psychology) - NO LLM REQUIRED!
-    
-    Features:
-    - PHASE 1: ELO ratings, advanced metrics, context (rest/travel/altitude), smart injuries
-    - PHASE 2: Monte Carlo simulations, Poisson modeling, market psychology  
-    - PHASE 3: Logistic regression, 5-model ensemble, Kelly Criterion
-    - Conservative: Only recommends when 3+ models agree with 65%+ ensemble confidence
+# ====================================================================================
+# NOTE: Standalone V5 and V6 schedulers have been REMOVED (they were not running)
+# 
+# The UNIFIED PREDICTOR below is the ONLY production prediction system.
+# It combines:
+#   - V5 (30% weight): Line movement analysis from betpredictor_v5.py
+#   - V6 (70% weight): ML ensemble from betpredictor_v6.py
+#
+# V5 and V6 can still be accessed directly via their API endpoints:
+#   - /api/analyze-v5/{event_id} - Manual V5 analysis
+#   - /api/analyze-v6/{event_id} - Manual V6 analysis  
+#   - /api/analyze-unified/{event_id} - Manual unified analysis
+#   - /api/predictions/v5 - List V5 predictions
+#   - /api/predictions/v6 - List V6 predictions
+#   - /api/predictions/unified - List unified predictions
+# ====================================================================================
     """
     # Wait 2 minutes on startup
     await asyncio.sleep(120)
