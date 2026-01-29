@@ -299,14 +299,6 @@ const Dashboard = () => {
           onClick={() => navigate('/performance')}
         />
         <StatCard
-          title="Completed"
-          value={performance?.total_predictions || 0}
-          subtitle={`${performance?.wins || 0}W - ${performance?.losses || 0}L`}
-          icon={Target}
-          color="blue"
-          onClick={() => navigate('/predictions')}
-        />
-        <StatCard
           title="Active Picks"
           value={recommendations.length}
           subtitle="Click to view all"
