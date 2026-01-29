@@ -572,26 +572,51 @@ class BetPredictorTestSuite:
         self.log_test("Model Performance", True, f"Found {model_count}/5 models with complete stats")
     
     async def run_comprehensive_test(self):
-        """Run all V6 tests"""
+        """Run all BetPredictor backend tests"""
         await self.setup()
         
         try:
-            # 1. Get NBA events for testing
-            self.nba_event_ids = await self.get_nba_events()
+            # Core API Tests (from review request)
+            print("\n🎯 CORE API TESTS (Review Request)")
+            print("=" * 50)
             
-            # 2. Test V6 predictions list
+            # 1. Test basic API health: GET /api/
+            await self.test_api_health()
+            
+            # 2. Test data source status: GET /api/data-source-status
+            await self.test_data_source_status()
+            
+            # 3. Test events endpoint: GET /api/events/basketball_nba?pre_match_only=true
+            self.nba_event_ids = await self.test_events_endpoint()
+            
+            # 4. Test V5 predictions: GET /api/predictions/v5
+            await self.test_v5_predictions()
+            
+            # 5. Test V6 predictions: GET /api/predictions/v6
             await self.test_v6_predictions_list()
             
-            # 3. Test V6 event analysis (test 2-3 events)
-            test_events = self.nba_event_ids[:3] if len(self.nba_event_ids) >= 3 else self.nba_event_ids
-            for event_id in test_events:
-                await self.test_v6_analyze_event(event_id)
+            # 6. Test unified predictions: GET /api/predictions/unified
+            await self.test_unified_predictions()
             
-            # 4. Test predictions comparison
+            # 7. Test predictions comparison: GET /api/predictions/comparison
             await self.test_predictions_comparison()
             
-            # 5. Test model performance
+            # 8. Test model performance: GET /api/model-performance
             await self.test_model_performance()
+            
+            # 9. Test upcoming predictions window: GET /api/upcoming-predictions-window
+            await self.test_upcoming_predictions_window()
+            
+            # 10. Test live scores: GET /api/live-scores
+            await self.test_live_scores()
+            
+            # Additional V6 Analysis Tests (if events available)
+            if self.nba_event_ids:
+                print("\n🔍 ADDITIONAL V6 ANALYSIS TESTS")
+                print("=" * 50)
+                test_events = self.nba_event_ids[:2] if len(self.nba_event_ids) >= 2 else self.nba_event_ids
+                for event_id in test_events:
+                    await self.test_v6_analyze_event(event_id)
             
             # Print summary
             self.print_summary()
