@@ -3,11 +3,183 @@ import axios from "axios";
 import { 
   Trophy, RefreshCw, TrendingUp, TrendingDown,
   CheckCircle, XCircle, DollarSign, Target,
-  BarChart3, Calendar, Clock, Zap
+  BarChart3, Calendar, Clock, Zap, ChevronDown, ChevronUp
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ReferenceLine } from "recharts";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+// Analysis Section Component - Properly formatted with collapsible sections
+const AnalysisSection = ({ analysisText }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  if (!analysisText) return null;
+  
+  // Parse analysis into sections
+  const parseAnalysis = (text) => {
+    const sections = [];
+    const lines = text.split('\n');
+    let currentSection = null;
+    let currentContent = [];
+    
+    const sectionHeaders = [
+      'V6 STRONG SIGNAL', 'STRONG CONSENSUS', 'V6 ML ENSEMBLE',
+      'PREDICTION OVERVIEW', 'MODEL AGREEMENT', 'TEAM STRENGTH',
+      'RECENT FORM & RECORDS', 'SITUATIONAL FACTORS', 'INJURY IMPACT',
+      'LINE MOVEMENT', 'SIMULATION RESULTS', 'WHY THIS BET TYPE',
+      'KEY FACTORS', 'V5 LINE MOVEMENT'
+    ];
+    
+    lines.forEach((line) => {
+      const trimmedLine = line.trim();
+      
+      // Check if this is a section header
+      const isHeader = sectionHeaders.some(header => 
+        trimmedLine.toUpperCase().includes(header) && 
+        !trimmedLine.startsWith('•') && 
+        !trimmedLine.startsWith('-')
+      );
+      
+      // Skip separator lines
+      if (trimmedLine.match(/^[=\-]{10,}$/)) return;
+      
+      if (isHeader && trimmedLine.length > 0) {
+        // Save previous section
+        if (currentSection) {
+          sections.push({ header: currentSection, content: currentContent });
+        }
+        currentSection = trimmedLine.replace(/[🎯📊💰✅⚠️📈🤖🎲]/g, '').trim();
+        currentContent = [];
+      } else if (trimmedLine.length > 0) {
+        currentContent.push(trimmedLine);
+      }
+    });
+    
+    // Save last section
+    if (currentSection && currentContent.length > 0) {
+      sections.push({ header: currentSection, content: currentContent });
+    }
+    
+    return sections;
+  };
+  
+  const sections = parseAnalysis(analysisText);
+  
+  // Get summary for collapsed view
+  const getSummary = () => {
+    const overviewSection = sections.find(s => s.header.includes('OVERVIEW'));
+    if (overviewSection) {
+      return overviewSection.content.slice(0, 4).join(' • ');
+    }
+    return sections[0]?.content.slice(0, 2).join(' • ') || '';
+  };
+  
+  // Get section icon and color
+  const getSectionStyle = (header) => {
+    if (header.includes('OVERVIEW')) return { bg: 'bg-brand-primary/10', border: 'border-brand-primary/30', text: 'text-brand-primary' };
+    if (header.includes('MODEL')) return { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-400' };
+    if (header.includes('STRENGTH') || header.includes('FORM')) return { bg: 'bg-purple-500/10', border: 'border-purple-500/30', text: 'text-purple-400' };
+    if (header.includes('INJURY')) return { bg: 'bg-red-500/10', border: 'border-red-500/30', text: 'text-red-400' };
+    if (header.includes('LINE') || header.includes('MOVEMENT')) return { bg: 'bg-cyan-500/10', border: 'border-cyan-500/30', text: 'text-cyan-400' };
+    if (header.includes('SIMULATION')) return { bg: 'bg-orange-500/10', border: 'border-orange-500/30', text: 'text-orange-400' };
+    if (header.includes('KEY')) return { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-400' };
+    return { bg: 'bg-zinc-700/50', border: 'border-zinc-600', text: 'text-text-secondary' };
+  };
+  
+  return (
+    <div className="mt-4 pt-4 border-t border-zinc-700">
+      <div 
+        className="flex items-center justify-between cursor-pointer group"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <p className="text-xs text-text-muted font-semibold uppercase tracking-wide">Analysis</p>
+        <button className="flex items-center gap-1 text-xs text-text-muted hover:text-brand-primary transition-colors">
+          {isExpanded ? (
+            <>
+              <span>Collapse</span>
+              <ChevronUp className="w-4 h-4" />
+            </>
+          ) : (
+            <>
+              <span>Expand Details</span>
+              <ChevronDown className="w-4 h-4" />
+            </>
+          )}
+        </button>
+      </div>
+      
+      {!isExpanded ? (
+        // Collapsed view - just summary
+        <div className="mt-2 p-3 bg-zinc-800/50 rounded-lg border border-zinc-700">
+          <p className="text-sm text-text-secondary line-clamp-2">{getSummary()}</p>
+        </div>
+      ) : (
+        // Expanded view - all sections
+        <div className="mt-3 space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+          {sections.map((section, idx) => {
+            const style = getSectionStyle(section.header);
+            return (
+              <div 
+                key={idx} 
+                className={`p-3 rounded-lg border ${style.bg} ${style.border}`}
+              >
+                <h4 className={`text-xs font-bold uppercase tracking-wide mb-2 ${style.text}`}>
+                  {section.header}
+                </h4>
+                <div className="space-y-1">
+                  {section.content.map((line, lineIdx) => {
+                    // Style bullet points
+                    if (line.startsWith('•') || line.startsWith('-')) {
+                      return (
+                        <p key={lineIdx} className="text-sm text-text-secondary pl-2 flex">
+                          <span className="text-text-muted mr-2">•</span>
+                          <span>{line.replace(/^[•\-]\s*/, '')}</span>
+                        </p>
+                      );
+                    }
+                    // Style numbered items
+                    if (line.match(/^\d+\./)) {
+                      return (
+                        <p key={lineIdx} className="text-sm text-text-secondary pl-2">
+                          <span className="text-brand-primary font-mono mr-2">{line.match(/^\d+/)[0]}.</span>
+                          <span>{line.replace(/^\d+\.\s*/, '')}</span>
+                        </p>
+                      );
+                    }
+                    // Style game results (W/L lines)
+                    if (line.match(/^[WL]\s+[@vs]/)) {
+                      const isWin = line.startsWith('W');
+                      return (
+                        <p key={lineIdx} className={`text-sm pl-4 font-mono ${isWin ? 'text-semantic-success' : 'text-semantic-danger'}`}>
+                          {line}
+                        </p>
+                      );
+                    }
+                    // Style key-value pairs (e.g., "Pick: Milwaukee Bucks ML")
+                    if (line.includes(':')) {
+                      const [key, ...valueParts] = line.split(':');
+                      const value = valueParts.join(':').trim();
+                      return (
+                        <p key={lineIdx} className="text-sm">
+                          <span className="text-text-muted">{key}:</span>
+                          <span className="text-text-primary ml-1 font-medium">{value}</span>
+                        </p>
+                      );
+                    }
+                    // Default styling
+                    return (
+                      <p key={lineIdx} className="text-sm text-text-secondary">{line}</p>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Stat Card
 const StatCard = ({ title, value, subtitle, icon: Icon, color, trend }) => {
