@@ -262,12 +262,9 @@ const TopPickCard = ({ pick, onClick }) => {
         </div>
       </div>
       
-      {/* Reasoning Section - Only show for pending picks */}
+      {/* Analysis Section - Collapsible with proper formatting */}
       {(pick.reasoning || pick.analysis) && pick.result === 'pending' && (
-        <div className="mt-3 pt-3 border-t border-zinc-700/50">
-          <p className="text-xs text-text-muted mb-2 font-semibold uppercase tracking-wide">Analysis</p>
-          <p className="text-text-secondary text-sm leading-relaxed whitespace-pre-line">{pick.reasoning || pick.analysis}</p>
-        </div>
+        <AnalysisSection analysisText={pick.reasoning || pick.analysis} />
       )}
     </div>
   );
