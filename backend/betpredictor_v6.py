@@ -219,7 +219,8 @@ class BetPredictorV6:
             injury_analysis,
             psychology_analysis,
             home_metrics,
-            away_metrics
+            away_metrics,
+            matchup_data  # Pass full matchup data for form/records
         )
         
         prediction["algorithm"] = "betpredictor_v6"
