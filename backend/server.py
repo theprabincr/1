@@ -3343,6 +3343,11 @@ async def scheduled_espn_odds_refresh():
 @app.on_event("startup")
 async def startup_event():
     """Start background tasks on app startup"""
+    
+    # Run immediate cleanup for completed/started events on startup
+    logger.info("🧹 Running startup cleanup for completed events...")
+    await startup_cleanup_completed_events()
+    
     # Start the scheduled result checker - INSTANT 10 SECOND sync for live games
     asyncio.create_task(scheduled_result_checker())
     logger.info("Started INSTANT live score sync - runs every 10 SECONDS with ESPN API")
@@ -3369,6 +3374,49 @@ async def startup_event():
     # Start daily summary scheduler
     asyncio.create_task(scheduled_daily_summary())
     logger.info("📊 Started daily summary scheduler - sends daily performance recap")
+
+
+async def startup_cleanup_completed_events():
+    """Clean up line movement data for events that have already started or finished"""
+    try:
+        now = datetime.now(timezone.utc)
+        deleted_history = 0
+        deleted_opening = 0
+        
+        # Get all event IDs that have line movement data
+        event_ids = await db.odds_history.distinct("event_id")
+        
+        for event_id in event_ids:
+            # Check if event has started
+            opening = await db.opening_odds.find_one({"event_id": event_id})
+            commence_str = opening.get("commence_time") if opening else None
+            
+            if not commence_str:
+                # Try to get from odds_history
+                history_record = await db.odds_history.find_one({"event_id": event_id})
+                commence_str = history_record.get("commence_time") if history_record else None
+            
+            if commence_str:
+                try:
+                    commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
+                    
+                    # If event has already started, delete its line movement data
+                    if commence_time <= now:
+                        result = await db.odds_history.delete_many({"event_id": event_id})
+                        deleted_history += result.deleted_count
+                        
+                        opening_result = await db.opening_odds.delete_one({"event_id": event_id})
+                        deleted_opening += opening_result.deleted_count
+                except Exception:
+                    pass
+        
+        if deleted_history > 0 or deleted_opening > 0:
+            logger.info(f"🧹 Startup cleanup: Deleted {deleted_history} snapshots, {deleted_opening} opening odds for started events")
+        else:
+            logger.info("🧹 Startup cleanup: No stale line movement data to clean")
+            
+    except Exception as e:
+        logger.error(f"Startup cleanup error: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
