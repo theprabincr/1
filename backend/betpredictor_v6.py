@@ -571,13 +571,19 @@ class BetPredictorV6:
                 pick_display = f"{pick} (spread)"
         elif market_type == "totals" or market_type == "total":
             # For totals, determine Over or Under
-            total_line = market_data.get("total") or line_analysis.get("markets", {}).get("totals", {}).get("current_line")
+            # Try multiple sources for total line
+            event_odds = ensemble_result.get("_event_odds", {})
+            total_line = (
+                market_data.get("total") or 
+                line_analysis.get("markets", {}).get("totals", {}).get("current_line") or
+                event_odds.get("total")
+            )
             # Use simulation to determine over/under
             mc_data = simulation.get("monte_carlo", {}).get("outcomes", {})
             expected_total = mc_data.get("expected_total", 0)
             
             if total_line:
-                if expected_total > total_line:
+                if expected_total > total_line or probability > 0.55:
                     pick_display = f"OVER {total_line}"
                 else:
                     pick_display = f"UNDER {total_line}"
