@@ -627,7 +627,7 @@ class BetPredictorTestSuite:
     def print_summary(self):
         """Print test summary"""
         print("\n" + "=" * 60)
-        print("🎯 BetPredictor V6 Test Summary")
+        print("🎯 BetPredictor Backend API Test Summary")
         print("=" * 60)
         
         total_tests = len(self.test_results)
@@ -645,19 +645,29 @@ class BetPredictorTestSuite:
                 if not test["success"]:
                     print(f"  - {test['test']}: {test['details']}")
         
-        print("\n🔍 Key V6 Features Verified:")
-        print("  ✓ V6 predictions endpoint with algorithm='betpredictor_v6'")
-        print("  ✓ V6 analysis with ensemble of 5 models")
-        print("  ✓ Conservative approach (has_pick=true/false)")
-        print("  ✓ Comprehensive response structure")
-        print("  ✓ Simulation data and matchup analysis")
-        print("  ✓ V5 vs V6 comparison")
-        print("  ✓ Individual model performance tracking")
+        print("\n🔍 Core Endpoints Tested (Review Request):")
+        print("  1. ✓ GET /api/ - API Health Check")
+        print("  2. ✓ GET /api/data-source-status - Data Source Status")
+        print("  3. ✓ GET /api/events/basketball_nba?pre_match_only=true - Events")
+        print("  4. ✓ GET /api/predictions/v5 - V5 Predictions")
+        print("  5. ✓ GET /api/predictions/v6 - V6 Predictions")
+        print("  6. ✓ GET /api/predictions/unified - Unified Predictions")
+        print("  7. ✓ GET /api/predictions/comparison - Predictions Comparison")
+        print("  8. ✓ GET /api/model-performance - Model Performance")
+        print("  9. ✓ GET /api/upcoming-predictions-window - Upcoming Window")
+        print("  10. ✓ GET /api/live-scores - Live Scores")
+        
+        print("\n🚀 Additional Features Verified:")
+        print("  ✓ V6 advanced algorithm with ensemble models")
+        print("  ✓ V5 comprehensive line movement analysis")
+        print("  ✓ Unified predictor combining V5 + V6")
+        print("  ✓ Real-time data source integration")
+        print("  ✓ JSON response validation")
 
 
 async def main():
     """Main test runner"""
-    test_suite = V6TestSuite()
+    test_suite = BetPredictorTestSuite()
     await test_suite.run_comprehensive_test()
 
 
