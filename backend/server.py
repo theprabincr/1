@@ -1730,7 +1730,8 @@ async def analyze_event_v5(event_id: str, sport_key: str = "basketball_nba"):
                     "created_at": datetime.now(timezone.utc).isoformat(),
                     "ai_model": "betpredictor_v5",
                     "factor_count": prediction.get("factor_count", 0),
-                    "line_analysis_summary": prediction.get("line_analysis_summary")
+                    "line_analysis_summary": prediction.get("line_analysis_summary"),
+                    "predicted_outcome": prediction["pick"]  # For result tracking
                 }
                 await db.predictions.insert_one(prediction_record)
                 logger.info(f"✅ Stored V5 prediction: {prediction['pick']} @ {prediction['confidence']}%")
