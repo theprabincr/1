@@ -827,8 +827,6 @@ class BetPredictorV6:
         reasoning_parts.append("KEY FACTORS:")
         for i, factor in enumerate(key_factors[:5], 1):
             reasoning_parts.append(f"  {i}. {factor}")
-        home_win_sim = mc_outcomes.get("home_win_pct", 0.5)
-        reasoning_parts.append(f"🎲 Monte Carlo: {home_win_sim*100:.1f}% home win probability")
         
         return {
             "has_pick": True,
