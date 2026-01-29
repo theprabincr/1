@@ -333,18 +333,31 @@ const Dashboard = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [perfRes, recsRes, eventsRes, liveRes, allPicksRes] = await Promise.all([
+      // Fetch events from ALL sports
+      const sportKeys = sports.map(s => s.key);
+      const eventsPromises = sportKeys.map(key => 
+        axios.get(`${API}/events/${key}`).catch(() => ({ data: [] }))
+      );
+      
+      const [perfRes, recsRes, liveRes, allPicksRes, ...eventsResponses] = await Promise.all([
         axios.get(`${API}/performance`),
         axios.get(`${API}/recommendations?limit=50&min_confidence=0.70`),
-        axios.get(`${API}/events/${selectedSport}`),
         axios.get(`${API}/live-scores`),
-        axios.get(`${API}/recommendations?limit=100&min_confidence=0`)
+        axios.get(`${API}/recommendations?limit=100&min_confidence=0`),
+        ...eventsPromises
       ]);
       
       setPerformance(perfRes.data);
       setRecommendations(recsRes.data);
-      setEvents(eventsRes.data);
       setLiveScores(liveRes.data.games || []);
+      
+      // Combine events from all sports and sort by commence time
+      const allEvents = eventsResponses
+        .flatMap((res, idx) => (res.data || []).map(e => ({ ...e, sport_key: sportKeys[idx] })))
+        .sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time))
+        .slice(0, 12); // Show up to 12 upcoming events
+      
+      setEvents(allEvents);
       
       // Combine all picks (from recommendations and performance history)
       const activePicks = allPicksRes.data || [];
@@ -375,7 +388,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchData();
-  }, [selectedSport]);
+  }, []); // Remove selectedSport dependency - fetch all sports on mount
 
   // Auto-refresh live scores every 10 seconds
   useEffect(() => {
