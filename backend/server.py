@@ -305,6 +305,17 @@ async def delete_notification(notif_id: str):
     await db.notifications.delete_one({"id": notif_id})
     return {"message": "Notification deleted"}
 
+@api_router.post("/notifications/test")
+async def create_test_notification():
+    """Create a test notification to verify the system works"""
+    await create_notification(
+        "recommendation",
+        "Welcome to BetPredictor!",
+        "Notifications are working correctly. You'll receive alerts for line movements and bet results.",
+        {"test": True}
+    )
+    return {"message": "Test notification created"}
+
 # ==================== SETTINGS ENDPOINTS ====================
 
 @api_router.get("/settings")
