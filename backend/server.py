@@ -3259,13 +3259,16 @@ async def send_daily_summary_notification():
         logger.info(f"Daily summary sent: {wins}W-{losses}L, ${total_profit:+.2f}")
         
     except Exception as e:
-        logger.error(f"Error creating daily summary: {e}")
+        logger.info(f"Error creating daily summary: {e}")
 
 @api_router.post("/notifications/daily-summary")
 async def trigger_daily_summary():
     """Manually trigger a daily summary notification"""
-    await send_daily_summary_notification()
-    return {"message": "Daily summary notification created"}
+    result = await send_daily_summary_notification()
+    if result:
+        return {"message": "Daily summary notification created", "data": result}
+    else:
+        return {"message": "Daily summary skipped (duplicate within 5 minutes)", "data": None}
 
 @api_router.post("/notifications/result-test")
 async def trigger_result_notification():
