@@ -483,18 +483,7 @@ const LineMovement = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSport]);
 
-  // Real-time polling for line movement data (every 30 seconds) - Always enabled
-  useEffect(() => {
-    if (!selectedEvent) return;
-    
-    const pollInterval = setInterval(() => {
-      fetchLineMovement(selectedEvent.id, true); // silent refresh
-    }, 30000); // 30 seconds
-    
-    return () => clearInterval(pollInterval);
-  }, [selectedEvent, selectedSport]);
-
-  const fetchLineMovement = async (eventId, silent = false) => {
+  const fetchLineMovement = useCallback(async (eventId, silent = false) => {
     if (!silent) setLoadingLine(true);
     try {
       const response = await axios.get(`${API}/line-movement/${eventId}?sport_key=${selectedSport}`);
@@ -506,7 +495,18 @@ const LineMovement = () => {
     } finally {
       if (!silent) setLoadingLine(false);
     }
-  };
+  }, [selectedSport]);
+
+  // Real-time polling for line movement data (every 30 seconds) - Always enabled
+  useEffect(() => {
+    if (!selectedEvent) return;
+    
+    const pollInterval = setInterval(() => {
+      fetchLineMovement(selectedEvent.id, true); // silent refresh
+    }, 30000); // 30 seconds
+    
+    return () => clearInterval(pollInterval);
+  }, [selectedEvent, fetchLineMovement]);
 
   const handleEventSelect = (event) => {
     setSelectedEvent(event);
