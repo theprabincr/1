@@ -731,9 +731,29 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
                         <div className="bg-zinc-800/50 rounded-lg p-3 max-h-96 overflow-y-auto">
                           <pre className="text-text-secondary text-xs font-mono whitespace-pre-wrap leading-relaxed">
                             {analysis.prediction.reasoning}
-                        </p>
+                          </pre>
+                        </div>
                       </div>
                     )}
+                  </div>
+                </div>
+              ) : !isGameStarted && (
+                <div className="bg-zinc-800 rounded-lg p-4 border border-zinc-700">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Clock className="w-5 h-5 text-text-muted" />
+                    <span className="font-semibold text-text-primary">Predictor Analysis</span>
+                  </div>
+                  <div className="text-center py-6">
+                    <p className="text-text-muted mb-2">
+                      {minutesUntilGame > 60 
+                        ? `⏳ Full analysis available in ${Math.floor(minutesUntilGame - 40)} minutes`
+                        : `⏳ Analysis generating...`
+                      }
+                    </p>
+                    <p className="text-xs text-text-muted">
+                      Our algorithm analyzes games 40 minutes before start to capture confirmed starting lineups, 
+                      late injury updates, and final line movements.
+                    </p>
                   </div>
                 </div>
               )}
