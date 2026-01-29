@@ -196,8 +196,30 @@ class AppSettings(BaseModel):
     notification_preferences: NotificationPreferences = NotificationPreferences()
 
 # Helper function to create notifications
-async def create_notification(notif_type: str, title: str, message: str, data: Dict = None):
-    """Create a notification and store in database"""
+async def create_notification(notif_type: str, title: str, message: str, data: Dict = None, dedupe_window_minutes: int = 5):
+    """Create a notification and store in database with deduplication
+    
+    Args:
+        notif_type: Type of notification (e.g., 'daily_summary', 'result', 'new_pick')
+        title: Notification title
+        message: Notification message
+        data: Optional additional data
+        dedupe_window_minutes: Time window to check for duplicates (default 5 minutes)
+    """
+    # Check for duplicate notification within the dedupe window
+    now = datetime.now(timezone.utc)
+    dedupe_cutoff = (now - timedelta(minutes=dedupe_window_minutes)).isoformat()
+    
+    existing = await db.notifications.find_one({
+        "type": notif_type,
+        "title": title,
+        "created_at": {"$gte": dedupe_cutoff}
+    })
+    
+    if existing:
+        logger.debug(f"Skipping duplicate notification: {notif_type} - {title}")
+        return None
+    
     notification = Notification(
         type=notif_type,
         title=title,
