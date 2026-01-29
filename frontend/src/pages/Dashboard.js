@@ -239,7 +239,8 @@ const PickCard = ({ pick, showResult = false }) => {
           </p>
         )}
       </div>
-      {(pick.reasoning || pick.analysis) && (
+      {/* Analysis Section - Only show for pending picks */}
+      {(pick.reasoning || pick.analysis) && pick.result === 'pending' && (
         <div className="mt-3 pt-3 border-t border-zinc-700">
           <p className="text-xs text-text-muted mb-1">Analysis</p>
           <p className="text-text-secondary text-xs leading-relaxed">{pick.reasoning || pick.analysis}</p>
