@@ -866,12 +866,18 @@ class BetPredictorTester:
             # Simulate the game result
             game_result = await self.simulate_game_result(event, prediction)
             
-            # Update prediction with result
             pred_id = prediction["id"]
+            new_result = game_result["result"]
+            
+            # Debug: Check before update
+            before = await self.db.predictions.find_one({"id": pred_id})
+            print_info(f"   BEFORE: id={pred_id[:12]}..., result={before.get('result') if before else 'NOT FOUND'}")
+            
+            # Update prediction with result
             update_result = await self.db.predictions.update_one(
                 {"id": pred_id},
                 {"$set": {
-                    "result": game_result["result"],
+                    "result": new_result,
                     "result_updated_at": datetime.now(timezone.utc).isoformat(),
                     "final_score": {
                         "home": game_result["home_score"],
@@ -881,7 +887,9 @@ class BetPredictorTester:
                 }}
             )
             
-            print_info(f"   Update ID={pred_id[:12]}... matched={update_result.matched_count}, modified={update_result.modified_count}")
+            # Debug: Check after update
+            after = await self.db.predictions.find_one({"id": pred_id})
+            print_info(f"   AFTER: id={pred_id[:12]}..., result={after.get('result') if after else 'NOT FOUND'}")
             
             if game_result["result"] == "win":
                 wins += 1
