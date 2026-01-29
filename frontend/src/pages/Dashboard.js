@@ -233,6 +233,27 @@ const Dashboard = () => {
     fetchData();
   }, [selectedSport]);
 
+  // Auto-refresh live scores every 10 seconds
+  useEffect(() => {
+    const fetchLiveScores = async () => {
+      try {
+        const res = await axios.get(`${API}/live-scores`);
+        setLiveScores(res.data.games || []);
+      } catch (error) {
+        console.error("Error fetching live scores:", error);
+      }
+    };
+
+    // Initial fetch
+    fetchLiveScores();
+
+    // Set up interval for auto-refresh
+    const interval = setInterval(fetchLiveScores, 10000); // Every 10 seconds
+
+    // Cleanup on unmount
+    return () => clearInterval(interval);
+  }, []);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64" data-testid="loading">
