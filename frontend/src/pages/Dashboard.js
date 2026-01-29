@@ -199,13 +199,6 @@ const Dashboard = () => {
   const [showActivePicksModal, setShowActivePicksModal] = useState(false);
   const [liveScores, setLiveScores] = useState([]);
   const [showLiveScoresModal, setShowLiveScoresModal] = useState(false);
-  
-  // Track Bet Modal state
-  const [showTrackBetModal, setShowTrackBetModal] = useState(false);
-  const [selectedPickForTracking, setSelectedPickForTracking] = useState(null);
-  const [betStake, setBetStake] = useState(10);
-  const [trackingBet, setTrackingBet] = useState(false);
-  const [betSuccess, setBetSuccess] = useState(false);
 
   const sports = [
     { key: "basketball_nba", label: "NBA" },
