@@ -37,7 +37,7 @@ const EventCard = ({ event, onCompare }) => {
   const [expanded, setExpanded] = useState(false);
   const bookmakers = event.bookmakers || [];
   const bestOdds = getBestOdds(bookmakers, event.home_team, event.away_team);
-  const espnOdds = event.odds || {};
+  const eventOdds = event.odds || {};
   
   // Format date and time
   const eventTime = event.commence_time ? 
@@ -45,12 +45,12 @@ const EventCard = ({ event, onCompare }) => {
   const eventDate = event.commence_time ?
     format(parseISO(event.commence_time), "EEE, MMM d") : "";
 
-  // Use ESPN odds directly (decimal format)
-  const homeML = espnOdds.home_ml_decimal || bestOdds.home;
-  const awayML = espnOdds.away_ml_decimal || bestOdds.away;
-  const spread = espnOdds.spread ?? bestOdds.spread;
-  const total = espnOdds.total ?? bestOdds.total;
-  const isFavorite = espnOdds.home_favorite ?? (spread && spread < 0);
+  // Use odds directly (decimal format)
+  const homeML = eventOdds.home_ml_decimal || bestOdds.home;
+  const awayML = eventOdds.away_ml_decimal || bestOdds.away;
+  const spread = eventOdds.spread ?? bestOdds.spread;
+  const total = eventOdds.total ?? bestOdds.total;
+  const isFavorite = eventOdds.home_favorite ?? (spread && spread < 0);
 
   return (
     <div className="event-card" data-testid={`event-card-${event.id}`}>
@@ -61,7 +61,7 @@ const EventCard = ({ event, onCompare }) => {
             {event.sport_title || event.sport_key?.replace(/_/g, ' ')}
           </span>
           <span className="text-xs px-2 py-0.5 bg-zinc-800 rounded text-brand-primary">
-            {event.source === 'espn' ? 'ESPN' : 'Live'}
+            Live
           </span>
         </div>
         <div className="flex flex-col items-end">
