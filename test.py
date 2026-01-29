@@ -489,48 +489,103 @@ class BetPredictorTester:
         self.record_test("Cleanup", True, "Previous simulation data cleared")
     
     async def test_create_simulated_events(self):
-        """Test 5: Create Simulated Events"""
-        print_header("TEST 5: Create Simulated Events (Games Starting in ~1 Hour)")
+        """Test 5: Create Simulated Events with Line Movement History"""
+        print_header("TEST 5: Create High-Value Events (1-2 Hours from Now)")
         
-        # Create 6 simulated events across different sports
-        events_config = [
-            ("basketball_nba", 55),   # 55 min from now
-            ("basketball_nba", 60),   # 60 min from now
-            ("basketball_nba", 65),   # 65 min from now
-            ("icehockey_nhl", 58),    # 58 min from now
-            ("soccer_epl", 62),       # 62 min from now
-            ("basketball_nba", 70),   # 70 min from now
+        print_info("Creating events designed to trigger algorithm picks...")
+        
+        # Define high-value matchups with different scenarios
+        high_value_games = [
+            # Heavy favorite scenario - Boston at home
+            ("Boston Celtics", "Cleveland Cavaliers", "basketball_nba", 65, "heavy_favorite"),
+            # Sharp line movement - Denver moving
+            ("Denver Nuggets", "Phoenix Suns", "basketball_nba", 70, "line_movement_sharp"),
+            # Totals value - high-scoring teams
+            ("Golden State Warriors", "Dallas Mavericks", "basketball_nba", 75, "totals_value"),
+            # Underdog value scenario
+            ("Miami Heat", "Milwaukee Bucks", "basketball_nba", 80, "underdog_value"),
+            # Spread value scenario  
+            ("Philadelphia 76ers", "Oklahoma City Thunder", "basketball_nba", 90, "spread_value"),
+            # Another heavy favorite
+            ("Los Angeles Lakers", "Minnesota Timberwolves", "basketball_nba", 120, "heavy_favorite"),
         ]
         
-        for sport_key, minutes in events_config:
-            event = self.create_simulated_event(sport_key, minutes)
+        now = datetime.now(timezone.utc)
+        
+        for home, away, sport, minutes, scenario in high_value_games:
+            event = self.create_high_value_event(home, away, sport, minutes, scenario)
             self.simulated_events.append(event)
             
-            # Store opening odds
+            # Store opening odds (from 2-3 hours ago to simulate line movement)
+            opening_time = now - timedelta(hours=2)
+            opening_odds = {
+                "event_id": event["id"],
+                "sport_key": sport,
+                "home_team": home,
+                "away_team": away,
+                "commence_time": event["commence_time"],
+                "ml": {
+                    "home": event["odds"]["home_ml_decimal"] + random.uniform(0.05, 0.15),
+                    "away": event["odds"]["away_ml_decimal"] - random.uniform(0.05, 0.15)
+                },
+                "spread": event["odds"]["spread"] + random.uniform(-0.5, 0.5),
+                "total": event["odds"]["total"] - random.uniform(1, 3),
+                "timestamp": opening_time.isoformat()
+            }
+            
             await self.db.opening_odds.update_one(
                 {"event_id": event["id"]},
-                {"$set": {
-                    "event_id": event["id"],
-                    "sport_key": sport_key,
-                    "home_team": event["home_team"],
-                    "away_team": event["away_team"],
-                    "commence_time": event["commence_time"],
-                    "ml": {
-                        "home": event["odds"]["home_ml_decimal"],
-                        "away": event["odds"]["away_ml_decimal"]
-                    },
-                    "spread": event["odds"]["spread"],
-                    "total": event["odds"]["total"],
-                    "timestamp": datetime.now(timezone.utc).isoformat()
-                }},
+                {"$set": opening_odds},
                 upsert=True
             )
             
-            print_info(f"Created: {event['home_team']} vs {event['away_team']} ({sport_key})")
-            print(f"         ML: {event['odds']['home_ml_decimal']}/{event['odds']['away_ml_decimal']}, "
-                  f"Spread: {event['odds']['spread']}, Total: {event['odds']['total']}")
+            # Create line movement history (multiple snapshots over time)
+            snapshots = []
+            for i in range(6):  # 6 snapshots over 2 hours
+                snapshot_time = opening_time + timedelta(minutes=i*20)
+                
+                # Simulate line moving towards current odds
+                progress = i / 5  # 0 to 1
+                home_ml = opening_odds["ml"]["home"] + (event["odds"]["home_ml_decimal"] - opening_odds["ml"]["home"]) * progress
+                away_ml = opening_odds["ml"]["away"] + (event["odds"]["away_ml_decimal"] - opening_odds["ml"]["away"]) * progress
+                spread = opening_odds["spread"] + (event["odds"]["spread"] - opening_odds["spread"]) * progress
+                total = opening_odds["total"] + (event["odds"]["total"] - opening_odds["total"]) * progress
+                
+                snapshot = {
+                    "event_id": event["id"],
+                    "sport_key": sport,
+                    "home_team": home,
+                    "away_team": away,
+                    "commence_time": event["commence_time"],
+                    "timestamp": snapshot_time.isoformat(),
+                    "time_key": snapshot_time.strftime("%Y-%m-%d_%H-%M"),
+                    "home_odds": round(home_ml, 2),
+                    "away_odds": round(away_ml, 2),
+                    "spread": round(spread, 1),
+                    "total": round(total, 1),
+                    "bookmaker": "DraftKings"
+                }
+                snapshots.append(snapshot)
+            
+            # Insert all snapshots
+            if snapshots:
+                await self.db.odds_history.insert_many(snapshots)
+            
+            # Calculate line movement
+            opening_home = opening_odds["ml"]["home"]
+            current_home = event["odds"]["home_ml_decimal"]
+            movement = ((current_home - opening_home) / opening_home) * 100
+            
+            print_info(f"Created: {home} vs {away} ({scenario})")
+            print(f"         Starts in: {minutes} min")
+            print(f"         Opening ML: {opening_home:.2f}/{opening_odds['ml']['away']:.2f}")
+            print(f"         Current ML: {current_home:.2f}/{event['odds']['away_ml_decimal']:.2f}")
+            print(f"         Line Movement: {movement:+.1f}%")
+            print(f"         Spread: {event['odds']['spread']:+.1f}, Total: {event['odds']['total']}")
+            print(f"         Snapshots Created: {len(snapshots)}")
         
-        self.record_test("Create Simulated Events", True, f"{len(self.simulated_events)} events created")
+        self.record_test("Create High-Value Events", True, 
+            f"{len(self.simulated_events)} events with line movement history")
     
     async def test_generate_predictions(self):
         """Test 6: Generate Predictions for Simulated Events"""
