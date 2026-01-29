@@ -2983,6 +2983,10 @@ async def startup_event():
     asyncio.create_task(scheduled_pregame_predictor())
     logger.info("📊 Started BETPREDICTOR V5 - Comprehensive line movement analysis 1 hour before game")
     
+    # START BETPREDICTOR V6 - Advanced ML ensemble predictions 1 hour before games
+    asyncio.create_task(scheduled_pregame_predictor_v6())
+    logger.info("🚀 Started BETPREDICTOR V6 - Advanced ML ensemble with 5-model consensus")
+    
     # Start ESPN odds refresh - EVERY 5 MINUTES for accurate line tracking
     asyncio.create_task(scheduled_espn_odds_refresh())
     logger.info("📸 Started ESPN odds snapshots - runs every 5 MINUTES for line movement tracking")
