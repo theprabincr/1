@@ -491,39 +491,7 @@ const Dashboard = () => {
                 <p className="text-text-muted text-center py-8">No active picks at the moment.</p>
               ) : (
                 recommendations.map((pick, i) => (
-                  <div key={pick.id || i} className="bg-zinc-800 rounded-lg p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <p className="text-text-primary font-semibold">{pick.home_team} vs {pick.away_team}</p>
-                        <p className="text-text-muted text-sm">
-                          {new Date(pick.commence_time).toLocaleDateString()} at {new Date(pick.commence_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <span className={`px-2 py-1 rounded text-xs font-bold ${
-                          pick.confidence >= 0.7 ? 'bg-semantic-success/20 text-semantic-success' :
-                          pick.confidence >= 0.5 ? 'bg-semantic-warning/20 text-semantic-warning' :
-                          'bg-text-muted/20 text-text-muted'
-                        }`}>
-                          {(pick.confidence * 100).toFixed(0)}% Confidence
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-zinc-700">
-                      <div>
-                        <p className="text-brand-primary font-bold">{pick.predicted_outcome}</p>
-                        <p className="text-text-muted text-xs">{pick.prediction_type}</p>
-                      </div>
-                      <p className="font-mono text-lg text-text-primary">@ {pick.odds_at_prediction?.toFixed(2)}</p>
-                    </div>
-                    {/* Reasoning Section */}
-                    {pick.reasoning && (
-                      <div className="mt-3 pt-3 border-t border-zinc-700">
-                        <p className="text-xs text-text-muted mb-1">Why this pick?</p>
-                        <p className="text-text-secondary text-xs leading-relaxed">{pick.reasoning}</p>
-                      </div>
-                    )}
-                  </div>
+                  <PickCard key={pick.id || i} pick={pick} />
                 ))
               )}
             </div>
@@ -533,6 +501,43 @@ const Dashboard = () => {
                 className="btn-primary w-full"
               >
                 View Performance
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Total Picks Modal */}
+      {showAllPicksModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-zinc-900 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+              <h2 className="font-mono font-bold text-lg text-text-primary flex items-center gap-2">
+                <Target className="w-5 h-5 text-brand-secondary" />
+                Total Picks ({allPicks.length})
+              </h2>
+              <button 
+                onClick={() => setShowAllPicksModal(false)}
+                className="p-2 rounded-lg hover:bg-zinc-800 text-text-muted hover:text-text-primary"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto max-h-[60vh] space-y-3">
+              {allPicks.length === 0 ? (
+                <p className="text-text-muted text-center py-8">No picks yet.</p>
+              ) : (
+                allPicks.map((pick, i) => (
+                  <PickCard key={pick.id || i} pick={pick} showResult={true} />
+                ))
+              )}
+            </div>
+            <div className="p-4 border-t border-zinc-800">
+              <button 
+                onClick={() => { setShowAllPicksModal(false); navigate('/performance'); }}
+                className="btn-primary w-full"
+              >
+                View Detailed Performance
               </button>
             </div>
           </div>
