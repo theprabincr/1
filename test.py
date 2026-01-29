@@ -253,6 +253,102 @@ class BetPredictorTester:
         
         return event
     
+    def create_high_value_event(self, home_team: str, away_team: str, sport_key: str, 
+                                 minutes_until_start: int, scenario: str) -> Dict:
+        """Create an event designed to trigger algorithm picks"""
+        now = datetime.now(timezone.utc)
+        commence_time = now + timedelta(minutes=minutes_until_start)
+        event_id = f"sim_{sport_key}_{uuid.uuid4().hex[:8]}"
+        
+        # Different scenarios that should trigger picks
+        if scenario == "heavy_favorite":
+            # Strong favorite with value on the underdog
+            odds = {
+                "home_ml_decimal": 1.25,  # Heavy favorite
+                "away_ml_decimal": 4.00,  # Big underdog
+                "spread": -8.5,
+                "total": 225.5,
+                "home_prob": 0.80
+            }
+        elif scenario == "line_movement_sharp":
+            # Line moved significantly - sharp money detected
+            odds = {
+                "home_ml_decimal": 1.85,
+                "away_ml_decimal": 2.00,
+                "spread": -2.5,
+                "total": 218.5,
+                "home_prob": 0.55
+            }
+        elif scenario == "totals_value":
+            # Strong totals play
+            odds = {
+                "home_ml_decimal": 1.91,
+                "away_ml_decimal": 1.91,
+                "spread": -1.0,
+                "total": 235.0,  # High total
+                "home_prob": 0.50
+            }
+        elif scenario == "underdog_value":
+            # Value on underdog
+            odds = {
+                "home_ml_decimal": 2.50,
+                "away_ml_decimal": 1.55,
+                "spread": 4.5,
+                "total": 222.0,
+                "home_prob": 0.40
+            }
+        else:  # "spread_value"
+            # Clear spread value
+            odds = {
+                "home_ml_decimal": 1.65,
+                "away_ml_decimal": 2.30,
+                "spread": -5.5,
+                "total": 228.0,
+                "home_prob": 0.62
+            }
+        
+        event = {
+            "id": event_id,
+            "sport_key": sport_key,
+            "sport_title": sport_key.replace("_", " ").title(),
+            "home_team": home_team,
+            "away_team": away_team,
+            "commence_time": commence_time.isoformat(),
+            "odds": odds,
+            "bookmakers": [{
+                "key": "draftkings",
+                "title": "DraftKings",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "outcomes": [
+                            {"name": home_team, "price": odds["home_ml_decimal"]},
+                            {"name": away_team, "price": odds["away_ml_decimal"]}
+                        ]
+                    },
+                    {
+                        "key": "spreads",
+                        "outcomes": [
+                            {"name": home_team, "price": 1.91, "point": odds["spread"]},
+                            {"name": away_team, "price": 1.91, "point": -odds["spread"]}
+                        ]
+                    },
+                    {
+                        "key": "totals",
+                        "outcomes": [
+                            {"name": "Over", "price": 1.91, "point": odds["total"]},
+                            {"name": "Under", "price": 1.91, "point": odds["total"]}
+                        ]
+                    }
+                ]
+            }],
+            "_simulated": True,
+            "_home_prob": odds["home_prob"],
+            "_scenario": scenario
+        }
+        
+        return event
+    
     async def simulate_game_result(self, event: Dict, prediction: Dict) -> Dict:
         """Simulate a game result based on true probability"""
         home_prob = event.get("_home_prob", 0.5)
