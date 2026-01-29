@@ -2797,6 +2797,176 @@ async def scheduled_pregame_predictor_v6():
             await asyncio.sleep(120)
 
 
+# UNIFIED PREDICTOR - Combines V5 + V6 into single prediction (V6 weighted 70%)
+async def scheduled_unified_predictor():
+    """
+    UNIFIED PREDICTOR: Combines V5 (line movement) + V6 (ML ensemble) into single prediction.
+    
+    Weighting:
+    - V6: 70% (ML ensemble is primary decision maker)
+    - V5: 30% (Line movement provides confirmation)
+    
+    Benefits:
+    - Single prediction per game (no conflicts)
+    - Best of both algorithms
+    - Agreement bonus when both align
+    - V6-driven with V5 validation
+    """
+    # Wait 2 minutes on startup
+    await asyncio.sleep(120)
+    
+    logger.info("🔄 Started UNIFIED PREDICTOR - Combining V5 + V6 (V6 weighted 70%)")
+    
+    sports_to_analyze = ["basketball_nba", "americanfootball_nfl", "icehockey_nhl", "soccer_epl"]
+    
+    while True:
+        try:
+            now = datetime.now(timezone.utc)
+            # 1 hour window (45 min to 75 min before game)
+            window_start = now + timedelta(minutes=45)
+            window_end = now + timedelta(minutes=75)
+            
+            predictions_made = 0
+            
+            for sport_key in sports_to_analyze:
+                try:
+                    # Fetch events
+                    events = await fetch_espn_events_with_odds(sport_key, days_ahead=1)
+                    
+                    if not events:
+                        continue
+                    
+                    # Filter to games starting in ~1 hour
+                    for event in events:
+                        try:
+                            commence_str = event.get("commence_time", "")
+                            if not commence_str:
+                                continue
+                            
+                            commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
+                            
+                            # Check if game is in our target window (~1 hour from now)
+                            if window_start <= commence_time <= window_end:
+                                event_id = event.get("id")
+                                home_team = event.get("home_team")
+                                away_team = event.get("away_team")
+                                
+                                # Check if we already have a unified prediction for this event
+                                existing = await db.predictions.find_one({
+                                    "event_id": event_id, 
+                                    "result": "pending",
+                                    "ai_model": "unified"
+                                })
+                                
+                                if existing:
+                                    logger.debug(f"Skipping {event_id} - already has unified prediction")
+                                    continue
+                                
+                                # This game is ~1 hour away - time for unified analysis!
+                                logger.info(f"🔄 UNIFIED ANALYSIS: {home_team} vs {away_team} "
+                                          f"(starts in {(commence_time - now).total_seconds() / 60:.0f} min)")
+                                
+                                # 1. Get comprehensive matchup data
+                                matchup_data = await get_comprehensive_matchup_data(event, sport_key)
+                                
+                                # 2. Get squad data (injuries)
+                                squad_data = {
+                                    "home_team": {"injuries": []},
+                                    "away_team": {"injuries": []}
+                                }
+                                try:
+                                    home_roster = await fetch_team_roster(event.get("home_team_id", ""), sport_key)
+                                    away_roster = await fetch_team_roster(event.get("away_team_id", ""), sport_key)
+                                    squad_data["home_team"]["injuries"] = home_roster.get("injuries", [])
+                                    squad_data["away_team"]["injuries"] = away_roster.get("injuries", [])
+                                except:
+                                    pass
+                                
+                                # 3. Get line movement history
+                                line_history = await db.odds_history.find(
+                                    {"event_id": event_id}, {"_id": 0}
+                                ).sort("timestamp", 1).to_list(500)
+                                
+                                # 4. Get opening odds
+                                opening_odds = await db.opening_odds.find_one(
+                                    {"event_id": event_id}, {"_id": 0}
+                                ) or {}
+                                
+                                # 5. Get current odds
+                                current_odds = event.get("odds", {})
+                                
+                                # 6. Run UNIFIED prediction (combines V5 + V6)
+                                unified_prediction = await generate_unified_prediction(
+                                    event=event,
+                                    sport_key=sport_key,
+                                    squad_data=squad_data,
+                                    matchup_data=matchup_data,
+                                    line_movement_history=line_history,
+                                    opening_odds=opening_odds,
+                                    current_odds=current_odds
+                                )
+                                
+                                if unified_prediction and unified_prediction.get("has_pick"):
+                                    confidence = unified_prediction.get("confidence", 0) / 100
+                                    edge = unified_prediction.get("edge", 0) / 100
+                                    consensus = unified_prediction.get("consensus_level", "unknown")
+                                    
+                                    if confidence >= 0.60:  # Unified uses 60% threshold
+                                        # Create prediction from unified result
+                                        prediction = PredictionCreate(
+                                            event_id=event_id,
+                                            sport_key=sport_key,
+                                            home_team=home_team,
+                                            away_team=away_team,
+                                            commence_time=commence_str,
+                                            prediction_type=unified_prediction.get("pick_type", "moneyline"),
+                                            predicted_outcome=unified_prediction.get("pick_display", unified_prediction.get("pick", "")),
+                                            confidence=confidence,
+                                            analysis=unified_prediction.get("reasoning", ""),
+                                            ai_model="unified",
+                                            odds_at_prediction=unified_prediction.get("odds", 1.91)
+                                        )
+                                        
+                                        await create_recommendation(prediction)
+                                        predictions_made += 1
+                                        
+                                        logger.info(f"✅ UNIFIED PICK: {home_team} vs {away_team} - "
+                                                  f"{unified_prediction.get('pick_type')}: {unified_prediction.get('pick_display', unified_prediction.get('pick'))} "
+                                                  f"@ {confidence*100:.0f}% conf, edge: {edge*100:.1f}%, "
+                                                  f"consensus: {consensus}")
+                                    else:
+                                        logger.info(f"⏭️ LOW CONFIDENCE: {home_team} vs {away_team} - "
+                                                  f"{confidence*100:.0f}% < 60% threshold")
+                                else:
+                                    reason = unified_prediction.get("reasoning", "No consensus") if unified_prediction else "Analysis failed"
+                                    logger.info(f"⏭️ NO PICK: {home_team} vs {away_team} - {reason[:150]}")
+                                
+                                # Store odds snapshot
+                                await store_odds_snapshot(event)
+                                
+                                # Small delay between analyses
+                                await asyncio.sleep(3)
+                                
+                        except Exception as e:
+                            logger.error(f"Error in unified analysis for event: {e}")
+                            import traceback
+                            traceback.print_exc()
+                            continue
+                    
+                except Exception as e:
+                    logger.error(f"Error in unified predictor for {sport_key}: {e}")
+            
+            if predictions_made > 0:
+                logger.info(f"🔄 Unified predictor complete - {predictions_made} predictions created")
+            
+            # Run every 10 minutes to catch all games in the 1 hour window
+            await asyncio.sleep(600)
+            
+        except Exception as e:
+            logger.error(f"Scheduled unified predictor error: {e}")
+            await asyncio.sleep(120)
+
+
 async def get_line_movement_history(event_id: str) -> List[Dict]:
     """Get complete line movement history for an event"""
     history = []
