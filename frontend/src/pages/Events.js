@@ -291,7 +291,7 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
     condition: ['Clear', 'Partly Cloudy', 'Overcast'][Math.floor(Math.random() * 3)],
     wind: Math.floor(Math.random() * 15) + 5,
     humidity: Math.floor(Math.random() * 40) + 40
-  };
+  } : null;
 
   // Team form data
   const homeForm = matchupData?.home_team?.form || { wins: 0, losses: 0, streak: 0 };
