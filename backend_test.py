@@ -11,8 +11,8 @@ import sys
 from datetime import datetime
 from typing import Dict, List, Optional
 
-# Backend URL from frontend .env
-BACKEND_URL = "https://project-scanner-23.preview.emergentagent.com/api"
+# Backend URL - use localhost for local testing
+BACKEND_URL = "http://localhost:8001/api"
 
 class V6TestSuite:
     def __init__(self):
