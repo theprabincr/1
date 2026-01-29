@@ -337,8 +337,14 @@ async def mark_all_notifications_read():
 @api_router.delete("/notifications/{notif_id}")
 async def delete_notification(notif_id: str):
     """Delete a notification"""
-    await db.notifications.delete_one({"id": notif_id})
-    return {"message": "Notification deleted"}
+    result = await db.notifications.delete_one({"id": notif_id})
+    return {"message": "Notification deleted", "deleted": result.deleted_count}
+
+@api_router.delete("/notifications")
+async def delete_all_notifications():
+    """Delete all notifications"""
+    result = await db.notifications.delete_many({})
+    return {"message": f"Deleted {result.deleted_count} notifications", "deleted": result.deleted_count}
 
 @api_router.post("/notifications/test")
 async def create_test_notification():
