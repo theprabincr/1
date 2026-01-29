@@ -621,7 +621,7 @@ const LineMovement = () => {
             Line Movement
           </h1>
           <p className="text-text-muted text-sm mt-1">
-            Track odds changes from opening to current — updated every 5 minutes via ESPN
+            Track odds changes from opening to current — updated every 5 minutes
           </p>
         </div>
         <div className="flex items-center gap-4">
