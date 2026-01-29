@@ -912,7 +912,7 @@ async def get_recommendations(
     min_confidence: float = 0.70,
     include_all: bool = False
 ):
-    """Get AI-generated bet recommendations - filtered by 70%+ confidence and time window"""
+    """Get ML-generated bet recommendations - filtered by 70%+ confidence and time window"""
     now = datetime.now(timezone.utc)
     
     # Calculate time window: later today through 3 days from now
