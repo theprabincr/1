@@ -3992,8 +3992,9 @@ async def startup_event():
     logger.info("Started line movement checker - monitors for significant line moves")
     
     # START UNIFIED PREDICTOR - Combines V5 (line movement) + V6 (ML ensemble) with V6 weighted 70%
+    # TRIGGERS 40 MIN BEFORE GAME to capture confirmed starting lineups
     asyncio.create_task(scheduled_unified_predictor())
-    logger.info("🔄 Started UNIFIED PREDICTOR - V5 + V6 combined (V6 weighted 70%)")
+    logger.info("🔄 Started UNIFIED PREDICTOR - triggers 40 min before game (after lineup release)")
     
     # Note: Individual V5 and V6 schedulers disabled in favor of unified approach
     # Endpoints still available for manual analysis: /api/analyze-v5 and /api/analyze-v6
