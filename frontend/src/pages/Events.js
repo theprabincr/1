@@ -727,31 +727,39 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
                     {/* Detailed Reasoning */}
                     {analysis.prediction.reasoning && (
                       <div className="pt-3 border-t border-zinc-700">
-                        <p className="text-xs text-text-muted mb-2">DETAILED ANALYSIS</p>
-                        <div className="bg-zinc-800/50 rounded-lg p-4 max-h-[400px] overflow-y-auto space-y-4">
+                        <p className="text-xs text-text-muted mb-3">DETAILED ANALYSIS</p>
+                        <div className="bg-zinc-800/50 rounded-lg p-4 max-h-[450px] overflow-y-auto">
                           {analysis.prediction.reasoning.split('\n\n').map((section, idx) => {
                             const lines = section.split('\n').filter(l => l.trim());
                             if (lines.length === 0) return null;
                             
-                            // Check if first line is a section header (all caps or specific keywords)
-                            const firstLine = lines[0];
-                            const isHeader = /^[A-Z\s]+$/.test(firstLine) || 
-                                           ['PREDICTION', 'MODEL', 'TEAM', 'SITUATIONAL', 'INJURY', 'LINE', 'SIMULATION', 'WHY', 'KEY'].some(h => firstLine.includes(h));
+                            const firstLine = lines[0].trim();
+                            const isHeader = firstLine === firstLine.toUpperCase() && firstLine.length > 3;
                             
                             return (
-                              <div key={idx} className="text-sm">
-                                {isHeader && (
-                                  <h4 className="text-brand-primary font-semibold text-xs uppercase tracking-wide mb-2">
-                                    {firstLine}
-                                  </h4>
+                              <div key={idx} className={idx > 0 ? 'mt-4 pt-4 border-t border-zinc-700/50' : ''}>
+                                {isHeader ? (
+                                  <>
+                                    <h4 className="text-brand-primary font-semibold text-sm mb-2">
+                                      {firstLine}
+                                    </h4>
+                                    <div className="space-y-1">
+                                      {lines.slice(1).map((line, i) => (
+                                        <p key={i} className={`text-sm ${line.trim().startsWith('•') || line.trim().match(/^\d\./) ? 'text-text-muted pl-2' : 'text-text-secondary'}`}>
+                                          {line}
+                                        </p>
+                                      ))}
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="space-y-1">
+                                    {lines.map((line, i) => (
+                                      <p key={i} className="text-sm text-text-secondary">
+                                        {line}
+                                      </p>
+                                    ))}
+                                  </div>
                                 )}
-                                <div className="text-text-secondary space-y-1">
-                                  {lines.slice(isHeader ? 1 : 0).map((line, lineIdx) => (
-                                    <p key={lineIdx} className={`${line.startsWith('  ') ? 'pl-3 text-text-muted' : ''}`}>
-                                      {line}
-                                    </p>
-                                  ))}
-                                </div>
                               </div>
                             );
                           })}
