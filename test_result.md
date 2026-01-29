@@ -495,6 +495,51 @@ backend:
         agent: "testing"
         comment: "✅ ADAPTIVE LEARNING SYSTEM WORKING PERFECTLY: All 5 requested endpoints tested successfully with 100% pass rate (23/23 total tests including extended scenarios). CORE TESTS: (1) GET /api/adaptive-learning/status returns status='active', model_performance object, current_weights_by_sport for basketball_nba/americanfootball_nfl/icehockey_nhl with all 5 model weights (elo_model, context_model, line_movement_model, statistical_model, psychology_model), (2) GET /api/adaptive-learning/model-stats/basketball_nba returns sport_key, model_stats, current_weights with all 5 models, best_performer and worst_performer fields, (3) GET /api/adaptive-learning/rolling-performance/elo_model?sport_key=basketball_nba&days=30 correctly handles newly initialized system with 'No data found' response (expected behavior), (4) GET /api/adaptive-learning/calibration returns sport_key='all', calibration object with buckets array, brier_score, interpretation, total_samples, (5) GET /api/adaptive-learning/lr-weights/basketball_nba returns sport_key, weights object with 9 parameters (elo_diff, form_diff, margin_diff, rest_advantage, home_advantage, injury_impact, line_movement, four_factors, intercept), updates_count=0, status='using_defaults', note about online learning. EXTENDED TESTS: Verified all 3 sports (NBA/NFL/NHL), all 5 models, multiple time windows (7/14/30/60 days), sport-specific calibration. System properly initialized and ready to learn from prediction results. All response structures match specifications exactly."
 
+  - task: "Matchup API Endpoint"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "🏀 IMPLEMENTED MATCHUP ENDPOINT: GET /api/matchup/{event_id} - Returns comprehensive matchup data including team stats, form, rosters, REAL injuries from ESPN, and starting lineups when available. Data is REAL from ESPN, not mock."
+      - working: true
+        agent: "testing"
+        comment: "✅ MATCHUP API WORKING PERFECTLY: GET /api/matchup/401810535?sport_key=basketball_nba returns complete response structure with event_id, sport_key, commence_time, venue, home_team (Philadelphia 76ers), away_team (Sacramento Kings), lineup_status='not_available', lineup_message. Both teams have complete data: stats, form, recent_games, roster (players, key_players, total_players), injuries (7 total with REAL injury data including real player names), starters, starters_confirmed=False. All required fields present and correctly structured. REAL ESPN data confirmed - not mock placeholder data."
+
+  - task: "Starting Lineup API Endpoint"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "🏀 IMPLEMENTED STARTING LINEUP ENDPOINT: GET /api/starting-lineup/{event_id} - Returns starting lineup specifically (confirmed ~1hr before game). Starting lineups show as 'not_available' until ~1hr before game time (ESPN limitation)."
+      - working: true
+        agent: "testing"
+        comment: "✅ STARTING LINEUP API WORKING PERFECTLY: GET /api/starting-lineup/401810535?sport_key=basketball_nba returns complete response structure with home (team='Philadelphia 76ers', starters=[], confirmed=False), away (team='Sacramento Kings', starters=[], confirmed=False), lineup_status='not_available', message, event_id='401810535'. All required fields present and correctly typed. Lineup status correctly shows 'not_available' as expected (ESPN releases confirmed lineups ~1hr before game time). Response structure matches specification exactly."
+
+  - task: "Roster API Endpoint"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "🏀 IMPLEMENTED ROSTER ENDPOINT: GET /api/roster/{team_name} - Returns full team roster with injuries. Data is REAL from ESPN, not mock."
+      - working: true
+        agent: "testing"
+        comment: "✅ ROSTER API WORKING PERFECTLY: GET /api/roster/Philadelphia%2076ers?sport_key=basketball_nba returns complete response structure with team='Philadelphia 76ers', sport_key='basketball_nba', players (18 total with real player names), injuries (4 with REAL injury data), key_players (10), total_players=18 > 0. All required fields present and correctly typed. REAL ESPN data confirmed - contains actual player names and injury statuses like 'Out', 'Day-To-Day', etc. Not mock placeholder data."
+
 frontend:
   - task: "API Keys Management Page"
     implemented: true
