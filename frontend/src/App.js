@@ -32,7 +32,7 @@ const navItems = [
 // Sidebar Component with Live Events
 const Sidebar = () => {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
-  const [dataStatus, setDataStatus] = useState({ source: 'espn', lastUpdate: null });
+  const [dataStatus, setDataStatus] = useState({ source: 'live', lastUpdate: null });
   const [liveGames, setLiveGames] = useState([]);
 
   useEffect(() => {
