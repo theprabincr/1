@@ -684,11 +684,6 @@ const LineMovement = () => {
                     {event.commence_time ? format(parseISO(event.commence_time), 'MMM d, HH:mm') : '—'}
                   </span>
                 </div>
-                {event.bookmakers?.length > 0 && (
-                  <div className="text-xs text-text-muted mt-1">
-                    {event.bookmakers.length} bookmaker{event.bookmakers.length > 1 ? 's' : ''}
-                  </div>
-                )}
               </button>
             ))
           )}
