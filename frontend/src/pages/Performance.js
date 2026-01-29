@@ -306,10 +306,7 @@ const PredictionRow = ({ prediction }) => {
       
       {/* Analysis Section - Only show for PENDING picks */}
       {analysisText && prediction.result === 'pending' && (
-        <div className="mt-4 pt-4 border-t border-zinc-700">
-          <p className="text-xs text-text-muted mb-2 font-semibold uppercase tracking-wide">Analysis</p>
-          <p className="text-text-secondary text-sm leading-relaxed whitespace-pre-line">{analysisText}</p>
-        </div>
+        <AnalysisSection analysisText={analysisText} />
       )}
     </div>
   );
