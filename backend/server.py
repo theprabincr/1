@@ -844,33 +844,63 @@ async def get_line_movement(event_id: str, sport_key: str = "basketball_nba"):
 
 @api_router.post("/analyze")
 async def analyze_game(request: AnalysisRequest):
-    """Get AI analysis for a game"""
-    prompt = f"""Analyze this {request.sport_key} game:
+    """Get ML-based analysis for a game using V5 and V6 algorithms"""
+    # Build event object for analysis
+    event = {
+        "id": request.event_id,
+        "home_team": request.home_team,
+        "away_team": request.away_team,
+        "odds": request.odds_data,
+        "commence_time": datetime.now(timezone.utc).isoformat()
+    }
     
-{request.home_team} vs {request.away_team}
-
-Current Odds Data:
-{format_odds_for_analysis(request.odds_data)}
-
-{"Line Movement History:" + str(request.line_movement) if request.line_movement else ""}
-
-Provide analysis on:
-1. Which side has value based on odds comparison
-2. Why lines may be moving (if applicable)
-3. Sharp vs public money indicators
-4. Your recommended bet with reasoning
-5. Confidence level (1-10)"""
-
-    # Get analysis from both models
-    gpt_analysis = await get_ai_analysis(prompt, "gpt-5.2")
-    claude_analysis = await get_ai_analysis(prompt, "claude")
+    # Get matchup data
+    matchup_data = {
+        "home_team": {"name": request.home_team, "form": {}, "stats": {}},
+        "away_team": {"name": request.away_team, "form": {}, "stats": {}},
+        "odds": request.odds_data
+    }
+    
+    # Get line movement history
+    line_history = request.line_movement or []
+    opening_odds = {}
+    current_odds = request.odds_data or {}
+    
+    # Run V6 analysis (comprehensive ML-based)
+    try:
+        v6_result = await generate_v6_prediction(
+            event=event,
+            sport_key=request.sport_key,
+            squad_data={"home_team": {"injuries": []}, "away_team": {"injuries": []}},
+            matchup_data=matchup_data,
+            line_movement_history=line_history,
+            opening_odds=opening_odds,
+            current_odds=current_odds
+        )
+    except Exception as e:
+        v6_result = {"error": str(e), "has_pick": False}
+    
+    # Run V5 analysis (line movement focused)
+    try:
+        v5_result = await generate_v5_prediction(
+            event=event,
+            sport_key=request.sport_key,
+            squad_data={"home_team": {"injuries": []}, "away_team": {"injuries": []}},
+            matchup_data=matchup_data,
+            line_movement_history=line_history,
+            opening_odds=opening_odds,
+            current_odds=current_odds
+        )
+    except Exception as e:
+        v5_result = {"error": str(e), "has_pick": False}
     
     return {
         "event_id": request.event_id,
         "home_team": request.home_team,
         "away_team": request.away_team,
-        "gpt_analysis": gpt_analysis,
-        "claude_analysis": claude_analysis,
+        "v5_analysis": v5_result,
+        "v6_analysis": v6_result,
+        "analysis_type": "ML-based (V5 Line Movement + V6 Ensemble)",
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
