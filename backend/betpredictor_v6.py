@@ -814,7 +814,7 @@ class BetPredictorV6:
             "edge": round(edge * 100, 1),
             "model_agreement": round(agreement * 100, 1),
             "models_in_consensus": ensemble_result.get("num_models", 5),
-            "reasoning": "\\n".join(reasoning_parts),
+            "reasoning": "\n".join(reasoning_parts),
             "key_factors": key_factors,
             "ensemble_details": ensemble_result,
             "simulation_data": simulation,
