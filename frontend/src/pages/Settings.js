@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { 
   Settings as SettingsIcon, Bell, Clock, Save, RefreshCw,
-  TrendingUp, Check, TestTube
+  Check, TestTube, Zap
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
