@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Backend Test Suite for BetPredictor Adaptive Learning System
-Tests the new adaptive learning endpoints that allow ML models to learn and improve from past results.
+Backend Test Suite for BetPredictor API
+Tests the Matchup, Starting Lineup, and Roster API endpoints with REAL ESPN data.
+Also includes Adaptive Learning System tests.
 """
 
 import asyncio
