@@ -620,9 +620,7 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus:
-    - "Matchup API endpoints"
-    - "Starting Lineup API"
+  current_focus: []
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
