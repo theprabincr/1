@@ -227,14 +227,14 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
     fetchEventDetails();
   }, [event.id, sportKey]);
 
-  const espnOdds = event.odds || {};
+  const eventOdds = event.odds || {};
   const bookmakers = event.bookmakers || [];
   const bestOdds = getBestOdds(bookmakers, event.home_team, event.away_team);
   
-  const homeML = espnOdds.home_ml_decimal || bestOdds.home;
-  const awayML = espnOdds.away_ml_decimal || bestOdds.away;
-  const spread = espnOdds.spread ?? bestOdds.spread;
-  const total = espnOdds.total ?? bestOdds.total;
+  const homeML = eventOdds.home_ml_decimal || bestOdds.home;
+  const awayML = eventOdds.away_ml_decimal || bestOdds.away;
+  const spread = eventOdds.spread ?? bestOdds.spread;
+  const total = eventOdds.total ?? bestOdds.total;
 
   // Generate potential starters based on sport
   const generateStarters = (team, isHome) => {
