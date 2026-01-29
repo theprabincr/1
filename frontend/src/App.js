@@ -136,10 +136,6 @@ const Sidebar = () => {
       
       <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-zinc-800 space-y-2">
         <div className="flex items-center gap-3 text-sm">
-          <Globe className="w-4 h-4 text-brand-primary" />
-          <span className="text-text-muted">Source: <span className="text-brand-primary font-medium">ESPN</span></span>
-        </div>
-        <div className="flex items-center gap-3 text-sm">
           <Activity className="w-4 h-4 text-semantic-success" />
           <span className="text-text-muted">Status: <span className="text-semantic-success">Live</span></span>
         </div>
