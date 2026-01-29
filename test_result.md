@@ -552,13 +552,13 @@ frontend:
 
 metadata:
   created_by: "main_agent"
-  version: "5.0"
-  test_sequence: 8
+  version: "6.0"
+  test_sequence: 9
   run_ui: false
 
 test_plan:
   current_focus:
-    - "BetPredictor V5 Comprehensive Analysis"
+    - "BetPredictor V6 Advanced Algorithm"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -576,3 +576,5 @@ agent_communication:
     message: "✅ LINE MOVEMENT TRACKING REVIEW TESTS COMPLETE: All 4 requested endpoints working perfectly. (1) Line Movement Endpoint (GET /api/line-movement/{event_id}?sport_key=basketball_nba) returns complete structure with opening_odds (ML home/away, spread, total, timestamp), current_odds (ML, spread, total), and chart_data with moneyline (1 entry), spread (1 entry), and totals (1 entry) arrays. (2) V5 Analysis Endpoint (POST /api/analyze-v5/{event_id}?sport_key=basketball_nba) returns prediction with market_analysis containing ml, spread, totals sections, algorithm='betpredictor_v5', and factor_count>=0. (3) Predictions Check (GET /api/predictions/smart-v4) shows stats.pending=0 and stats.total=0 (no premature predictions). (4) Data Source Status (GET /api/data-source-status) confirms source='ESPN/DraftKings' and lineMovementSnapshots=13>0. All response structures verified correct and match specifications. Overall test success rate: 86.7% (85/98 tests passed). Minor failures in non-core endpoints (API keys, bankroll, analytics) - all core line movement and prediction functionality working perfectly."
   - agent: "testing"
     message: "✅ COMPREHENSIVE LINE MOVEMENT TRACKING TESTING COMPLETE: All 4 review request endpoints tested successfully with detailed verification. (1) Line Movement API (GET /api/line-movement/{event_id}?sport_key=basketball_nba) - VERIFIED: opening_odds.ml has home/away values (1.46/2.8), opening_odds.spread and total are numeric, current_odds contains ml/spread/total, chart_data has moneyline (6 entries), spread (6 entries), totals (6 entries) arrays. (2) V5 Analysis (POST /api/analyze-v5/{event_id}?sport_key=basketball_nba) - VERIFIED: market_analysis contains ml, spread, totals sections each with direction and sharp_side fields, algorithm='betpredictor_v5'. (3) Predictions Check (GET /api/predictions/smart-v4) - VERIFIED: stats.pending=0 (no premature predictions). (4) Dashboard Stats endpoint NOT FOUND (404) - this endpoint doesn't exist in backend. NOTE: 13 non-core endpoints failed (API keys, bankroll, analytics) but ALL CORE LINE MOVEMENT AND PREDICTION FUNCTIONALITY WORKING PERFECTLY. Success rate: 86.7% (85/98 tests). All requested review criteria met successfully."
+  - agent: "main"
+    message: "🚀 BETPREDICTOR V6 IMPLEMENTED: Comprehensive advanced algorithm with all 3 phases. Created 7 new modules: (1) advanced_metrics.py - ELO ratings with dynamic updates, NBA Four Factors, NFL efficiency, NHL possession metrics, (2) context_analyzer.py - Rest days (B2B/well-rested), travel distance (Haversine formula), timezone shifts, altitude advantages, schedule congestion, (3) injury_analyzer.py - Position-based importance (QB 2.0x, Goalie 1.5x), severity multipliers, smart impact scoring, (4) market_psychology.py - Public bias detection (5 types), contrarian opportunities, market efficiency, (5) simulation_engine.py - Monte Carlo 1000+ sims, Poisson for low-scoring sports, confidence intervals, (6) ml_models.py - Logistic regression with 10+ features, 5-model ensemble voting, Kelly Criterion, performance tracking with Brier scores, (7) betpredictor_v6.py - Main orchestrator combining all components. NEW ENDPOINTS: GET /api/predictions/v6, POST /api/analyze-v6/{event_id}, GET /api/predictions/comparison (updated for V5 vs V6), GET /api/model-performance. V6 FEATURES: Conservative approach (3/5 models must agree, 65% ensemble confidence, 4% edge minimum), dynamic weight adjustment based on model performance, sport-specific optimizations (NBA/NFL/NHL focus), comprehensive reasoning with multi-model consensus. V5 PRESERVED - both algorithms available. Ready for testing."
