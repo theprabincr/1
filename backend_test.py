@@ -14,7 +14,331 @@ from typing import Dict, Any, List
 # Backend URL from frontend .env
 BASE_URL = "https://project-navigator-11.preview.emergentagent.com/api"
 
-class AdaptiveLearningTester:
+class BetPredictorTester:
+    def __init__(self):
+        self.session = None
+        self.test_results = []
+        
+    async def __aenter__(self):
+        self.session = aiohttp.ClientSession()
+        return self
+        
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self.session:
+            await self.session.close()
+    
+    def log_test(self, test_name: str, status: str, details: str = "", response_data: Any = None):
+        """Log test result"""
+        result = {
+            "test": test_name,
+            "status": status,
+            "details": details,
+            "timestamp": datetime.now().isoformat(),
+            "response_data": response_data
+        }
+        self.test_results.append(result)
+        
+        status_emoji = "✅" if status == "PASS" else "❌" if status == "FAIL" else "⚠️"
+        print(f"{status_emoji} {test_name}: {status}")
+        if details:
+            print(f"   Details: {details}")
+        if response_data and status == "FAIL":
+            print(f"   Response: {json.dumps(response_data, indent=2)}")
+        print()
+    
+    async def make_request(self, method: str, endpoint: str, **kwargs) -> tuple[int, Dict]:
+        """Make HTTP request and return status code and response data"""
+        url = f"{BASE_URL}{endpoint}"
+        try:
+            async with self.session.request(method, url, **kwargs) as response:
+                status_code = response.status
+                try:
+                    data = await response.json()
+                except:
+                    data = {"error": "Invalid JSON response", "text": await response.text()}
+                return status_code, data
+        except Exception as e:
+            return 0, {"error": str(e)}
+    
+    # ==================== MATCHUP & LINEUP TESTS ====================
+    
+    async def test_matchup_endpoint(self):
+        """Test GET /api/matchup/{event_id}?sport_key=basketball_nba with event_id 401810535"""
+        event_id = "401810535"
+        status_code, data = await self.make_request("GET", f"/matchup/{event_id}?sport_key=basketball_nba")
+        
+        if status_code != 200:
+            self.log_test("Matchup API", "FAIL", 
+                         f"Expected 200, got {status_code}", data)
+            return
+        
+        # Check required top-level fields
+        required_fields = ["event_id", "sport_key", "commence_time", "venue", "home_team", "away_team", "lineup_status", "lineup_message"]
+        missing_fields = [field for field in required_fields if field not in data]
+        
+        if missing_fields:
+            self.log_test("Matchup API", "FAIL", 
+                         f"Missing required fields: {missing_fields}", data)
+            return
+        
+        # Check event_id matches
+        if data.get("event_id") != event_id:
+            self.log_test("Matchup API", "FAIL", 
+                         f"Expected event_id '{event_id}', got '{data.get('event_id')}'", data)
+            return
+        
+        # Check sport_key matches
+        if data.get("sport_key") != "basketball_nba":
+            self.log_test("Matchup API", "FAIL", 
+                         f"Expected sport_key 'basketball_nba', got '{data.get('sport_key')}'", data)
+            return
+        
+        # Check home_team structure
+        home_team = data.get("home_team", {})
+        required_home_fields = ["name", "id", "stats", "form", "recent_games", "roster", "injuries", "starters", "starters_confirmed"]
+        missing_home_fields = [field for field in required_home_fields if field not in home_team]
+        
+        if missing_home_fields:
+            self.log_test("Matchup API", "FAIL", 
+                         f"Missing home_team fields: {missing_home_fields}", data)
+            return
+        
+        # Check away_team structure
+        away_team = data.get("away_team", {})
+        required_away_fields = ["name", "id", "stats", "form", "recent_games", "roster", "injuries", "starters", "starters_confirmed"]
+        missing_away_fields = [field for field in required_away_fields if field not in away_team]
+        
+        if missing_away_fields:
+            self.log_test("Matchup API", "FAIL", 
+                         f"Missing away_team fields: {missing_away_fields}", data)
+            return
+        
+        # Check venue structure
+        venue = data.get("venue", {})
+        if not isinstance(venue, dict):
+            self.log_test("Matchup API", "FAIL", 
+                         f"Expected venue to be a dict, got {type(venue)}", data)
+            return
+        
+        # Check roster structure for both teams
+        home_roster = home_team.get("roster", {})
+        away_roster = away_team.get("roster", {})
+        
+        for team_name, roster in [("home", home_roster), ("away", away_roster)]:
+            if not isinstance(roster, dict):
+                self.log_test("Matchup API", "FAIL", 
+                             f"Expected {team_name} roster to be a dict, got {type(roster)}", data)
+                return
+            
+            roster_fields = ["players", "key_players", "total_players"]
+            missing_roster_fields = [field for field in roster_fields if field not in roster]
+            if missing_roster_fields:
+                self.log_test("Matchup API", "FAIL", 
+                             f"Missing {team_name} roster fields: {missing_roster_fields}", data)
+                return
+        
+        # Check injuries are arrays
+        home_injuries = home_team.get("injuries", [])
+        away_injuries = away_team.get("injuries", [])
+        
+        if not isinstance(home_injuries, list):
+            self.log_test("Matchup API", "FAIL", 
+                         f"Expected home_team injuries to be a list, got {type(home_injuries)}", data)
+            return
+        
+        if not isinstance(away_injuries, list):
+            self.log_test("Matchup API", "FAIL", 
+                         f"Expected away_team injuries to be a list, got {type(away_injuries)}", data)
+            return
+        
+        # Check if we have REAL injury data (should contain real player names)
+        all_injuries = home_injuries + away_injuries
+        real_injury_indicators = ["Joel Embiid", "Paul George", "Out", "Day-To-Day", "Questionable", "Probable"]
+        has_real_injuries = any(
+            any(indicator in str(injury).replace("-", " ") for indicator in real_injury_indicators)
+            for injury in all_injuries
+        )
+        
+        # Check lineup_status is valid
+        valid_lineup_statuses = ["not_available", "projected", "confirmed"]
+        lineup_status = data.get("lineup_status")
+        if lineup_status not in valid_lineup_statuses:
+            self.log_test("Matchup API", "FAIL", 
+                         f"Expected lineup_status to be one of {valid_lineup_statuses}, got '{lineup_status}'", data)
+            return
+        
+        # Check commence_time is ISO format
+        commence_time = data.get("commence_time", "")
+        if not commence_time or "T" not in commence_time:
+            self.log_test("Matchup API", "FAIL", 
+                         f"Expected commence_time in ISO format, got '{commence_time}'", data)
+            return
+        
+        injury_status = "with REAL injuries" if has_real_injuries else "no real injuries found"
+        self.log_test("Matchup API", "PASS", 
+                     f"Event: {data.get('event_id')}, Teams: {home_team.get('name')} vs {away_team.get('name')}, "
+                     f"Lineup: {lineup_status}, Injuries: {len(all_injuries)} ({injury_status})")
+    
+    async def test_starting_lineup_endpoint(self):
+        """Test GET /api/starting-lineup/{event_id}?sport_key=basketball_nba with event_id 401810535"""
+        event_id = "401810535"
+        status_code, data = await self.make_request("GET", f"/starting-lineup/{event_id}?sport_key=basketball_nba")
+        
+        if status_code != 200:
+            self.log_test("Starting Lineup API", "FAIL", 
+                         f"Expected 200, got {status_code}", data)
+            return
+        
+        # Check required fields
+        required_fields = ["home", "away", "lineup_status", "message", "event_id"]
+        missing_fields = [field for field in required_fields if field not in data]
+        
+        if missing_fields:
+            self.log_test("Starting Lineup API", "FAIL", 
+                         f"Missing required fields: {missing_fields}", data)
+            return
+        
+        # Check event_id matches
+        if data.get("event_id") != event_id:
+            self.log_test("Starting Lineup API", "FAIL", 
+                         f"Expected event_id '{event_id}', got '{data.get('event_id')}'", data)
+            return
+        
+        # Check home and away structure
+        home = data.get("home", {})
+        away = data.get("away", {})
+        
+        for team_name, team_data in [("home", home), ("away", away)]:
+            if not isinstance(team_data, dict):
+                self.log_test("Starting Lineup API", "FAIL", 
+                             f"Expected {team_name} to be a dict, got {type(team_data)}", data)
+                return
+            
+            team_fields = ["team", "starters", "confirmed"]
+            missing_team_fields = [field for field in team_fields if field not in team_data]
+            if missing_team_fields:
+                self.log_test("Starting Lineup API", "FAIL", 
+                             f"Missing {team_name} fields: {missing_team_fields}", data)
+                return
+            
+            # Check starters is a list
+            starters = team_data.get("starters", [])
+            if not isinstance(starters, list):
+                self.log_test("Starting Lineup API", "FAIL", 
+                             f"Expected {team_name} starters to be a list, got {type(starters)}", data)
+                return
+            
+            # Check confirmed is a boolean
+            confirmed = team_data.get("confirmed")
+            if not isinstance(confirmed, bool):
+                self.log_test("Starting Lineup API", "FAIL", 
+                             f"Expected {team_name} confirmed to be a boolean, got {type(confirmed)}", data)
+                return
+        
+        # Check lineup_status is valid
+        valid_lineup_statuses = ["not_available", "projected", "confirmed"]
+        lineup_status = data.get("lineup_status")
+        if lineup_status not in valid_lineup_statuses:
+            self.log_test("Starting Lineup API", "FAIL", 
+                         f"Expected lineup_status to be one of {valid_lineup_statuses}, got '{lineup_status}'", data)
+            return
+        
+        # Check message is a string
+        message = data.get("message", "")
+        if not isinstance(message, str):
+            self.log_test("Starting Lineup API", "FAIL", 
+                         f"Expected message to be a string, got {type(message)}", data)
+            return
+        
+        home_starters_count = len(home.get("starters", []))
+        away_starters_count = len(away.get("starters", []))
+        
+        self.log_test("Starting Lineup API", "PASS", 
+                     f"Event: {event_id}, Home: {home.get('team')} ({home_starters_count} starters, confirmed: {home.get('confirmed')}), "
+                     f"Away: {away.get('team')} ({away_starters_count} starters, confirmed: {away.get('confirmed')}), "
+                     f"Status: {lineup_status}")
+    
+    async def test_roster_endpoint(self):
+        """Test GET /api/roster/{team_name}?sport_key=basketball_nba with Philadelphia 76ers"""
+        team_name = "Philadelphia%2076ers"  # URL encoded
+        status_code, data = await self.make_request("GET", f"/roster/{team_name}?sport_key=basketball_nba")
+        
+        if status_code != 200:
+            self.log_test("Roster API", "FAIL", 
+                         f"Expected 200, got {status_code}", data)
+            return
+        
+        # Check required fields
+        required_fields = ["team", "sport_key", "players", "injuries", "key_players", "total_players"]
+        missing_fields = [field for field in required_fields if field not in data]
+        
+        if missing_fields:
+            self.log_test("Roster API", "FAIL", 
+                         f"Missing required fields: {missing_fields}", data)
+            return
+        
+        # Check team name contains "Philadelphia 76ers"
+        team = data.get("team", "")
+        if "Philadelphia" not in team or "76ers" not in team:
+            self.log_test("Roster API", "FAIL", 
+                         f"Expected team to contain 'Philadelphia 76ers', got '{team}'", data)
+            return
+        
+        # Check sport_key matches
+        if data.get("sport_key") != "basketball_nba":
+            self.log_test("Roster API", "FAIL", 
+                         f"Expected sport_key 'basketball_nba', got '{data.get('sport_key')}'", data)
+            return
+        
+        # Check players is an array
+        players = data.get("players", [])
+        if not isinstance(players, list):
+            self.log_test("Roster API", "FAIL", 
+                         f"Expected players to be a list, got {type(players)}", data)
+            return
+        
+        # Check injuries is an array
+        injuries = data.get("injuries", [])
+        if not isinstance(injuries, list):
+            self.log_test("Roster API", "FAIL", 
+                         f"Expected injuries to be a list, got {type(injuries)}", data)
+            return
+        
+        # Check key_players is an array
+        key_players = data.get("key_players", [])
+        if not isinstance(key_players, list):
+            self.log_test("Roster API", "FAIL", 
+                         f"Expected key_players to be a list, got {type(key_players)}", data)
+            return
+        
+        # Check total_players is a number > 0
+        total_players = data.get("total_players", 0)
+        if not isinstance(total_players, (int, float)) or total_players <= 0:
+            self.log_test("Roster API", "FAIL", 
+                         f"Expected total_players to be a number > 0, got {total_players}", data)
+            return
+        
+        # Check if we have REAL injury data (should contain real player names and statuses)
+        real_injury_indicators = ["Joel Embiid", "Paul George", "Out", "Day-To-Day", "Questionable", "Probable"]
+        has_real_injuries = any(
+            any(indicator in str(injury).replace("-", " ") for indicator in real_injury_indicators)
+            for injury in injuries
+        )
+        
+        # Check if we have real player names (not just mock data)
+        has_real_players = len(players) > 0 and any(
+            len(str(player).split()) >= 2  # Real names typically have first and last name
+            for player in players[:5]  # Check first 5 players
+        )
+        
+        injury_status = "with REAL injuries" if has_real_injuries else "no real injuries found"
+        player_status = "with real player names" if has_real_players else "no real player names"
+        
+        self.log_test("Roster API", "PASS", 
+                     f"Team: {team}, Players: {total_players} ({player_status}), "
+                     f"Injuries: {len(injuries)} ({injury_status}), Key players: {len(key_players)}")
+    
+    # ==================== ADAPTIVE LEARNING TESTS ====================
     def __init__(self):
         self.session = None
         self.test_results = []
