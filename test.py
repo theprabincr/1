@@ -698,7 +698,9 @@ class BetPredictorTester:
             win_rate = data.get("win_rate", 0)
             roi = data.get("roi", 0)
             
-            self.record_test("Performance Stats", total > 0, 
+            # Test passes if we have results (wins + losses > 0)
+            has_results = (wins + losses) > 0
+            self.record_test("Performance Stats", has_results, 
                 f"{wins}W-{losses}L, Win Rate: {win_rate}%, ROI: {roi}%")
         else:
             self.record_test("Performance Stats", False, result.get("error", "Failed"))
