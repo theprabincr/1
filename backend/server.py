@@ -46,6 +46,14 @@ from unified_predictor import generate_unified_prediction, UnifiedBetPredictor
 # Import lineup/roster scraper
 from lineup_scraper import get_matchup_context, fetch_team_roster
 
+# Import Adaptive Learning System for self-improving ML
+from adaptive_learning import (
+    AdaptiveLearningSystem,
+    AdaptiveLogisticRegression,
+    AdaptiveEnsemble,
+    create_adaptive_learning_system
+)
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -53,6 +61,9 @@ load_dotenv(ROOT_DIR / '.env')
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
+
+# Adaptive Learning System (initialized on startup)
+adaptive_learning: AdaptiveLearningSystem = None
 
 # Events cache to reduce scraping (1 hour cache)
 events_cache = {}
