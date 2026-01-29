@@ -676,6 +676,182 @@ async def get_event_details(event_id: str, sport_key: str = "basketball_nba"):
     
     raise HTTPException(status_code=404, detail="Event not found")
 
+
+# ==================== MATCHUP & LINEUP ENDPOINTS ====================
+# Real team data, rosters, injuries, and starting lineups from ESPN
+
+@api_router.get("/matchup/{event_id}")
+async def get_matchup_data(event_id: str, sport_key: str = "basketball_nba"):
+    """
+    Get comprehensive matchup data for an event including:
+    - Team stats and recent form
+    - Full rosters with key players
+    - Injury reports (REAL from ESPN)
+    - Starting lineup (when available - typically 1hr before game)
+    
+    Args:
+        event_id: ESPN event ID
+        sport_key: Sport identifier (basketball_nba, americanfootball_nfl, etc.)
+    
+    Returns:
+        Complete matchup data for both teams
+    """
+    try:
+        # First, get the event details
+        events = await fetch_espn_events_with_odds(sport_key, days_ahead=3)
+        event = next((e for e in events if e.get("id") == event_id or e.get("espn_id") == event_id), None)
+        
+        if not event:
+            raise HTTPException(status_code=404, detail=f"Event {event_id} not found")
+        
+        home_team = event.get("home_team", "")
+        away_team = event.get("away_team", "")
+        
+        logger.info(f"📊 Fetching matchup data: {away_team} @ {home_team}")
+        
+        # Fetch comprehensive matchup data (stats, form, etc.)
+        matchup_data = await get_comprehensive_matchup_data(event, sport_key)
+        
+        # Fetch rosters with starters
+        home_roster_task = get_full_roster_with_starters(home_team, sport_key, event_id)
+        away_roster_task = get_full_roster_with_starters(away_team, sport_key, event_id)
+        
+        home_roster, away_roster = await asyncio.gather(
+            home_roster_task, away_roster_task,
+            return_exceptions=True
+        )
+        
+        if isinstance(home_roster, Exception):
+            home_roster = {"team": home_team, "roster": [], "injuries": [], "starters": []}
+        if isinstance(away_roster, Exception):
+            away_roster = {"team": away_team, "roster": [], "injuries": [], "starters": []}
+        
+        # Fetch starting lineup specifically
+        lineup_data = await fetch_starting_lineup(event_id, sport_key)
+        
+        # Build response
+        response = {
+            "event_id": event_id,
+            "sport_key": sport_key,
+            "commence_time": event.get("commence_time", ""),
+            "venue": event.get("venue", {}),
+            
+            "home_team": {
+                "name": home_team,
+                "id": event.get("home_team_id", ""),
+                "stats": matchup_data.get("home_team", {}).get("stats", {}),
+                "form": matchup_data.get("home_team", {}).get("form", {}),
+                "recent_games": matchup_data.get("home_team", {}).get("recent_games", [])[:5],
+                "roster": {
+                    "players": home_roster.get("roster", [])[:15],  # Top 15 players
+                    "key_players": home_roster.get("key_players", [])[:5],
+                    "total_players": len(home_roster.get("roster", []))
+                },
+                "injuries": home_roster.get("injuries", []),
+                "starters": lineup_data.get("home", {}).get("starters", []) or home_roster.get("starters", []),
+                "starters_confirmed": lineup_data.get("home", {}).get("confirmed", False)
+            },
+            
+            "away_team": {
+                "name": away_team,
+                "id": event.get("away_team_id", ""),
+                "stats": matchup_data.get("away_team", {}).get("stats", {}),
+                "form": matchup_data.get("away_team", {}).get("form", {}),
+                "recent_games": matchup_data.get("away_team", {}).get("recent_games", [])[:5],
+                "roster": {
+                    "players": away_roster.get("roster", [])[:15],
+                    "key_players": away_roster.get("key_players", [])[:5],
+                    "total_players": len(away_roster.get("roster", []))
+                },
+                "injuries": away_roster.get("injuries", []),
+                "starters": lineup_data.get("away", {}).get("starters", []) or away_roster.get("starters", []),
+                "starters_confirmed": lineup_data.get("away", {}).get("confirmed", False)
+            },
+            
+            "lineup_status": lineup_data.get("lineup_status", "not_available"),
+            "lineup_message": lineup_data.get("message", ""),
+            
+            "odds": event.get("odds", {}),
+            "fetched_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching matchup data: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch matchup data: {str(e)}")
+
+
+@api_router.get("/starting-lineup/{event_id}")
+async def get_starting_lineup_endpoint(event_id: str, sport_key: str = "basketball_nba"):
+    """
+    Get starting lineup for a specific game.
+    
+    ESPN typically releases confirmed starting lineups approximately 1 hour before game time.
+    
+    Args:
+        event_id: ESPN event ID
+        sport_key: Sport identifier
+    
+    Returns:
+        Starting lineup for both teams with confirmation status
+    """
+    try:
+        lineup_data = await fetch_starting_lineup(event_id, sport_key)
+        
+        # Get event info for team names
+        events = await fetch_espn_events_with_odds(sport_key, days_ahead=3)
+        event = next((e for e in events if e.get("id") == event_id), None)
+        
+        if event:
+            if not lineup_data["home"]["team"]:
+                lineup_data["home"]["team"] = event.get("home_team", "")
+            if not lineup_data["away"]["team"]:
+                lineup_data["away"]["team"] = event.get("away_team", "")
+            lineup_data["commence_time"] = event.get("commence_time", "")
+        
+        lineup_data["event_id"] = event_id
+        lineup_data["sport_key"] = sport_key
+        lineup_data["fetched_at"] = datetime.now(timezone.utc).isoformat()
+        
+        return lineup_data
+        
+    except Exception as e:
+        logger.error(f"Error fetching starting lineup: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch lineup: {str(e)}")
+
+
+@api_router.get("/roster/{team_name}")
+async def get_team_roster_endpoint(team_name: str, sport_key: str = "basketball_nba"):
+    """
+    Get full roster for a team including injuries.
+    
+    Args:
+        team_name: Team name (e.g., "Los Angeles Lakers")
+        sport_key: Sport identifier
+    
+    Returns:
+        Full team roster with player info and injury status
+    """
+    try:
+        roster = await fetch_team_roster(team_name, sport_key)
+        
+        return {
+            "team": team_name,
+            "sport_key": sport_key,
+            "players": roster.get("players", []),
+            "injuries": roster.get("injuries", []),
+            "key_players": roster.get("key_players", []),
+            "total_players": len(roster.get("players", [])),
+            "fetched_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching roster for {team_name}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch roster: {str(e)}")
+
 @api_router.get("/line-movement/{event_id}")
 async def get_line_movement(event_id: str, sport_key: str = "basketball_nba"):
     """Get line movement history for an event including ALL markets (ML, Spread, Totals)"""
