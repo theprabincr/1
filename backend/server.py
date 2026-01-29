@@ -2066,6 +2066,99 @@ async def get_model_performance():
     }
 
 
+# ==================== ADAPTIVE LEARNING ENDPOINTS ====================
+# Monitor and control the self-improving ML system
+
+@api_router.get("/adaptive-learning/status")
+async def get_adaptive_learning_status():
+    """Get the current status of the adaptive learning system"""
+    if not adaptive_learning:
+        return {"status": "not_initialized", "message": "Adaptive learning system not initialized"}
+    
+    # Get performance summary
+    summary = await adaptive_learning.get_model_performance_summary()
+    
+    # Get current weights for common sports
+    weights = {}
+    for sport in ["basketball_nba", "americanfootball_nfl", "icehockey_nhl"]:
+        weights[sport] = await adaptive_learning.get_current_model_weights(sport)
+    
+    return {
+        "status": "active",
+        "model_performance": summary,
+        "current_weights_by_sport": weights,
+        "description": "The adaptive learning system tracks individual model performance and adjusts weights dynamically"
+    }
+
+
+@api_router.get("/adaptive-learning/model-stats/{sport_key}")
+async def get_model_stats_by_sport(sport_key: str):
+    """Get detailed model statistics for a specific sport"""
+    if not adaptive_learning:
+        raise HTTPException(status_code=503, detail="Adaptive learning system not initialized")
+    
+    summary = await adaptive_learning.get_model_performance_summary(sport_key)
+    current_weights = await adaptive_learning.get_current_model_weights(sport_key)
+    
+    return {
+        "sport_key": sport_key,
+        "model_stats": summary.get("models", {}),
+        "current_weights": current_weights,
+        "best_performer": summary.get("best_performer"),
+        "worst_performer": summary.get("worst_performer"),
+        "total_predictions_tracked": summary.get("total_predictions_tracked", 0)
+    }
+
+
+@api_router.get("/adaptive-learning/rolling-performance/{model_name}")
+async def get_rolling_performance(model_name: str, sport_key: str = "basketball_nba", days: int = 30):
+    """Get rolling performance for a specific model over the last N days"""
+    if not adaptive_learning:
+        raise HTTPException(status_code=503, detail="Adaptive learning system not initialized")
+    
+    performance = await adaptive_learning.get_rolling_performance(model_name, sport_key, days)
+    
+    return performance
+
+
+@api_router.get("/adaptive-learning/calibration")
+async def get_calibration_report(sport_key: Optional[str] = None):
+    """
+    Get calibration report showing predicted vs actual win rates.
+    This helps understand if confidence scores are accurate.
+    """
+    if not adaptive_learning:
+        raise HTTPException(status_code=503, detail="Adaptive learning system not initialized")
+    
+    report = await adaptive_learning.get_calibration_report(sport_key)
+    
+    return {
+        "sport_key": sport_key or "all",
+        "calibration": report
+    }
+
+
+@api_router.get("/adaptive-learning/lr-weights/{sport_key}")
+async def get_lr_weights(sport_key: str):
+    """Get the current learned logistic regression weights for a sport"""
+    if not adaptive_learning:
+        raise HTTPException(status_code=503, detail="Adaptive learning system not initialized")
+    
+    weights = await adaptive_learning.get_lr_weights(sport_key)
+    
+    # Get update count
+    doc = await db.lr_weights.find_one({"sport_key": sport_key})
+    updates = doc.get("updates_count", 0) if doc else 0
+    
+    return {
+        "sport_key": sport_key,
+        "weights": weights,
+        "updates_count": updates,
+        "status": "learned" if updates >= 10 else "using_defaults",
+        "note": "Weights are updated via online learning after each game result"
+    }
+
+
 # ==================== UNIFIED PREDICTOR ENDPOINTS ====================
 # Combines V5 + V6 with V6 weighted 70%
 
