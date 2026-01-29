@@ -276,16 +276,16 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
   const awayStarters = generateStarters(event.away_team, false);
 
   // Generate venue/weather info
-  const venueInfo = event.venue || matchupData?.venue || {
-    name: sportKey.includes('basketball') ? `${event.home_team} Arena` : 
-          sportKey.includes('hockey') ? `${event.home_team} Arena` :
-          `${event.home_team} Stadium`,
-    city: 'United States',
-    indoor: sportKey.includes('basketball') || sportKey.includes('hockey')
+  const baseVenue = event.venue || matchupData?.venue || {};
+  const isIndoorSport = sportKey.includes('basketball') || sportKey.includes('hockey');
+  const venueInfo = {
+    name: baseVenue.name || (isIndoorSport ? `${event.home_team} Arena` : `${event.home_team} Stadium`),
+    city: baseVenue.city || 'United States',
+    indoor: isIndoorSport  // Force indoor based on sport type
   };
 
   // Weather only for outdoor sports (NFL, MLB, Soccer)
-  const isOutdoor = sportKey.includes('football') || sportKey.includes('baseball') || sportKey.includes('soccer');
+  const isOutdoor = !isIndoorSport;
   const weather = isOutdoor ? {
     temp: Math.floor(Math.random() * 30) + 40,
     condition: ['Clear', 'Partly Cloudy', 'Overcast'][Math.floor(Math.random() * 3)],
