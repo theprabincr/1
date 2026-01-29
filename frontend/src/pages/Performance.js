@@ -43,6 +43,8 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color, trend }) => {
 
 // Prediction Row Component
 const PredictionRow = ({ prediction }) => {
+  const FIXED_BANKROLL = 100; // Fixed $100 per bet
+  
   const statusConfig = {
     pending: { color: "text-semantic-warning bg-semantic-warning/10", icon: Clock, label: "PENDING" },
     win: { color: "text-semantic-success bg-semantic-success/10", icon: CheckCircle, label: "WON" },
@@ -53,14 +55,13 @@ const PredictionRow = ({ prediction }) => {
   const status = statusConfig[prediction.result] || statusConfig.pending;
   const StatusIcon = status.icon;
   
-  // Calculate profit/loss for completed predictions
+  // Calculate profit/loss for completed predictions using fixed bankroll
   const odds = prediction.odds_at_prediction || 1.91;
-  const unitStake = 100; // Assume $100 unit for display
   let profit = 0;
   if (prediction.result === 'win') {
-    profit = unitStake * (odds - 1);
+    profit = FIXED_BANKROLL * (odds - 1);
   } else if (prediction.result === 'loss') {
-    profit = -unitStake;
+    profit = -FIXED_BANKROLL;
   }
 
   const formatDate = (dateStr) => {
@@ -91,6 +92,7 @@ const PredictionRow = ({ prediction }) => {
             </span>
             <span className="text-text-muted">@</span>
             <span className="font-mono text-text-primary">{odds.toFixed(2)}</span>
+            <span className="text-xs text-text-muted ml-2 px-2 py-0.5 bg-zinc-700 rounded">$100 bet</span>
           </div>
           {prediction.confidence && (
             <span className={`inline-block mt-2 px-2 py-0.5 rounded text-xs font-bold ${
@@ -108,7 +110,7 @@ const PredictionRow = ({ prediction }) => {
             {status.label}
           </span>
           {prediction.result !== 'pending' && prediction.result !== 'push' && (
-            <p className={`text-sm font-mono ${
+            <p className={`text-sm font-mono font-bold ${
               profit >= 0 ? 'text-semantic-success' : 'text-semantic-danger'
             }`}>
               {profit >= 0 ? '+' : ''}${profit.toFixed(2)}
