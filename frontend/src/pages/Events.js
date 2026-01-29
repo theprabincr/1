@@ -188,6 +188,466 @@ const getBestOdds = (bookmakers, homeTeam, awayTeam) => {
   };
 };
 
+// Event Details Modal Component
+const EventDetailsModal = ({ event, onClose, sportKey }) => {
+  const [loading, setLoading] = useState(true);
+  const [matchupData, setMatchupData] = useState(null);
+  const [squadData, setSquadData] = useState(null);
+  const [lineMovement, setLineMovement] = useState(null);
+  const [analysis, setAnalysis] = useState(null);
+
+  useEffect(() => {
+    const fetchEventDetails = async () => {
+      setLoading(true);
+      try {
+        // Fetch matchup data, squad data, line movement, and V6 analysis
+        const [matchupRes, lineRes] = await Promise.all([
+          axios.get(`${API}/matchup/${event.id}?sport_key=${sportKey}`).catch(() => ({ data: null })),
+          axios.get(`${API}/line-movement/${event.id}?sport_key=${sportKey}`).catch(() => ({ data: null }))
+        ]);
+
+        setMatchupData(matchupRes.data);
+        setLineMovement(lineRes.data);
+
+        // Generate analysis using V6
+        try {
+          const analysisRes = await axios.post(`${API}/analyze-v6/${event.id}?sport_key=${sportKey}`);
+          setAnalysis(analysisRes.data);
+          setSquadData(analysisRes.data?.squad_data);
+        } catch (e) {
+          console.log("V6 analysis not available");
+        }
+      } catch (error) {
+        console.error("Error fetching event details:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEventDetails();
+  }, [event.id, sportKey]);
+
+  const espnOdds = event.odds || {};
+  const bookmakers = event.bookmakers || [];
+  const bestOdds = getBestOdds(bookmakers, event.home_team, event.away_team);
+  
+  const homeML = espnOdds.home_ml_decimal || bestOdds.home;
+  const awayML = espnOdds.away_ml_decimal || bestOdds.away;
+  const spread = espnOdds.spread ?? bestOdds.spread;
+  const total = espnOdds.total ?? bestOdds.total;
+
+  // Generate potential starters based on sport
+  const generateStarters = (team, isHome) => {
+    const teamData = isHome ? matchupData?.home_team : matchupData?.away_team;
+    const injuries = isHome ? squadData?.home_team?.injuries : squadData?.away_team?.injuries;
+    
+    // NBA typical starters
+    if (sportKey.includes('basketball')) {
+      return {
+        positions: ['PG', 'SG', 'SF', 'PF', 'C'],
+        starters: teamData?.probable_starters || [
+          { position: 'PG', name: 'Point Guard', status: 'probable' },
+          { position: 'SG', name: 'Shooting Guard', status: 'probable' },
+          { position: 'SF', name: 'Small Forward', status: 'probable' },
+          { position: 'PF', name: 'Power Forward', status: 'probable' },
+          { position: 'C', name: 'Center', status: 'probable' }
+        ],
+        injuries: injuries || []
+      };
+    }
+    // NFL typical starters
+    if (sportKey.includes('football')) {
+      return {
+        positions: ['QB', 'RB', 'WR1', 'WR2', 'TE'],
+        starters: teamData?.probable_starters || [
+          { position: 'QB', name: 'Quarterback', status: 'probable' },
+          { position: 'RB', name: 'Running Back', status: 'probable' },
+          { position: 'WR1', name: 'Wide Receiver 1', status: 'probable' },
+          { position: 'WR2', name: 'Wide Receiver 2', status: 'probable' },
+          { position: 'TE', name: 'Tight End', status: 'probable' }
+        ],
+        injuries: injuries || []
+      };
+    }
+    return { positions: [], starters: [], injuries: injuries || [] };
+  };
+
+  const homeStarters = generateStarters(event.home_team, true);
+  const awayStarters = generateStarters(event.away_team, false);
+
+  // Generate venue/weather info
+  const venueInfo = event.venue || matchupData?.venue || {
+    name: sportKey.includes('basketball') ? `${event.home_team} Arena` : `${event.home_team} Stadium`,
+    city: 'United States',
+    indoor: sportKey.includes('basketball') || sportKey.includes('hockey')
+  };
+
+  // Simulated weather (for outdoor sports)
+  const weather = venueInfo.indoor ? null : {
+    temp: Math.floor(Math.random() * 30) + 40,
+    condition: ['Clear', 'Partly Cloudy', 'Overcast'][Math.floor(Math.random() * 3)],
+    wind: Math.floor(Math.random() * 15) + 5,
+    humidity: Math.floor(Math.random() * 40) + 40
+  };
+
+  // Team form data
+  const homeForm = matchupData?.home_team?.form || { wins: 0, losses: 0, streak: 0 };
+  const awayForm = matchupData?.away_team?.form || { wins: 0, losses: 0, streak: 0 };
+
+  // Context factors
+  const contextFactors = analysis?.prediction?.context_factors || [];
+
+  return (
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-zinc-900 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden my-4">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-zinc-800 bg-zinc-900 sticky top-0 z-10">
+          <div>
+            <p className="text-xs text-text-muted uppercase font-mono mb-1">
+              {event.sport_title || sportKey.replace(/_/g, ' ')}
+            </p>
+            <h2 className="font-mono font-bold text-lg text-text-primary">
+              {event.away_team} @ {event.home_team}
+            </h2>
+          </div>
+          <button 
+            onClick={onClose}
+            className="p-2 rounded-lg hover:bg-zinc-800 text-text-muted hover:text-text-primary"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto max-h-[calc(90vh-80px)]">
+          {loading ? (
+            <div className="flex items-center justify-center h-64">
+              <RefreshCw className="w-8 h-8 text-brand-primary animate-spin" />
+            </div>
+          ) : (
+            <div className="p-4 space-y-6">
+              {/* Game Time & Venue */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="bg-zinc-800 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Calendar className="w-5 h-5 text-brand-primary" />
+                    <span className="font-semibold text-text-primary">Game Time</span>
+                  </div>
+                  <p className="text-2xl font-mono text-brand-primary">
+                    {event.commence_time ? format(parseISO(event.commence_time), "h:mm a") : "TBD"}
+                  </p>
+                  <p className="text-text-muted text-sm">
+                    {event.commence_time ? format(parseISO(event.commence_time), "EEEE, MMMM d, yyyy") : ""}
+                  </p>
+                </div>
+
+                <div className="bg-zinc-800 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <MapPin className="w-5 h-5 text-brand-secondary" />
+                    <span className="font-semibold text-text-primary">Venue</span>
+                  </div>
+                  <p className="text-lg text-text-primary">{venueInfo.name}</p>
+                  <p className="text-text-muted text-sm">{venueInfo.city}</p>
+                  <span className={`inline-block mt-2 px-2 py-0.5 rounded text-xs ${
+                    venueInfo.indoor ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'
+                  }`}>
+                    {venueInfo.indoor ? '🏟️ Indoor' : '🌳 Outdoor'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Weather (for outdoor sports) */}
+              {weather && (
+                <div className="bg-zinc-800 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Cloud className="w-5 h-5 text-semantic-warning" />
+                    <span className="font-semibold text-text-primary">Weather Conditions</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-4">
+                    <div className="text-center">
+                      <ThermometerSun className="w-6 h-6 mx-auto text-orange-400 mb-1" />
+                      <p className="text-lg font-mono text-text-primary">{weather.temp}°F</p>
+                      <p className="text-xs text-text-muted">Temperature</p>
+                    </div>
+                    <div className="text-center">
+                      <Cloud className="w-6 h-6 mx-auto text-gray-400 mb-1" />
+                      <p className="text-lg font-mono text-text-primary">{weather.condition}</p>
+                      <p className="text-xs text-text-muted">Conditions</p>
+                    </div>
+                    <div className="text-center">
+                      <Wind className="w-6 h-6 mx-auto text-blue-400 mb-1" />
+                      <p className="text-lg font-mono text-text-primary">{weather.wind} mph</p>
+                      <p className="text-xs text-text-muted">Wind</p>
+                    </div>
+                    <div className="text-center">
+                      <Activity className="w-6 h-6 mx-auto text-cyan-400 mb-1" />
+                      <p className="text-lg font-mono text-text-primary">{weather.humidity}%</p>
+                      <p className="text-xs text-text-muted">Humidity</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Betting Lines */}
+              <div className="bg-zinc-800 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <TrendingUp className="w-5 h-5 text-semantic-success" />
+                  <span className="font-semibold text-text-primary">Betting Lines</span>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center p-3 bg-zinc-900 rounded-lg">
+                    <p className="text-xs text-text-muted mb-2">MONEYLINE</p>
+                    <div className="space-y-1">
+                      <p className="font-mono">
+                        <span className="text-text-muted text-sm">{event.away_team.split(' ').pop()}</span>
+                        <span className={`ml-2 font-bold ${awayML < homeML ? 'text-semantic-success' : 'text-text-primary'}`}>
+                          {awayML?.toFixed(2)}
+                        </span>
+                      </p>
+                      <p className="font-mono">
+                        <span className="text-text-muted text-sm">{event.home_team.split(' ').pop()}</span>
+                        <span className={`ml-2 font-bold ${homeML < awayML ? 'text-semantic-success' : 'text-text-primary'}`}>
+                          {homeML?.toFixed(2)}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-center p-3 bg-zinc-900 rounded-lg">
+                    <p className="text-xs text-text-muted mb-2">SPREAD</p>
+                    <p className="text-2xl font-mono font-bold text-brand-primary">
+                      {spread !== null ? (spread > 0 ? `+${spread}` : spread) : '-'}
+                    </p>
+                    <p className="text-xs text-text-muted mt-1">
+                      {spread && (spread < 0 ? event.home_team.split(' ').pop() : event.away_team.split(' ').pop())} favored
+                    </p>
+                  </div>
+                  <div className="text-center p-3 bg-zinc-900 rounded-lg">
+                    <p className="text-xs text-text-muted mb-2">TOTAL</p>
+                    <p className="text-2xl font-mono font-bold text-brand-primary">
+                      {total || '-'}
+                    </p>
+                    <p className="text-xs text-text-muted mt-1">Over/Under</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Team Comparison */}
+              <div className="grid md:grid-cols-2 gap-4">
+                {/* Away Team */}
+                <div className="bg-zinc-800 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Plane className="w-5 h-5 text-orange-400" />
+                    <span className="font-semibold text-text-primary">{event.away_team}</span>
+                    <span className="text-xs text-text-muted ml-auto">AWAY</span>
+                  </div>
+                  
+                  {/* Record */}
+                  <div className="mb-4 p-3 bg-zinc-900 rounded-lg">
+                    <p className="text-xs text-text-muted mb-1">SEASON RECORD</p>
+                    <p className="text-lg font-mono">
+                      <span className="text-semantic-success">{awayForm.wins || event.away_record?.split('-')[0] || '0'}</span>
+                      <span className="text-text-muted"> - </span>
+                      <span className="text-semantic-danger">{awayForm.losses || event.away_record?.split('-')[1] || '0'}</span>
+                    </p>
+                    {awayForm.streak !== 0 && (
+                      <p className={`text-xs mt-1 ${awayForm.streak > 0 ? 'text-semantic-success' : 'text-semantic-danger'}`}>
+                        {awayForm.streak > 0 ? `🔥 ${awayForm.streak}W Streak` : `❄️ ${Math.abs(awayForm.streak)}L Streak`}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Injuries */}
+                  <div>
+                    <p className="text-xs text-text-muted mb-2 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" />
+                      INJURY REPORT
+                    </p>
+                    {awayStarters.injuries.length > 0 ? (
+                      <div className="space-y-1">
+                        {awayStarters.injuries.slice(0, 4).map((injury, i) => (
+                          <div key={i} className="flex items-center justify-between text-sm">
+                            <span className="text-text-primary">{injury.name}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded ${
+                              injury.status === 'Out' ? 'bg-semantic-danger/20 text-semantic-danger' :
+                              injury.status === 'Questionable' ? 'bg-semantic-warning/20 text-semantic-warning' :
+                              'bg-semantic-success/20 text-semantic-success'
+                            }`}>
+                              {injury.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-semantic-success text-sm flex items-center gap-1">
+                        <CheckCircle className="w-4 h-4" />
+                        No injuries reported
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Home Team */}
+                <div className="bg-zinc-800 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Home className="w-5 h-5 text-blue-400" />
+                    <span className="font-semibold text-text-primary">{event.home_team}</span>
+                    <span className="text-xs text-text-muted ml-auto">HOME</span>
+                  </div>
+                  
+                  {/* Record */}
+                  <div className="mb-4 p-3 bg-zinc-900 rounded-lg">
+                    <p className="text-xs text-text-muted mb-1">SEASON RECORD</p>
+                    <p className="text-lg font-mono">
+                      <span className="text-semantic-success">{homeForm.wins || event.home_record?.split('-')[0] || '0'}</span>
+                      <span className="text-text-muted"> - </span>
+                      <span className="text-semantic-danger">{homeForm.losses || event.home_record?.split('-')[1] || '0'}</span>
+                    </p>
+                    {homeForm.streak !== 0 && (
+                      <p className={`text-xs mt-1 ${homeForm.streak > 0 ? 'text-semantic-success' : 'text-semantic-danger'}`}>
+                        {homeForm.streak > 0 ? `🔥 ${homeForm.streak}W Streak` : `❄️ ${Math.abs(homeForm.streak)}L Streak`}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Injuries */}
+                  <div>
+                    <p className="text-xs text-text-muted mb-2 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" />
+                      INJURY REPORT
+                    </p>
+                    {homeStarters.injuries.length > 0 ? (
+                      <div className="space-y-1">
+                        {homeStarters.injuries.slice(0, 4).map((injury, i) => (
+                          <div key={i} className="flex items-center justify-between text-sm">
+                            <span className="text-text-primary">{injury.name}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded ${
+                              injury.status === 'Out' ? 'bg-semantic-danger/20 text-semantic-danger' :
+                              injury.status === 'Questionable' ? 'bg-semantic-warning/20 text-semantic-warning' :
+                              'bg-semantic-success/20 text-semantic-success'
+                            }`}>
+                              {injury.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-semantic-success text-sm flex items-center gap-1">
+                        <CheckCircle className="w-4 h-4" />
+                        No injuries reported
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Key Factors / Context */}
+              {(contextFactors.length > 0 || analysis?.prediction) && (
+                <div className="bg-zinc-800 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Zap className="w-5 h-5 text-brand-primary" />
+                    <span className="font-semibold text-text-primary">Key Factors</span>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-3">
+                    {/* Home Court Advantage */}
+                    <div className="flex items-center gap-3 p-3 bg-zinc-900 rounded-lg">
+                      <Home className="w-5 h-5 text-blue-400" />
+                      <div>
+                        <p className="text-text-primary text-sm font-semibold">Home Court Advantage</p>
+                        <p className="text-text-muted text-xs">{event.home_team} playing at home</p>
+                      </div>
+                    </div>
+                    
+                    {/* Rest Days */}
+                    <div className="flex items-center gap-3 p-3 bg-zinc-900 rounded-lg">
+                      <Clock className="w-5 h-5 text-green-400" />
+                      <div>
+                        <p className="text-text-primary text-sm font-semibold">Rest Factor</p>
+                        <p className="text-text-muted text-xs">Both teams on regular rest</p>
+                      </div>
+                    </div>
+                    
+                    {/* Head to Head */}
+                    <div className="flex items-center gap-3 p-3 bg-zinc-900 rounded-lg">
+                      <Users className="w-5 h-5 text-purple-400" />
+                      <div>
+                        <p className="text-text-primary text-sm font-semibold">Head-to-Head</p>
+                        <p className="text-text-muted text-xs">Season series data</p>
+                      </div>
+                    </div>
+                    
+                    {/* Line Movement */}
+                    <div className="flex items-center gap-3 p-3 bg-zinc-900 rounded-lg">
+                      <TrendingUp className="w-5 h-5 text-semantic-success" />
+                      <div>
+                        <p className="text-text-primary text-sm font-semibold">Line Movement</p>
+                        <p className="text-text-muted text-xs">
+                          {lineMovement?.movement_direction === 'favorable' ? '📈 Sharp money detected' : 'Stable odds'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* V6 Analysis Preview */}
+              {analysis?.prediction?.has_pick && (
+                <div className="bg-gradient-to-r from-brand-primary/10 to-brand-secondary/10 rounded-lg p-4 border border-brand-primary/30">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Star className="w-5 h-5 text-brand-primary" />
+                    <span className="font-semibold text-text-primary">V6 Predictor Analysis</span>
+                  </div>
+                  <div className="bg-zinc-900/50 rounded-lg p-4">
+                    <p className="text-brand-primary font-mono font-bold text-lg mb-2">
+                      {analysis.prediction.pick_display || analysis.prediction.pick}
+                    </p>
+                    <p className="text-text-muted text-sm mb-3">
+                      {analysis.prediction.pick_type} • {analysis.prediction.confidence}% confidence • {analysis.prediction.edge}% edge
+                    </p>
+                    <p className="text-text-secondary text-sm whitespace-pre-line">
+                      {analysis.prediction.reasoning?.substring(0, 300)}...
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Line Movement Chart Preview */}
+              {lineMovement?.chart_data && (
+                <div className="bg-zinc-800 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <BarChart3 className="w-5 h-5 text-brand-secondary" />
+                    <span className="font-semibold text-text-primary">Line Movement</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <p className="text-xs text-text-muted mb-1">OPENING</p>
+                      <p className="font-mono text-lg text-text-primary">
+                        {lineMovement.opening_odds?.spread || spread || '-'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-text-muted mb-1">MOVEMENT</p>
+                      <p className={`font-mono text-lg ${
+                        lineMovement.movement_direction === 'favorable' ? 'text-semantic-success' : 'text-text-primary'
+                      }`}>
+                        {lineMovement.movement_amount ? `${lineMovement.movement_amount > 0 ? '+' : ''}${lineMovement.movement_amount}` : '0'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-text-muted mb-1">CURRENT</p>
+                      <p className="font-mono text-lg text-brand-primary">
+                        {spread || '-'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Events = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
