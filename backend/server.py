@@ -1988,10 +1988,10 @@ async def get_unified_predictions(limit: int = 50, result: str = None):
     if result:
         query["result"] = result
     
-    predictions = await db.predictions.find(query).sort("created_at", -1).limit(limit).to_list(limit)
+    predictions = await db.predictions.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
     
     # Stats
-    all_unified = await db.predictions.find({"ai_model": "unified"}).to_list(10000)
+    all_unified = await db.predictions.find({"ai_model": "unified"}, {"_id": 0}).to_list(10000)
     
     wins = len([p for p in all_unified if p.get("result") == "win"])
     losses = len([p for p in all_unified if p.get("result") == "loss"])
