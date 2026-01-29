@@ -555,16 +555,17 @@ frontend:
 
 metadata:
   created_by: "main_agent"
-  version: "6.3"
-  test_sequence: 13
+  version: "6.4"
+  test_sequence: 14
   run_ui: false
 
 test_plan:
-  current_focus: []
+  current_focus:
+    - "Adaptive Learning System"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
   - agent: "main"
-    message: "🧹 CLEANUP COMPLETE: (1) Removed 11 test Python files from /app/ folder (backend_test.py, test_v6_picks.py, run_simulation_test.py, etc.), (2) Removed /app/backend/tests/ folder, (3) Cleared all test data from MongoDB collections: predictions (38), odds_history (256+32), opening_odds (32), notifications (1). Database is now clean with 0 predictions, 0 line movement snapshots, 0 notifications. App is ready for fresh production use."
+    message: "🧠 IMPLEMENTED ADAPTIVE LEARNING SYSTEM: The algorithm now learns from results! NEW FEATURES: (1) Persistent model performance tracking in MongoDB (model_performance, lr_weights, calibration_data collections), (2) Individual model predictions stored with each pick, (3) Dynamic ensemble weight adjustment based on rolling accuracy, (4) Online learning for logistic regression weights (updates after each result), (5) Confidence calibration tracking (Brier score). NEW ENDPOINTS to test: GET /api/adaptive-learning/status, GET /api/adaptive-learning/model-stats/{sport_key}, GET /api/adaptive-learning/rolling-performance/{model_name}, GET /api/adaptive-learning/calibration, GET /api/adaptive-learning/lr-weights/{sport_key}. The system will automatically improve as more predictions are made and results come in."
