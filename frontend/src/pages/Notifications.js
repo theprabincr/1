@@ -72,6 +72,17 @@ const Notifications = () => {
     }
   };
 
+  const clearAllNotifications = async () => {
+    if (window.confirm('Are you sure you want to delete all notifications?')) {
+      try {
+        await axios.delete(`${API}/notifications`);
+        fetchNotifications();
+      } catch (error) {
+        console.error("Error clearing notifications:", error);
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
