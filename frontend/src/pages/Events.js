@@ -428,13 +428,47 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
                   <div className="mb-4 p-3 bg-zinc-900 rounded-lg">
                     <p className="text-xs text-text-muted mb-1">SEASON RECORD</p>
                     <p className="text-lg font-mono">
-                      <span className="text-semantic-success">{awayForm.wins || event.away_record?.split('-')[0] || '0'}</span>
+                      <span className="text-semantic-success">{awayData.form.wins || event.away_record?.split('-')[0] || '0'}</span>
                       <span className="text-text-muted"> - </span>
-                      <span className="text-semantic-danger">{awayForm.losses || event.away_record?.split('-')[1] || '0'}</span>
+                      <span className="text-semantic-danger">{awayData.form.losses || event.away_record?.split('-')[1] || '0'}</span>
                     </p>
-                    {awayForm.streak !== 0 && (
-                      <p className={`text-xs mt-1 ${awayForm.streak > 0 ? 'text-semantic-success' : 'text-semantic-danger'}`}>
-                        {awayForm.streak > 0 ? `🔥 ${awayForm.streak}W Streak` : `❄️ ${Math.abs(awayForm.streak)}L Streak`}
+                    {awayData.form.streak !== 0 && (
+                      <p className={`text-xs mt-1 ${awayData.form.streak > 0 ? 'text-semantic-success' : 'text-semantic-danger'}`}>
+                        {awayData.form.streak > 0 ? `🔥 ${awayData.form.streak}W Streak` : `❄️ ${Math.abs(awayData.form.streak)}L Streak`}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Starting Lineup */}
+                  <div className="mb-4">
+                    <p className="text-xs text-text-muted mb-2 flex items-center gap-1">
+                      <Users className="w-3 h-3" />
+                      {awayData.startersConfirmed ? (
+                        <span className="text-semantic-success">CONFIRMED LINEUP</span>
+                      ) : awayData.starters.length > 0 ? (
+                        <span className="text-semantic-warning">PROJECTED LINEUP</span>
+                      ) : (
+                        <span>KEY PLAYERS</span>
+                      )}
+                    </p>
+                    {(awayData.starters.length > 0 || awayData.keyPlayers.length > 0) ? (
+                      <div className="space-y-1">
+                        {(awayData.starters.length > 0 ? awayData.starters : awayData.keyPlayers.map(p => ({ name: p, position: '' }))).slice(0, 5).map((player, i) => (
+                          <div key={i} className="flex items-center justify-between text-sm p-2 bg-zinc-900 rounded">
+                            <span className="text-text-primary">{typeof player === 'string' ? player : player.name}</span>
+                            {player.position && (
+                              <span className="text-xs px-2 py-0.5 bg-zinc-700 rounded text-text-muted">
+                                {player.position}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-text-muted text-sm">
+                        {lineupStatus?.status === 'not_available' 
+                          ? 'Lineup announced ~1hr before game' 
+                          : 'No lineup data available'}
                       </p>
                     )}
                   </div>
@@ -445,14 +479,15 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
                       <AlertTriangle className="w-3 h-3" />
                       INJURY REPORT
                     </p>
-                    {awayStarters.injuries.length > 0 ? (
+                    {awayData.injuries.length > 0 ? (
                       <div className="space-y-1">
-                        {awayStarters.injuries.slice(0, 4).map((injury, i) => (
+                        {awayData.injuries.slice(0, 4).map((injury, i) => (
                           <div key={i} className="flex items-center justify-between text-sm">
                             <span className="text-text-primary">{injury.name}</span>
                             <span className={`text-xs px-2 py-0.5 rounded ${
-                              injury.status === 'Out' ? 'bg-semantic-danger/20 text-semantic-danger' :
-                              injury.status === 'Questionable' ? 'bg-semantic-warning/20 text-semantic-warning' :
+                              injury.status?.toLowerCase().includes('out') ? 'bg-semantic-danger/20 text-semantic-danger' :
+                              injury.status?.toLowerCase().includes('questionable') ? 'bg-semantic-warning/20 text-semantic-warning' :
+                              injury.status?.toLowerCase().includes('doubtful') ? 'bg-semantic-warning/20 text-semantic-warning' :
                               'bg-semantic-success/20 text-semantic-success'
                             }`}>
                               {injury.status}
@@ -481,13 +516,47 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
                   <div className="mb-4 p-3 bg-zinc-900 rounded-lg">
                     <p className="text-xs text-text-muted mb-1">SEASON RECORD</p>
                     <p className="text-lg font-mono">
-                      <span className="text-semantic-success">{homeForm.wins || event.home_record?.split('-')[0] || '0'}</span>
+                      <span className="text-semantic-success">{homeData.form.wins || event.home_record?.split('-')[0] || '0'}</span>
                       <span className="text-text-muted"> - </span>
-                      <span className="text-semantic-danger">{homeForm.losses || event.home_record?.split('-')[1] || '0'}</span>
+                      <span className="text-semantic-danger">{homeData.form.losses || event.home_record?.split('-')[1] || '0'}</span>
                     </p>
-                    {homeForm.streak !== 0 && (
-                      <p className={`text-xs mt-1 ${homeForm.streak > 0 ? 'text-semantic-success' : 'text-semantic-danger'}`}>
-                        {homeForm.streak > 0 ? `🔥 ${homeForm.streak}W Streak` : `❄️ ${Math.abs(homeForm.streak)}L Streak`}
+                    {homeData.form.streak !== 0 && (
+                      <p className={`text-xs mt-1 ${homeData.form.streak > 0 ? 'text-semantic-success' : 'text-semantic-danger'}`}>
+                        {homeData.form.streak > 0 ? `🔥 ${homeData.form.streak}W Streak` : `❄️ ${Math.abs(homeData.form.streak)}L Streak`}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Starting Lineup */}
+                  <div className="mb-4">
+                    <p className="text-xs text-text-muted mb-2 flex items-center gap-1">
+                      <Users className="w-3 h-3" />
+                      {homeData.startersConfirmed ? (
+                        <span className="text-semantic-success">CONFIRMED LINEUP</span>
+                      ) : homeData.starters.length > 0 ? (
+                        <span className="text-semantic-warning">PROJECTED LINEUP</span>
+                      ) : (
+                        <span>KEY PLAYERS</span>
+                      )}
+                    </p>
+                    {(homeData.starters.length > 0 || homeData.keyPlayers.length > 0) ? (
+                      <div className="space-y-1">
+                        {(homeData.starters.length > 0 ? homeData.starters : homeData.keyPlayers.map(p => ({ name: p, position: '' }))).slice(0, 5).map((player, i) => (
+                          <div key={i} className="flex items-center justify-between text-sm p-2 bg-zinc-900 rounded">
+                            <span className="text-text-primary">{typeof player === 'string' ? player : player.name}</span>
+                            {player.position && (
+                              <span className="text-xs px-2 py-0.5 bg-zinc-700 rounded text-text-muted">
+                                {player.position}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-text-muted text-sm">
+                        {lineupStatus?.status === 'not_available' 
+                          ? 'Lineup announced ~1hr before game' 
+                          : 'No lineup data available'}
                       </p>
                     )}
                   </div>
@@ -498,14 +567,15 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
                       <AlertTriangle className="w-3 h-3" />
                       INJURY REPORT
                     </p>
-                    {homeStarters.injuries.length > 0 ? (
+                    {homeData.injuries.length > 0 ? (
                       <div className="space-y-1">
-                        {homeStarters.injuries.slice(0, 4).map((injury, i) => (
+                        {homeData.injuries.slice(0, 4).map((injury, i) => (
                           <div key={i} className="flex items-center justify-between text-sm">
                             <span className="text-text-primary">{injury.name}</span>
                             <span className={`text-xs px-2 py-0.5 rounded ${
-                              injury.status === 'Out' ? 'bg-semantic-danger/20 text-semantic-danger' :
-                              injury.status === 'Questionable' ? 'bg-semantic-warning/20 text-semantic-warning' :
+                              injury.status?.toLowerCase().includes('out') ? 'bg-semantic-danger/20 text-semantic-danger' :
+                              injury.status?.toLowerCase().includes('questionable') ? 'bg-semantic-warning/20 text-semantic-warning' :
+                              injury.status?.toLowerCase().includes('doubtful') ? 'bg-semantic-warning/20 text-semantic-warning' :
                               'bg-semantic-success/20 text-semantic-success'
                             }`}>
                               {injury.status}
@@ -522,6 +592,28 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
                   </div>
                 </div>
               </div>
+
+              {/* Lineup Status Banner */}
+              {lineupStatus && (
+                <div className={`p-3 rounded-lg flex items-center gap-2 ${
+                  lineupStatus.status === 'confirmed' ? 'bg-semantic-success/10 border border-semantic-success/30' :
+                  lineupStatus.status === 'projected' ? 'bg-semantic-warning/10 border border-semantic-warning/30' :
+                  'bg-zinc-800'
+                }`}>
+                  <Users className={`w-4 h-4 ${
+                    lineupStatus.status === 'confirmed' ? 'text-semantic-success' :
+                    lineupStatus.status === 'projected' ? 'text-semantic-warning' :
+                    'text-text-muted'
+                  }`} />
+                  <span className={`text-sm ${
+                    lineupStatus.status === 'confirmed' ? 'text-semantic-success' :
+                    lineupStatus.status === 'projected' ? 'text-semantic-warning' :
+                    'text-text-muted'
+                  }`}>
+                    {lineupStatus.message || 'Lineup information not available yet'}
+                  </span>
+                </div>
+              )}
 
               {/* Key Factors / Context */}
               {(contextFactors.length > 0 || analysis?.prediction) && (
