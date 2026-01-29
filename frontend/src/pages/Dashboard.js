@@ -41,7 +41,7 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color = "lime", onClick 
 };
 
 // Top Pick Card
-const TopPickCard = ({ pick, onClick }) => {
+const TopPickCard = ({ pick, onClick, onTrackBet }) => {
   const confidence = pick.confidence * 100;
   
   // Get market type badge
@@ -78,8 +78,7 @@ const TopPickCard = ({ pick, onClick }) => {
   
   return (
     <div 
-      className="event-card cursor-pointer" 
-      onClick={onClick}
+      className="event-card" 
       data-testid={`pick-${pick.event_id}`}
     >
       <div className="flex items-center justify-between mb-3">
@@ -101,7 +100,7 @@ const TopPickCard = ({ pick, onClick }) => {
         </div>
       </div>
       
-      <div className="mb-3">
+      <div className="mb-3 cursor-pointer" onClick={onClick}>
         <p className="text-text-primary font-semibold">{pick.home_team}</p>
         <p className="text-text-muted text-sm">vs {pick.away_team}</p>
       </div>
@@ -118,6 +117,16 @@ const TopPickCard = ({ pick, onClick }) => {
           </p>
         </div>
       </div>
+      
+      {/* Track Bet Button */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onTrackBet && onTrackBet(pick); }}
+        className="mt-3 w-full py-2 px-3 rounded-lg bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
+        data-testid={`track-bet-${pick.event_id}`}
+      >
+        <PlusCircle className="w-4 h-4" />
+        Track This Bet
+      </button>
       
       {/* Reasoning Section */}
       {(pick.reasoning || pick.analysis) && (
