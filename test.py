@@ -398,7 +398,7 @@ class BetPredictorTester:
                 result = "win" if home_wins else "loss"
             elif event["away_team"] in predicted_outcome:
                 result = "win" if not home_wins else "loss"
-        elif prediction_type == "spread":
+        elif prediction_type == "spread" or prediction_type == "spreads":
             spread = event["odds"]["spread"]
             actual_margin = home_score - away_score
             
@@ -408,14 +408,21 @@ class BetPredictorTester:
             else:
                 # Away team to cover
                 result = "win" if (actual_margin + spread) < 0 else "loss"
-        elif prediction_type == "total":
+        elif prediction_type == "total" or prediction_type == "totals":
             total_score = home_score + away_score
             line = event["odds"]["total"]
             
             if "Over" in predicted_outcome:
                 result = "win" if total_score > line else "loss"
-            else:
+            elif "Under" in predicted_outcome:
                 result = "win" if total_score < line else "loss"
+            else:
+                # predicted_outcome might be a team name for totals market
+                # In this case, just check if the predicted team won
+                if event["home_team"] in predicted_outcome:
+                    result = "win" if home_wins else "loss"
+                elif event["away_team"] in predicted_outcome:
+                    result = "win" if not home_wins else "loss"
         
         return {
             "home_score": home_score,
