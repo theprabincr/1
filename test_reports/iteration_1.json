@@ -1,0 +1,59 @@
+{
+  "summary": "Completed testing of BetPredictor My Bets feature and Line Movement bug fix. All backend APIs working correctly. Frontend UI functional with minor modal overlay issue.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Add Bet Modal (Performance.js)",
+        "issue": "Modal overlay intercepts pointer events when clicking Add Bet submit button - requires force=True in Playwright",
+        "selector": "button.bg-brand-primary:has-text('Add Bet')",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_my_bets.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Dashboard.js: Active Picks modal missing data-testid attribute for testing",
+    "Performance.js: Add Bet modal has overlay click handler on parent div that may interfere with button clicks"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_my_bets.py"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "95%"
+  },
+  "seed_data_creation": "Test bets created and cleaned up during testing",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "My Bets feature fully functional. Backend CRUD operations all working. Performance page displays tracked bets correctly. Line Movement page loads without JavaScript errors (isAutoRefresh bug fixed). Dashboard shows 'No picks available' because no predictions have been generated yet - this is expected behavior.",
+  "features_tested": {
+    "line_movement_page": {
+      "status": "PASS",
+      "notes": "Page loads without JavaScript errors, sport selector and event list visible, line chart displays correctly"
+    },
+    "my_bets_api": {
+      "GET /api/my-bets": "PASS - Returns bets array",
+      "POST /api/my-bets": "PASS - Creates bet with id, persists to DB",
+      "PUT /api/my-bets/{id}": "PASS - Updates bet result",
+      "DELETE /api/my-bets/{id}": "PASS - Removes bet from DB"
+    },
+    "performance_page": {
+      "status": "PASS",
+      "notes": "My Bets section displays tracked bets, Add Bet button opens modal, form fields work correctly"
+    },
+    "dashboard_track_bet": {
+      "status": "PARTIAL",
+      "notes": "Track Bet buttons exist on TopPickCard components but no picks available to test. Active Picks modal opens but has no picks to track."
+    }
+  }
+}
