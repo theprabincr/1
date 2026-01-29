@@ -1840,17 +1840,30 @@ async def analyze_event_v6(event_id: str, sport_key: str = "basketball_nba"):
     # Get comprehensive matchup data
     matchup_data = await get_comprehensive_matchup_data(event, sport_key)
     
-    # Get squad data (injuries)
+    # Get squad data (injuries and rosters)
     squad_data = {
-        "home_team": {"injuries": []},
-        "away_team": {"injuries": []}
+        "home_team": {"injuries": [], "roster": [], "key_players": []},
+        "away_team": {"injuries": [], "roster": [], "key_players": []}
     }
     
     try:
-        home_roster = await fetch_team_roster(event.get("home_team_id", ""), sport_key)
-        away_roster = await fetch_team_roster(event.get("away_team_id", ""), sport_key)
+        # Fetch rosters using team names
+        home_team = event.get("home_team", "")
+        away_team = event.get("away_team", "")
+        
+        home_roster = await fetch_team_roster(home_team, sport_key)
+        away_roster = await fetch_team_roster(away_team, sport_key)
+        
         squad_data["home_team"]["injuries"] = home_roster.get("injuries", [])
+        squad_data["home_team"]["roster"] = home_roster.get("players", [])
+        squad_data["home_team"]["key_players"] = home_roster.get("key_players", [])
+        
         squad_data["away_team"]["injuries"] = away_roster.get("injuries", [])
+        squad_data["away_team"]["roster"] = away_roster.get("players", [])
+        squad_data["away_team"]["key_players"] = away_roster.get("key_players", [])
+        
+        logger.info(f"Fetched rosters: {home_team} ({len(home_roster.get('players', []))} players), "
+                   f"{away_team} ({len(away_roster.get('players', []))} players)")
     except Exception as e:
         logger.warning(f"Could not fetch roster data: {e}")
     
