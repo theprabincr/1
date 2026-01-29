@@ -518,41 +518,6 @@ async def export_performance_report():
     
     return report
 
-# AI Analysis function
-async def get_ai_analysis(prompt: str, model: str = "gpt-5.2") -> str:
-    if not EMERGENT_LLM_KEY:
-        return "AI analysis unavailable - no API key configured"
-    
-    try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
-        
-        session_id = str(uuid.uuid4())
-        system_message = """You are an expert sports betting analyst. Provide concise, actionable betting recommendations.
-        Format your response as:
-        PICK: [Team/Side]
-        CONFIDENCE: [1-10]
-        REASONING: [2-3 sentences max]
-        
-        Focus on: line value, sharp money indicators, and key matchup factors."""
-        
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=session_id,
-            system_message=system_message
-        )
-        
-        if model == "claude":
-            chat.with_model("anthropic", "claude-sonnet-4-5-20250929")
-        else:
-            chat.with_model("openai", "gpt-5.2")
-        
-        user_message = UserMessage(text=prompt)
-        response = await chat.send_message(user_message)
-        return response
-    except Exception as e:
-        logger.error(f"AI analysis error: {e}")
-        return f"AI analysis error: {str(e)}"
-
 # Routes
 @api_router.get("/")
 async def root():
