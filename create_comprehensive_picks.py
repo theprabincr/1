@@ -22,7 +22,7 @@ SAMPLE_PICKS = [
         "prediction_type": "spread",
         "predicted_outcome": "Boston Celtics -12.5",
         "confidence": 0.75,
-        "analysis": """🎯 80% of models agree on Boston Celtics
+        "analysis": """✓ 80% of models agree on Boston Celtics
 📊 Ensemble confidence: 75.2%
 💰 Estimated edge: +8.5%
 
@@ -45,7 +45,7 @@ SAMPLE_PICKS = [
         "prediction_type": "spread",
         "predicted_outcome": "Denver Nuggets -14.5",
         "confidence": 0.78,
-        "analysis": """🎯 100% of models agree on Denver Nuggets
+        "analysis": """✓ 100% of models agree on Denver Nuggets
 📊 Ensemble confidence: 78.4%
 💰 Estimated edge: +10.2%
 
@@ -69,7 +69,7 @@ SAMPLE_PICKS = [
         "prediction_type": "spread",
         "predicted_outcome": "Oklahoma City Thunder -15.5",
         "confidence": 0.72,
-        "analysis": """🎯 80% of models agree on Oklahoma City Thunder
+        "analysis": """✓ 80% of models agree on Oklahoma City Thunder
 📊 Ensemble confidence: 72.1%
 💰 Estimated edge: +7.8%
 
@@ -93,7 +93,7 @@ SAMPLE_PICKS = [
         "prediction_type": "moneyline",
         "predicted_outcome": "Cleveland Cavaliers",
         "confidence": 0.82,
-        "analysis": """🎯 100% of models agree on Cleveland Cavaliers ML
+        "analysis": """✓ 100% of models agree on Cleveland Cavaliers ML
 📊 Ensemble confidence: 82.3%
 💰 Estimated edge: +12.5%
 
@@ -118,7 +118,7 @@ SAMPLE_PICKS = [
         "prediction_type": "total",
         "predicted_outcome": "Over 225.5",
         "confidence": 0.73,
-        "analysis": """🎯 80% of models agree on OVER 225.5
+        "analysis": """✓ 80% of models agree on OVER 225.5
 📊 Ensemble confidence: 73.1%
 💰 Estimated edge: +6.8%
 
@@ -143,7 +143,7 @@ SAMPLE_PICKS = [
         "prediction_type": "spread",
         "predicted_outcome": "Miami Heat -3.5",
         "confidence": 0.71,
-        "analysis": """🎯 60% of models agree on Miami Heat -3.5
+        "analysis": """✓ 60% of models agree on Miami Heat -3.5
 📊 Ensemble confidence: 71.2%
 💰 Estimated edge: +5.2%
 
@@ -167,7 +167,7 @@ SAMPLE_PICKS = [
         "prediction_type": "moneyline",
         "predicted_outcome": "Los Angeles Lakers",
         "confidence": 0.70,
-        "analysis": """🎯 60% of models agree on Lakers ML
+        "analysis": """✓ 60% of models agree on Lakers ML
 📊 Ensemble confidence: 70.1%
 💰 Estimated edge: +4.8%
 
@@ -189,7 +189,7 @@ SAMPLE_PICKS = [
         "prediction_type": "spread",
         "predicted_outcome": "Milwaukee Bucks -8.5",
         "confidence": 0.74,
-        "analysis": """🎯 80% of models agree on Bucks -8.5
+        "analysis": """✓ 80% of models agree on Bucks -8.5
 📊 Ensemble confidence: 74.3%
 💰 Estimated edge: +7.2%
 
@@ -211,7 +211,7 @@ SAMPLE_PICKS = [
         "prediction_type": "total",
         "predicted_outcome": "Under 218.5",
         "confidence": 0.72,
-        "analysis": """🎯 60% of models agree on UNDER 218.5
+        "analysis": """✓ 60% of models agree on UNDER 218.5
 📊 Ensemble confidence: 72.0%
 💰 Estimated edge: +5.5%
 
@@ -232,7 +232,7 @@ SAMPLE_PICKS = [
         "prediction_type": "spread",
         "predicted_outcome": "Atlanta Hawks -11.5",
         "confidence": 0.76,
-        "analysis": """🎯 80% of models agree on Hawks -11.5
+        "analysis": """✓ 80% of models agree on Hawks -11.5
 📊 Ensemble confidence: 76.2%
 💰 Estimated edge: +8.8%
 
