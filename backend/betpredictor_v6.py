@@ -348,7 +348,8 @@ class BetPredictorV6:
         injury: Dict,
         psychology: Dict,
         home_metrics: Dict,
-        away_metrics: Dict
+        away_metrics: Dict,
+        matchup_data: Dict = None  # Full matchup data for form/records
     ) -> Dict:
         """
         Make final betting decision based on ensemble and thresholds.
