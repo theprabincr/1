@@ -3,7 +3,7 @@ import axios from "axios";
 import { 
   TrendingUp, TrendingDown, Trophy, Target, 
   DollarSign, Clock, ChevronRight, Zap,
-  Activity, AlertCircle, RefreshCw, X, Calendar
+  Activity, AlertCircle, RefreshCw, X, Calendar, PlusCircle, Check
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
