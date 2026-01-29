@@ -3449,10 +3449,10 @@ async def scheduled_unified_predictor():
                                             }
                                         )
                                         
-                                        logger.info(f"✅ UNIFIED PICK: {home_team} vs {away_team} - "
+                                        logger.info(f"✅ UNIFIED PICK: {away_team} @ {home_team} - "
                                                   f"{unified_prediction.get('pick_type')}: {unified_prediction.get('pick_display', unified_prediction.get('pick'))} "
                                                   f"@ {confidence*100:.0f}% conf, edge: {edge*100:.1f}%, "
-                                                  f"consensus: {consensus}")
+                                                  f"consensus: {consensus}, lineup: {lineup_status}")
                                     else:
                                         logger.info(f"⏭️ LOW CONFIDENCE: {home_team} vs {away_team} - "
                                                   f"{confidence*100:.0f}% < 60% threshold")
