@@ -1772,7 +1772,7 @@ async def analyze_event_v6(event_id: str, sport_key: str = "basketball_nba"):
 async def get_algorithm_comparison():
     """Compare performance of different prediction algorithms"""
     
-    algorithms = ["betpredictor_v5", "betpredictor_v6"]
+    algorithms = ["betpredictor_v5", "betpredictor_v6", "unified"]
     comparison = {}
     
     for algo in algorithms:
@@ -1793,9 +1793,11 @@ async def get_algorithm_comparison():
         
         description = ""
         if algo == "betpredictor_v5":
-            description = "Comprehensive line movement analysis with sharp money detection"
+            description = "Line movement analysis with sharp money detection"
         elif algo == "betpredictor_v6":
             description = "Advanced ML ensemble: ELO + Context + Simulations + Psychology + 5-model voting"
+        elif algo == "unified":
+            description = "🔄 UNIFIED: Combines V5 + V6 (V6 weighted 70%, V5 weighted 30%) - Single pick per game"
         
         comparison[algo] = {
             "total": len(predictions),
@@ -1814,7 +1816,7 @@ async def get_algorithm_comparison():
     
     return {
         "algorithms": comparison,
-        "recommendation": "V6 uses advanced ML and ensemble methods for higher accuracy"
+        "recommendation": "UNIFIED algorithm combines best of V5 and V6 - single pick per game with ML-driven decisions"
     }
 
 
