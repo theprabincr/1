@@ -3,11 +3,140 @@ import axios from "axios";
 import { 
   TrendingUp, TrendingDown, Trophy, Target, 
   DollarSign, Clock, ChevronRight, Zap,
-  Activity, AlertCircle, RefreshCw, X, Calendar
+  Activity, AlertCircle, RefreshCw, X, Calendar,
+  ChevronDown, ChevronUp
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+// Analysis Section Component - Collapsible with proper formatting
+const AnalysisSection = ({ analysisText, defaultExpanded = false }) => {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  
+  if (!analysisText) return null;
+  
+  // Parse analysis into sections
+  const parseAnalysis = (text) => {
+    const sections = [];
+    const lines = text.split('\n');
+    let currentSection = null;
+    let currentContent = [];
+    
+    const sectionHeaders = [
+      'V6 STRONG SIGNAL', 'STRONG CONSENSUS', 'V6 ML ENSEMBLE',
+      'PREDICTION OVERVIEW', 'MODEL AGREEMENT', 'TEAM STRENGTH',
+      'RECENT FORM & RECORDS', 'SITUATIONAL FACTORS', 'INJURY IMPACT',
+      'LINE MOVEMENT', 'SIMULATION RESULTS', 'WHY THIS BET TYPE',
+      'KEY FACTORS', 'V5 LINE MOVEMENT'
+    ];
+    
+    lines.forEach((line) => {
+      const trimmedLine = line.trim();
+      
+      const isHeader = sectionHeaders.some(header => 
+        trimmedLine.toUpperCase().includes(header) && 
+        !trimmedLine.startsWith('•') && 
+        !trimmedLine.startsWith('-')
+      );
+      
+      if (trimmedLine.match(/^[=\-]{10,}$/)) return;
+      
+      if (isHeader && trimmedLine.length > 0) {
+        if (currentSection) {
+          sections.push({ header: currentSection, content: currentContent });
+        }
+        currentSection = trimmedLine.replace(/[🎯📊💰✅⚠️📈🤖🎲]/g, '').trim();
+        currentContent = [];
+      } else if (trimmedLine.length > 0) {
+        currentContent.push(trimmedLine);
+      }
+    });
+    
+    if (currentSection && currentContent.length > 0) {
+      sections.push({ header: currentSection, content: currentContent });
+    }
+    
+    return sections;
+  };
+  
+  const sections = parseAnalysis(analysisText);
+  
+  const getSummary = () => {
+    const overviewSection = sections.find(s => s.header.includes('OVERVIEW'));
+    if (overviewSection) {
+      return overviewSection.content.slice(0, 3).join(' • ');
+    }
+    return sections[0]?.content.slice(0, 2).join(' • ') || '';
+  };
+  
+  const getSectionStyle = (header) => {
+    if (header.includes('OVERVIEW')) return { bg: 'bg-brand-primary/10', border: 'border-brand-primary/30', text: 'text-brand-primary' };
+    if (header.includes('MODEL')) return { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-400' };
+    if (header.includes('STRENGTH') || header.includes('FORM')) return { bg: 'bg-purple-500/10', border: 'border-purple-500/30', text: 'text-purple-400' };
+    if (header.includes('INJURY')) return { bg: 'bg-red-500/10', border: 'border-red-500/30', text: 'text-red-400' };
+    if (header.includes('LINE') || header.includes('MOVEMENT')) return { bg: 'bg-cyan-500/10', border: 'border-cyan-500/30', text: 'text-cyan-400' };
+    if (header.includes('SIMULATION')) return { bg: 'bg-orange-500/10', border: 'border-orange-500/30', text: 'text-orange-400' };
+    if (header.includes('KEY')) return { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-400' };
+    return { bg: 'bg-zinc-700/50', border: 'border-zinc-600', text: 'text-text-secondary' };
+  };
+  
+  return (
+    <div className="mt-3 pt-3 border-t border-zinc-700/50">
+      <div 
+        className="flex items-center justify-between cursor-pointer"
+        onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
+      >
+        <p className="text-xs text-text-muted font-semibold uppercase tracking-wide">Analysis</p>
+        <button className="flex items-center gap-1 text-xs text-text-muted hover:text-brand-primary transition-colors">
+          {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+        </button>
+      </div>
+      
+      {!isExpanded ? (
+        <p className="mt-2 text-xs text-text-secondary line-clamp-2">{getSummary()}</p>
+      ) : (
+        <div className="mt-2 space-y-2 max-h-[300px] overflow-y-auto pr-1">
+          {sections.slice(0, 6).map((section, idx) => {
+            const style = getSectionStyle(section.header);
+            return (
+              <div key={idx} className={`p-2 rounded border ${style.bg} ${style.border}`}>
+                <h4 className={`text-[10px] font-bold uppercase tracking-wide mb-1 ${style.text}`}>
+                  {section.header}
+                </h4>
+                <div className="space-y-0.5">
+                  {section.content.slice(0, 5).map((line, lineIdx) => {
+                    if (line.startsWith('•') || line.startsWith('-')) {
+                      return (
+                        <p key={lineIdx} className="text-[11px] text-text-secondary pl-1">
+                          • {line.replace(/^[•\-]\s*/, '')}
+                        </p>
+                      );
+                    }
+                    if (line.includes(':')) {
+                      const [key, ...valueParts] = line.split(':');
+                      const value = valueParts.join(':').trim();
+                      return (
+                        <p key={lineIdx} className="text-[11px]">
+                          <span className="text-text-muted">{key}:</span>
+                          <span className="text-text-primary ml-1">{value}</span>
+                        </p>
+                      );
+                    }
+                    return <p key={lineIdx} className="text-[11px] text-text-secondary">{line}</p>;
+                  })}
+                </div>
+              </div>
+            );
+          })}
+          {sections.length > 6 && (
+            <p className="text-[10px] text-text-muted text-center">+{sections.length - 6} more sections...</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Stat Card Component - Now clickable
 const StatCard = ({ title, value, subtitle, icon: Icon, color = "lime", onClick }) => {
