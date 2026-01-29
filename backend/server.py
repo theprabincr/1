@@ -1173,10 +1173,13 @@ async def update_recommendations_on_line_movement():
 
 @api_router.put("/result")
 async def update_result(update: ResultUpdate):
-    """Update the result of a prediction"""
+    """Update the result of a prediction and remove analysis"""
     result = await db.predictions.update_one(
         {"id": update.prediction_id},
-        {"$set": {"result": update.result}}
+        {
+            "$set": {"result": update.result, "result_updated_at": datetime.now(timezone.utc).isoformat()},
+            "$unset": {"analysis": "", "reasoning": ""}  # Remove analysis once result is recorded
+        }
     )
     
     if result.modified_count == 0:
