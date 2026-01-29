@@ -3533,6 +3533,10 @@ async def startup_event():
     # Start line movement data cleanup
     asyncio.create_task(scheduled_line_movement_cleanup())
     logger.info("Started line movement cleanup - runs every 30 minutes (deletes data for started events)")
+    
+    # Start daily summary scheduler
+    asyncio.create_task(scheduled_daily_summary())
+    logger.info("📊 Started daily summary scheduler - sends daily performance recap")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
