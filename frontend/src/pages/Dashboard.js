@@ -54,8 +54,22 @@ const TopPickCard = ({ pick, onClick }) => {
   // Format the pick display based on prediction type
   const formatPick = () => {
     const outcome = pick.predicted_outcome || '';
+    
     if (pick.prediction_type === 'spread') {
-      return outcome; // e.g., "Boston Celtics -5.5"
+      // For spread, extract spread value from outcome or analysis
+      // Check if outcome already has spread value (e.g., "Boston Celtics -5.5")
+      if (outcome.match(/-?\d+\.?\d*/)) {
+        return outcome;
+      }
+      // Try to extract spread from analysis
+      const spreadMatch = pick.analysis?.match(/(-?\d+\.?\d*)\s*(?:point|spread)/i) || 
+                         pick.reasoning?.match(/(-?\d+\.?\d*)\s*(?:point|spread)/i);
+      if (spreadMatch) {
+        return `${outcome} ${spreadMatch[1]}`;
+      }
+      // Default: show team name with typical spread indicator
+      const isHome = outcome.toLowerCase().includes(pick.home_team?.toLowerCase());
+      return `${outcome} ${isHome ? '-' : '+'}X.X`;
     } else if (pick.prediction_type === 'total') {
       return outcome; // e.g., "Over 225.5"
     }
