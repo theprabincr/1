@@ -591,23 +591,42 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
                 </div>
               )}
 
-              {/* V6 Analysis Preview */}
+              {/* Analysis Preview */}
               {analysis?.prediction?.has_pick && (
                 <div className="bg-gradient-to-r from-brand-primary/10 to-brand-secondary/10 rounded-lg p-4 border border-brand-primary/30">
                   <div className="flex items-center gap-2 mb-3">
                     <Star className="w-5 h-5 text-brand-primary" />
-                    <span className="font-semibold text-text-primary">V6 Predictor Analysis</span>
+                    <span className="font-semibold text-text-primary">Predictor Analysis</span>
                   </div>
                   <div className="bg-zinc-900/50 rounded-lg p-4">
-                    <p className="text-brand-primary font-mono font-bold text-lg mb-2">
-                      {analysis.prediction.pick_display || analysis.prediction.pick}
-                    </p>
-                    <p className="text-text-muted text-sm mb-3">
-                      {analysis.prediction.pick_type} • {analysis.prediction.confidence}% confidence • {analysis.prediction.edge}% edge
-                    </p>
-                    <p className="text-text-secondary text-sm whitespace-pre-line">
-                      {analysis.prediction.reasoning?.substring(0, 300)}...
-                    </p>
+                    {/* Clear Pick Display */}
+                    <div className="mb-4">
+                      <p className="text-xs text-text-muted mb-1">RECOMMENDED PICK</p>
+                      <p className="text-brand-primary font-mono font-bold text-xl">
+                        {analysis.prediction.pick_display || analysis.prediction.pick}
+                      </p>
+                      <div className="flex items-center gap-3 mt-2">
+                        <span className="px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-xs font-bold uppercase">
+                          {analysis.prediction.pick_type}
+                        </span>
+                        <span className="text-semantic-success font-mono font-bold">
+                          {analysis.prediction.confidence}% confidence
+                        </span>
+                        <span className="text-brand-secondary font-mono">
+                          +{analysis.prediction.edge}% edge
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Reasoning */}
+                    {analysis.prediction.reasoning && (
+                      <div className="pt-3 border-t border-zinc-700">
+                        <p className="text-xs text-text-muted mb-2">WHY THIS PICK</p>
+                        <p className="text-text-secondary text-sm whitespace-pre-line leading-relaxed">
+                          {analysis.prediction.reasoning}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
