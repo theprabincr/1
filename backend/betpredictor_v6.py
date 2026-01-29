@@ -359,15 +359,15 @@ class BetPredictorV6:
         max_agreement = max(picks_count.values()) if picks_count else 0
         
         # Requirements for making a pick:
-        # 1. Ensemble confidence >= 65%
-        # 2. At least 3/5 models agree on same pick
-        # 3. Model agreement >= 70%
+        # 1. Ensemble confidence >= 55% (adjusted for real-world scenarios)
+        # 2. At least 3/5 models agree on same pick  
+        # 3. Model agreement >= 25% (allows reasonable variance)
         # 4. Clear probability edge (> 0.55 or < 0.45)
         
         should_pick = (
             ensemble_conf >= self.min_ensemble_confidence and
             max_agreement >= self.min_models_agreement and
-            model_agreement >= 0.70 and
+            model_agreement >= 0.25 and
             (ensemble_prob > 0.55 or ensemble_prob < 0.45)
         )
         
