@@ -846,16 +846,28 @@ class BetPredictorTester:
         wins = 0
         losses = 0
         
+        print_info(f"Predictions to simulate: {len(self.created_predictions)}")
+        
+        # If no predictions in memory, fetch from database
+        if not self.created_predictions:
+            print_warning("No predictions in memory, fetching from database...")
+            db_predictions = await self.db.predictions.find({"_simulated": True, "result": "pending"}).to_list(100)
+            for p in db_predictions:
+                if p.get("_event"):
+                    self.created_predictions.append(p)
+            print_info(f"Loaded {len(self.created_predictions)} simulated predictions from database")
+        
         for prediction in self.created_predictions:
             event = prediction.get("_event", {})
             if not event:
+                print_warning(f"Skipping prediction {prediction.get('id', 'unknown')[:8]} - no event data")
                 continue
             
             # Simulate the game result
             game_result = await self.simulate_game_result(event, prediction)
             
             # Update prediction with result
-            await self.db.predictions.update_one(
+            update_result = await self.db.predictions.update_one(
                 {"id": prediction["id"]},
                 {"$set": {
                     "result": game_result["result"],
@@ -867,6 +879,9 @@ class BetPredictorTester:
                     }
                 }}
             )
+            
+            if update_result.modified_count == 0:
+                print_warning(f"Failed to update prediction {prediction.get('id', 'unknown')[:8]}")
             
             if game_result["result"] == "win":
                 wins += 1
