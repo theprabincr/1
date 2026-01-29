@@ -125,6 +125,15 @@ const Notifications = () => {
               Mark All Read
             </button>
           )}
+          {notifications.length > 0 && (
+            <button
+              onClick={clearAllNotifications}
+              className="btn-outline flex items-center gap-2 text-semantic-danger border-semantic-danger/50 hover:bg-semantic-danger/10"
+            >
+              <Trash2 className="w-4 h-4" />
+              Clear All
+            </button>
+          )}
         </div>
       </div>
 
