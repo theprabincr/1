@@ -596,48 +596,237 @@ class BetPredictorV6:
                 else:
                     pick_display = f"UNDER (low-scoring expected)"
         
-        # Build reasoning
+        # Build COMPREHENSIVE reasoning - explain every factor in detail
         reasoning_parts = []
-        
-        # Ensemble consensus
-        agreement = ensemble_result.get("model_agreement", 0)
-        models_agree = ensemble_result.get("consensus_strength", 0)
-        reasoning_parts.append(f"🎯 {models_agree*100:.0f}% of models agree on {pick_display}")
-        reasoning_parts.append(f"📊 Ensemble confidence: {confidence:.1f}%")
-        reasoning_parts.append(f"💰 Estimated edge: {edge*100:+.1f}%")
-        
-        # Key factors
         key_factors = []
         
-        # ELO
+        # ==================== HEADER ====================
+        reasoning_parts.append(f"═══════════════════════════════════════")
+        reasoning_parts.append(f"🎯 PICK: {pick_display}")
+        reasoning_parts.append(f"═══════════════════════════════════════")
+        reasoning_parts.append("")
+        
+        # ==================== MODEL CONSENSUS ====================
+        reasoning_parts.append("📊 MODEL CONSENSUS")
+        reasoning_parts.append("─────────────────────────────────────")
+        agreement = ensemble_result.get("model_agreement", 0)
+        models_agree = ensemble_result.get("consensus_strength", 0)
+        num_models = ensemble_result.get("num_models", 5)
+        agreeing_models = int(models_agree * num_models)
+        
+        reasoning_parts.append(f"• {agreeing_models}/{num_models} models agree on this pick ({models_agree*100:.0f}% consensus)")
+        reasoning_parts.append(f"• Ensemble confidence: {confidence:.1f}%")
+        reasoning_parts.append(f"• Estimated edge over market: {edge*100:+.1f}%")
+        reasoning_parts.append(f"• Our calculated probability: {probability*100:.1f}%")
+        
+        # Show individual model predictions if available
+        individual_preds = ensemble_result.get("individual_predictions", {})
+        if individual_preds:
+            reasoning_parts.append("")
+            reasoning_parts.append("Individual Model Votes:")
+            for model_name, model_data in individual_preds.items():
+                model_pick = model_data.get("pick", "N/A")
+                model_conf = model_data.get("confidence", 0)
+                vote_emoji = "✅" if model_pick == pick else "❌"
+                reasoning_parts.append(f"  {vote_emoji} {model_name}: {model_pick} ({model_conf:.0f}%)")
+        
+        reasoning_parts.append("")
+        
+        # ==================== ELO & TEAM STRENGTH ====================
+        reasoning_parts.append("📈 TEAM STRENGTH (ELO RATINGS)")
+        reasoning_parts.append("─────────────────────────────────────")
         elo_diff = matchup_metrics.get("elo_advantage", 0)
-        if abs(elo_diff) > 50:
-            key_factors.append(f"ELO advantage: {elo_diff:+.0f} points")
+        home_elo = matchup_metrics.get("home_elo", 1500)
+        away_elo = matchup_metrics.get("away_elo", 1500)
         
-        # Context
-        context_factors = context.get("key_factors", [])
-        if context_factors:
-            key_factors.append(context_factors[0])
+        reasoning_parts.append(f"• {home_team}: {home_elo:.0f} ELO")
+        reasoning_parts.append(f"• {away_team}: {away_elo:.0f} ELO")
+        reasoning_parts.append(f"• ELO Difference: {elo_diff:+.0f} points")
         
-        # Injury
+        if abs(elo_diff) > 100:
+            reasoning_parts.append(f"→ SIGNIFICANT advantage for {'home' if elo_diff > 0 else 'away'} team")
+            key_factors.append(f"Strong ELO advantage ({elo_diff:+.0f})")
+        elif abs(elo_diff) > 50:
+            reasoning_parts.append(f"→ Moderate advantage for {'home' if elo_diff > 0 else 'away'} team")
+            key_factors.append(f"ELO advantage ({elo_diff:+.0f})")
+        else:
+            reasoning_parts.append(f"→ Teams are evenly matched by ELO")
+        
+        reasoning_parts.append("")
+        
+        # ==================== CONTEXT FACTORS ====================
+        reasoning_parts.append("🏠 CONTEXT FACTORS (Rest, Travel, Schedule)")
+        reasoning_parts.append("─────────────────────────────────────")
+        
+        context_advantage = context.get("net_context_advantage", 0)
+        home_rest = context.get("home_rest_days", "Unknown")
+        away_rest = context.get("away_rest_days", "Unknown")
+        home_travel = context.get("home_travel", "None")
+        away_travel = context.get("away_travel", "Unknown")
+        
+        reasoning_parts.append(f"• {home_team} rest days: {home_rest}")
+        reasoning_parts.append(f"• {away_team} rest days: {away_rest}")
+        
+        if context.get("home_b2b"):
+            reasoning_parts.append(f"⚠️ {home_team} on back-to-back")
+        if context.get("away_b2b"):
+            reasoning_parts.append(f"⚠️ {away_team} on back-to-back")
+        
+        if context.get("altitude_factor"):
+            reasoning_parts.append(f"🏔️ Altitude factor: {context.get('altitude_factor')}")
+            key_factors.append("Altitude advantage")
+        
+        context_factors_list = context.get("key_factors", [])
+        for cf in context_factors_list[:3]:
+            reasoning_parts.append(f"• {cf}")
+            if len(key_factors) < 6:
+                key_factors.append(cf)
+        
+        if abs(context_advantage) > 0.05:
+            reasoning_parts.append(f"→ Net context advantage: {context_advantage*100:+.1f}% for {'home' if context_advantage > 0 else 'away'}")
+        
+        reasoning_parts.append("")
+        
+        # ==================== INJURY ANALYSIS ====================
+        reasoning_parts.append("🏥 INJURY REPORT")
+        reasoning_parts.append("─────────────────────────────────────")
+        
+        injury_advantage = injury.get("net_advantage", 0)
+        home_injuries = injury.get("home_injuries", [])
+        away_injuries = injury.get("away_injuries", [])
+        
+        if home_injuries:
+            reasoning_parts.append(f"{home_team} Injuries:")
+            for inj in home_injuries[:3]:
+                player = inj.get("name", "Unknown")
+                status = inj.get("status", "Unknown")
+                impact = inj.get("impact", "")
+                reasoning_parts.append(f"  • {player}: {status} {f'({impact})' if impact else ''}")
+        else:
+            reasoning_parts.append(f"• {home_team}: No significant injuries")
+        
+        if away_injuries:
+            reasoning_parts.append(f"{away_team} Injuries:")
+            for inj in away_injuries[:3]:
+                player = inj.get("name", "Unknown")
+                status = inj.get("status", "Unknown")
+                impact = inj.get("impact", "")
+                reasoning_parts.append(f"  • {player}: {status} {f'({impact})' if impact else ''}")
+        else:
+            reasoning_parts.append(f"• {away_team}: No significant injuries")
+        
         injury_summary = injury.get("summary", "")
-        if "advantage" in injury_summary.lower():
-            key_factors.append(injury_summary.split(";")[0])
+        if injury_summary:
+            reasoning_parts.append(f"→ {injury_summary}")
+            if "advantage" in injury_summary.lower() and len(key_factors) < 6:
+                key_factors.append(injury_summary.split(";")[0])
         
-        # Line movement
-        if line_analysis.get("sharp_money_detected"):
+        reasoning_parts.append("")
+        
+        # ==================== LINE MOVEMENT ====================
+        reasoning_parts.append("📉 LINE MOVEMENT ANALYSIS")
+        reasoning_parts.append("─────────────────────────────────────")
+        
+        line_markets = line_analysis.get("markets", {})
+        sharp_detected = line_analysis.get("sharp_money_detected", False)
+        
+        for market_name, market_info in line_markets.items():
+            opening = market_info.get("opening_line", "N/A")
+            current = market_info.get("current_line", "N/A")
+            movement = market_info.get("movement", 0)
+            reasoning_parts.append(f"• {market_name.title()}: {opening} → {current} (moved {movement:+.1f})")
+        
+        if sharp_detected:
+            reasoning_parts.append("⚡ SHARP MONEY DETECTED - Professional bettors active")
+            sharp_side = line_analysis.get("sharp_money_side", "unknown")
+            reasoning_parts.append(f"   Sharp money appears to favor: {sharp_side}")
             key_factors.append("Sharp money detected")
         
-        # Psychology
-        psych_opps = psychology.get("contrarian_opportunities", {}).get("opportunities", [])
-        if psych_opps:
-            key_factors.append("Contrarian opportunity")
+        line_signal = line_analysis.get("confidence_adjustment", 0)
+        if abs(line_signal) > 0.02:
+            reasoning_parts.append(f"→ Line movement signal: {line_signal*100:+.1f}%")
         
-        for factor in key_factors[:4]:
-            reasoning_parts.append(f"✓ {factor}")
+        reasoning_parts.append("")
         
-        # Add simulation data
+        # ==================== MONTE CARLO SIMULATION ====================
+        reasoning_parts.append("🎲 MONTE CARLO SIMULATION (1000+ iterations)")
+        reasoning_parts.append("─────────────────────────────────────")
+        
         mc_outcomes = simulation.get("monte_carlo", {}).get("outcomes", {})
+        home_win_pct = mc_outcomes.get("home_win_pct", 0.5)
+        expected_total = mc_outcomes.get("expected_total", 0)
+        spread_cover_pct = mc_outcomes.get("spread_cover_pct", 0.5)
+        over_pct = mc_outcomes.get("over_pct", 0.5)
+        
+        reasoning_parts.append(f"• {home_team} win probability: {home_win_pct*100:.1f}%")
+        reasoning_parts.append(f"• {away_team} win probability: {(1-home_win_pct)*100:.1f}%")
+        
+        if expected_total > 0:
+            reasoning_parts.append(f"• Expected total score: {expected_total:.1f}")
+        if spread_cover_pct != 0.5:
+            reasoning_parts.append(f"• Home spread cover probability: {spread_cover_pct*100:.1f}%")
+        if over_pct != 0.5:
+            reasoning_parts.append(f"• Over probability: {over_pct*100:.1f}%")
+        
+        reasoning_parts.append("")
+        
+        # ==================== MARKET PSYCHOLOGY ====================
+        reasoning_parts.append("🧠 MARKET PSYCHOLOGY")
+        reasoning_parts.append("─────────────────────────────────────")
+        
+        psych_opps = psychology.get("contrarian_opportunities", {}).get("opportunities", [])
+        public_bias = psychology.get("public_bias", {})
+        
+        if public_bias:
+            public_side = public_bias.get("side", "unknown")
+            public_pct = public_bias.get("percentage", 50)
+            reasoning_parts.append(f"• Public betting {public_pct:.0f}% on: {public_side}")
+        
+        if psych_opps:
+            reasoning_parts.append("💡 Contrarian Opportunities Found:")
+            for opp in psych_opps[:2]:
+                reasoning_parts.append(f"  • {opp}")
+            key_factors.append("Contrarian value opportunity")
+        else:
+            reasoning_parts.append("• No significant contrarian opportunities")
+        
+        reasoning_parts.append("")
+        
+        # ==================== WHY THIS MARKET ====================
+        reasoning_parts.append(f"🎯 WHY {market_type.upper()}?")
+        reasoning_parts.append("─────────────────────────────────────")
+        
+        if market_type == "moneyline":
+            reasoning_parts.append("• Moneyline selected - clear winner expected")
+            reasoning_parts.append(f"• {pick} has {probability*100:.1f}% win probability")
+        elif market_type in ["spread", "spreads"]:
+            reasoning_parts.append("• Spread selected - margin of victory matters")
+            if spread_value:
+                reasoning_parts.append(f"• Line: {spread_value}")
+                reasoning_parts.append(f"• Cover probability: {spread_cover_pct*100:.1f}%")
+        elif market_type in ["total", "totals"]:
+            reasoning_parts.append("• Totals selected - scoring pace is key factor")
+            if total_line:
+                reasoning_parts.append(f"• Line: {total_line}")
+                reasoning_parts.append(f"• Expected total: {expected_total:.1f}")
+                if expected_total > total_line:
+                    reasoning_parts.append(f"• Simulations show {(expected_total - total_line):.1f} points OVER the line")
+                else:
+                    reasoning_parts.append(f"• Simulations show {(total_line - expected_total):.1f} points UNDER the line")
+        
+        reasoning_parts.append("")
+        
+        # ==================== SUMMARY ====================
+        reasoning_parts.append("═══════════════════════════════════════")
+        reasoning_parts.append("📋 SUMMARY")
+        reasoning_parts.append("═══════════════════════════════════════")
+        reasoning_parts.append(f"PICK: {pick_display}")
+        reasoning_parts.append(f"CONFIDENCE: {confidence:.1f}%")
+        reasoning_parts.append(f"EDGE: {edge*100:+.1f}%")
+        reasoning_parts.append("")
+        reasoning_parts.append("KEY FACTORS:")
+        for i, factor in enumerate(key_factors[:5], 1):
+            reasoning_parts.append(f"  {i}. {factor}")
         home_win_sim = mc_outcomes.get("home_win_pct", 0.5)
         reasoning_parts.append(f"🎲 Monte Carlo: {home_win_sim*100:.1f}% home win probability")
         
