@@ -483,7 +483,7 @@ const Dashboard = () => {
             </div>
             <div className="p-4 border-t border-zinc-800">
               <button 
-                onClick={() => { setShowActivePicksModal(false); navigate('/predictions'); }}
+                onClick={() => { setShowActivePicksModal(false); navigate('/performance'); }}
                 className="btn-primary w-full"
               >
                 View All Predictions
@@ -521,7 +521,7 @@ const Dashboard = () => {
               Top Picks
             </h2>
             <button 
-              onClick={() => navigate('/predictions')}
+              onClick={() => navigate('/performance')}
               className="text-brand-primary text-sm flex items-center gap-1 hover:underline"
               data-testid="view-all-picks"
             >
@@ -535,7 +535,7 @@ const Dashboard = () => {
                 <TopPickCard 
                   key={pick.id} 
                   pick={pick} 
-                  onClick={() => navigate(`/predictions`)}
+                  onClick={() => navigate('/performance')}
                 />
               ))}
             </div>
