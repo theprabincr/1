@@ -208,9 +208,11 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [performance, setPerformance] = useState(null);
   const [recommendations, setRecommendations] = useState([]);
+  const [allPicks, setAllPicks] = useState([]);
   const [events, setEvents] = useState([]);
   const [selectedSport, setSelectedSport] = useState("basketball_nba");
   const [showActivePicksModal, setShowActivePicksModal] = useState(false);
+  const [showAllPicksModal, setShowAllPicksModal] = useState(false);
   const [liveScores, setLiveScores] = useState([]);
   const [showLiveScoresModal, setShowLiveScoresModal] = useState(false);
 
@@ -225,17 +227,39 @@ const Dashboard = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [perfRes, recsRes, eventsRes, liveRes] = await Promise.all([
+      const [perfRes, recsRes, eventsRes, liveRes, allPicksRes] = await Promise.all([
         axios.get(`${API}/performance`),
         axios.get(`${API}/recommendations?limit=50&min_confidence=0.70`),
         axios.get(`${API}/events/${selectedSport}`),
-        axios.get(`${API}/live-scores`)
+        axios.get(`${API}/live-scores`),
+        axios.get(`${API}/recommendations?limit=100&min_confidence=0`)
       ]);
       
       setPerformance(perfRes.data);
       setRecommendations(recsRes.data);
       setEvents(eventsRes.data);
       setLiveScores(liveRes.data.games || []);
+      
+      // Combine all picks (from recommendations and performance history)
+      const activePicks = allPicksRes.data || [];
+      const completedPicks = perfRes.data.recent_predictions || [];
+      
+      // Merge and dedupe
+      const allPicksMap = new Map();
+      [...activePicks, ...completedPicks].forEach(p => {
+        if (!allPicksMap.has(p.id)) {
+          allPicksMap.set(p.id, p);
+        }
+      });
+      
+      // Sort by date (newest first)
+      const sortedPicks = Array.from(allPicksMap.values()).sort((a, b) => {
+        const dateA = new Date(a.commence_time || a.created_at || 0);
+        const dateB = new Date(b.commence_time || b.created_at || 0);
+        return dateB - dateA;
+      });
+      
+      setAllPicks(sortedPicks);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     } finally {
