@@ -1316,18 +1316,21 @@ async def auto_check_results():
                             )
                             
                             if result in ["win", "loss", "push"]:
-                                # Update prediction with result
+                                # Update prediction with result and remove analysis
                                 await db.predictions.update_one(
                                     {"id": prediction.get("id")},
-                                    {"$set": {
-                                        "result": result,
-                                        "result_updated_at": now.isoformat(),
-                                        "final_score": {
-                                            "home": matching_game.get("home_score"),
-                                            "away": matching_game.get("away_score"),
-                                            "total": matching_game.get("total_score")
-                                        }
-                                    }}
+                                    {
+                                        "$set": {
+                                            "result": result,
+                                            "result_updated_at": now.isoformat(),
+                                            "final_score": {
+                                                "home": matching_game.get("home_score"),
+                                                "away": matching_game.get("away_score"),
+                                                "total": matching_game.get("total_score")
+                                            }
+                                        },
+                                        "$unset": {"analysis": "", "reasoning": ""}  # Remove analysis once result is recorded
+                                    }
                                 )
                                 
                                 results_updated += 1
