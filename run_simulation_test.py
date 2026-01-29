@@ -295,9 +295,13 @@ async def update_prediction_result(session, prediction_id, result):
     }
     
     try:
-        async with session.put(f"{BACKEND_URL}/predictions/{prediction_id}/result", json=update_data) as response:
+        # Use the correct endpoint: PUT /api/result
+        async with session.put(f"{BACKEND_URL}/result", json=update_data) as response:
             if response.status == 200:
                 return True
+            else:
+                text = await response.text()
+                test_results["errors"].append(f"Update result status {response.status}: {text[:100]}")
     except Exception as e:
         test_results["errors"].append(f"Failed to update result: {e}")
     return False
