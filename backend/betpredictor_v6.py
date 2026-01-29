@@ -547,13 +547,54 @@ class BetPredictorV6:
         """
         Generate comprehensive pick response.
         """
+        market_type = market.get("market", "moneyline")
+        market_data = market.get("data", {})
+        
+        # Create proper pick display based on market type
+        pick_display = pick
+        spread_value = None
+        total_line = None
+        
+        if market_type == "moneyline":
+            pick_display = f"{pick} ML"
+        elif market_type == "spreads" or market_type == "spread":
+            # Get spread value
+            spread_value = market_data.get("spread") or line_analysis.get("markets", {}).get("spread", {}).get("current_line")
+            if spread_value is not None:
+                if pick == home_team:
+                    spread_display = spread_value if spread_value < 0 else f"+{spread_value}"
+                else:
+                    # Away team spread is opposite
+                    spread_display = -spread_value if spread_value < 0 else f"+{-spread_value}"
+                pick_display = f"{pick} {spread_display}"
+            else:
+                pick_display = f"{pick} (spread)"
+        elif market_type == "totals" or market_type == "total":
+            # For totals, determine Over or Under
+            total_line = market_data.get("total") or line_analysis.get("markets", {}).get("totals", {}).get("current_line")
+            # Use simulation to determine over/under
+            mc_data = simulation.get("monte_carlo", {}).get("outcomes", {})
+            expected_total = mc_data.get("expected_total", 0)
+            
+            if total_line:
+                if expected_total > total_line:
+                    pick_display = f"OVER {total_line}"
+                else:
+                    pick_display = f"UNDER {total_line}"
+            else:
+                # Fallback - if pick is home team with high prob, likely Over
+                if probability > 0.55:
+                    pick_display = f"OVER (high-scoring expected)"
+                else:
+                    pick_display = f"UNDER (low-scoring expected)"
+        
         # Build reasoning
         reasoning_parts = []
         
         # Ensemble consensus
         agreement = ensemble_result.get("model_agreement", 0)
         models_agree = ensemble_result.get("consensus_strength", 0)
-        reasoning_parts.append(f"🎯 {models_agree*100:.0f}% of models agree on {pick}")
+        reasoning_parts.append(f"🎯 {models_agree*100:.0f}% of models agree on {pick_display}")
         reasoning_parts.append(f"📊 Ensemble confidence: {confidence:.1f}%")
         reasoning_parts.append(f"💰 Estimated edge: {edge*100:+.1f}%")
         
@@ -595,8 +636,10 @@ class BetPredictorV6:
         return {
             "has_pick": True,
             "pick": pick,
-            "pick_type": market["market"],
-            "pick_display": pick,
+            "pick_type": market_type,
+            "pick_display": pick_display,
+            "spread": spread_value,
+            "total_line": total_line,
             "odds": odds,
             "confidence": round(confidence, 1),
             "our_probability": round(probability * 100, 1),
