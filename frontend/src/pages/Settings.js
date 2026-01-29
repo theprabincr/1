@@ -207,12 +207,12 @@ const Settings = () => {
         <h3 className="text-text-primary font-semibold mb-2">About Notifications</h3>
         <ul className="text-text-muted text-sm space-y-2">
           <li className="flex items-start gap-2">
-            <TrendingUp className="w-4 h-4 mt-0.5 text-semantic-success flex-shrink-0" />
-            <span><strong>Line Movement:</strong> Alerts when odds shift beyond your threshold on active picks</span>
+            <Zap className="w-4 h-4 mt-0.5 text-brand-primary flex-shrink-0" />
+            <span><strong>New Picks:</strong> Alerts when the predictor generates a new pick (45-75 min before game)</span>
           </li>
           <li className="flex items-start gap-2">
-            <Check className="w-4 h-4 mt-0.5 text-brand-primary flex-shrink-0" />
-            <span><strong>Results:</strong> Updates when games finish and picks are graded</span>
+            <Check className="w-4 h-4 mt-0.5 text-semantic-success flex-shrink-0" />
+            <span><strong>Results:</strong> Updates when games finish and picks are graded (win/loss)</span>
           </li>
           <li className="flex items-start gap-2">
             <Clock className="w-4 h-4 mt-0.5 text-brand-secondary flex-shrink-0" />
