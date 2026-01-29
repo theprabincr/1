@@ -134,52 +134,26 @@ const Settings = () => {
         </div>
         
         <div className="space-y-4">
-          {/* Line Movement Alerts */}
-          <div className="p-4 bg-zinc-800 rounded-lg">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-semantic-success" />
-                <p className="text-text-primary font-semibold">Line Movement Alerts</p>
+          {/* New Pick Alerts */}
+          <div className="flex items-center justify-between p-4 bg-zinc-800 rounded-lg">
+            <div className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-brand-primary" />
+              <div>
+                <p className="text-text-primary font-semibold">New Pick Alerts</p>
+                <p className="text-text-muted text-sm">Get notified when the predictor generates a new pick</p>
               </div>
-              <button
-                onClick={() => handleNotificationChange('line_movement_alerts', !settings.notification_preferences?.line_movement_alerts)}
-                className={`w-12 h-6 rounded-full transition-colors ${
-                  settings.notification_preferences?.line_movement_alerts ? 'bg-brand-primary' : 'bg-zinc-600'
-                }`}
-                data-testid="line-movement-toggle"
-              >
-                <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
-                  settings.notification_preferences?.line_movement_alerts ? 'translate-x-6' : 'translate-x-0.5'
-                }`} />
-              </button>
             </div>
-            <p className="text-text-muted text-sm mb-3">
-              Get notified when odds move significantly on your active picks
-            </p>
-            {settings.notification_preferences?.line_movement_alerts && (
-              <div className="mt-3 pt-3 border-t border-zinc-700">
-                <label className="flex items-center justify-between mb-2">
-                  <span className="text-text-muted text-sm">Alert threshold</span>
-                  <span className="font-mono text-brand-primary">{settings.notification_preferences?.line_movement_threshold || 5}%</span>
-                </label>
-                <input
-                  type="range"
-                  min="1"
-                  max="15"
-                  step="0.5"
-                  value={settings.notification_preferences?.line_movement_threshold || 5}
-                  onChange={(e) => handleNotificationChange('line_movement_threshold', parseFloat(e.target.value))}
-                  className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-brand-primary"
-                  data-testid="threshold-slider"
-                />
-                <div className="flex justify-between text-xs text-text-muted mt-1">
-                  <span>1%</span>
-                  <span>5%</span>
-                  <span>10%</span>
-                  <span>15%</span>
-                </div>
-              </div>
-            )}
+            <button
+              onClick={() => handleNotificationChange('new_pick_alerts', !settings.notification_preferences?.new_pick_alerts)}
+              className={`w-12 h-6 rounded-full transition-colors ${
+                settings.notification_preferences?.new_pick_alerts !== false ? 'bg-brand-primary' : 'bg-zinc-600'
+              }`}
+              data-testid="new-pick-toggle"
+            >
+              <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                settings.notification_preferences?.new_pick_alerts !== false ? 'translate-x-6' : 'translate-x-0.5'
+              }`} />
+            </button>
           </div>
 
           {/* Result Alerts */}
