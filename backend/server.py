@@ -3260,29 +3260,40 @@ async def scheduled_unified_predictor():
     """
     UNIFIED PREDICTOR: Combines V5 (line movement) + V6 (ML ensemble) into single prediction.
     
+    TIMING: Runs ~40 minutes before game start
+    - By this time, ESPN has usually released starting lineups (~1 hour before)
+    - Allows algorithm to factor in confirmed starters, late scratches, etc.
+    
     Weighting:
     - V6: 70% (ML ensemble is primary decision maker)
     - V5: 30% (Line movement provides confirmation)
     
-    Benefits:
-    - Single prediction per game (no conflicts)
-    - Best of both algorithms
-    - Agreement bonus when both align
-    - V6-driven with V5 validation
+    FACTORS CONSIDERED:
+    1. Starting Lineups (when available)
+    2. Injury Reports (confirmed scratches)
+    3. ELO Ratings (team strength)
+    4. Recent Form (last 10 games)
+    5. Home/Away Performance
+    6. Rest Days & Travel
+    7. Line Movement (sharp money)
+    8. Head-to-Head History
+    9. Key Player Impact
+    10. Weather (outdoor sports)
     """
     # Wait 2 minutes on startup
     await asyncio.sleep(120)
     
-    logger.info("🔄 Started UNIFIED PREDICTOR - Combining V5 + V6 (V6 weighted 70%)")
+    logger.info("🔄 Started UNIFIED PREDICTOR - Triggers 40 min before game (after lineup release)")
     
     sports_to_analyze = ["basketball_nba", "americanfootball_nfl", "icehockey_nhl", "soccer_epl"]
     
     while True:
         try:
             now = datetime.now(timezone.utc)
-            # 1 hour window (45 min to 75 min before game)
-            window_start = now + timedelta(minutes=45)
-            window_end = now + timedelta(minutes=75)
+            # OPTIMAL WINDOW: 35-50 minutes before game
+            # ESPN releases lineups ~1 hour before, so by 40 min we have confirmed starters
+            window_start = now + timedelta(minutes=35)
+            window_end = now + timedelta(minutes=50)
             
             predictions_made = 0
             
@@ -3294,7 +3305,7 @@ async def scheduled_unified_predictor():
                     if not events:
                         continue
                     
-                    # Filter to games starting in ~1 hour
+                    # Filter to games starting in ~40 minutes
                     for event in events:
                         try:
                             commence_str = event.get("commence_time", "")
@@ -3302,8 +3313,9 @@ async def scheduled_unified_predictor():
                                 continue
                             
                             commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
+                            minutes_until_game = (commence_time - now).total_seconds() / 60
                             
-                            # Check if game is in our target window (~1 hour from now)
+                            # Check if game is in our target window (~40 minutes from now)
                             if window_start <= commence_time <= window_end:
                                 event_id = event.get("id")
                                 home_team = event.get("home_team")
@@ -3320,17 +3332,39 @@ async def scheduled_unified_predictor():
                                     logger.debug(f"Skipping {event_id} - already has unified prediction")
                                     continue
                                 
-                                # This game is ~1 hour away - time for unified analysis!
-                                logger.info(f"🔄 UNIFIED ANALYSIS: {home_team} vs {away_team} "
-                                          f"(starts in {(commence_time - now).total_seconds() / 60:.0f} min)")
+                                logger.info(f"🔄 UNIFIED ANALYSIS: {away_team} @ {home_team} "
+                                          f"(starts in {minutes_until_game:.0f} min - LINEUP WINDOW)")
                                 
                                 # 1. Get comprehensive matchup data
                                 matchup_data = await get_comprehensive_matchup_data(event, sport_key)
                                 
-                                # 2. Get squad data (injuries and rosters)
+                                # 2. FETCH STARTING LINEUPS (key enhancement!)
+                                lineup_data = await fetch_starting_lineup(event_id, sport_key)
+                                lineup_status = lineup_data.get("lineup_status", "not_available")
+                                
+                                if lineup_status == "confirmed":
+                                    logger.info(f"✅ CONFIRMED LINEUPS available for {home_team} vs {away_team}")
+                                elif lineup_status == "projected":
+                                    logger.info(f"📋 Projected lineups available for {home_team} vs {away_team}")
+                                else:
+                                    logger.info(f"⏳ Lineups not yet released for {home_team} vs {away_team}")
+                                
+                                # 3. Get squad data (injuries and rosters) with starters
                                 squad_data = {
-                                    "home_team": {"injuries": [], "roster": [], "key_players": []},
-                                    "away_team": {"injuries": [], "roster": [], "key_players": []}
+                                    "home_team": {
+                                        "injuries": [], 
+                                        "roster": [], 
+                                        "key_players": [],
+                                        "starters": lineup_data.get("home", {}).get("starters", []),
+                                        "starters_confirmed": lineup_data.get("home", {}).get("confirmed", False)
+                                    },
+                                    "away_team": {
+                                        "injuries": [], 
+                                        "roster": [], 
+                                        "key_players": [],
+                                        "starters": lineup_data.get("away", {}).get("starters", []),
+                                        "starters_confirmed": lineup_data.get("away", {}).get("confirmed", False)
+                                    }
                                 }
                                 try:
                                     home_roster = await fetch_team_roster(home_team, sport_key)
@@ -3341,10 +3375,14 @@ async def scheduled_unified_predictor():
                                     squad_data["away_team"]["injuries"] = away_roster.get("injuries", [])
                                     squad_data["away_team"]["roster"] = away_roster.get("players", [])
                                     squad_data["away_team"]["key_players"] = away_roster.get("key_players", [])
-                                    logger.info(f"Fetched rosters: {home_team} ({len(home_roster.get('players', []))} players, "
-                                              f"{len(home_roster.get('injuries', []))} injuries), "
-                                              f"{away_team} ({len(away_roster.get('players', []))} players, "
-                                              f"{len(away_roster.get('injuries', []))} injuries)")
+                                    
+                                    home_starters = len(squad_data["home_team"]["starters"])
+                                    away_starters = len(squad_data["away_team"]["starters"])
+                                    home_injuries = len(squad_data["home_team"]["injuries"])
+                                    away_injuries = len(squad_data["away_team"]["injuries"])
+                                    
+                                    logger.info(f"📊 Roster Data: {home_team} ({home_starters} starters, {home_injuries} injuries), "
+                                              f"{away_team} ({away_starters} starters, {away_injuries} injuries)")
                                 except Exception as e:
                                     logger.warning(f"Could not fetch roster data: {e}")
                                 
