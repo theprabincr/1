@@ -139,3 +139,31 @@ Build a betting predictor application that fetches data from all future and in-p
 | /api/performance | GET | Performance stats |
 | /api/scraper-status | GET | Scraper health check |
 | /api/scrape-odds | POST | Manual scrape trigger |
+| /api/my-bets | GET | Get user's tracked bets |
+| /api/my-bets | POST | Add a new bet to track |
+| /api/my-bets/{bet_id} | PUT | Update bet result (won/lost/pending) |
+| /api/my-bets/{bet_id} | DELETE | Remove tracked bet |
+
+## Changelog
+
+### January 29, 2026
+- **Fixed**: Line Movement page `isAutoRefresh is not defined` error
+  - Removed leftover JSX block that referenced deleted state variable
+  - Page now loads correctly with sport selector, events, and line chart
+- **Fixed**: POST /api/my-bets ObjectId serialization error
+  - Added `bet_doc.pop("_id", None)` before returning response
+- **Added**: "Track This Bet" functionality on Dashboard
+  - New `onTrackBet` callback on TopPickCard component
+  - Track Bet modal with stake input and potential payout calculator
+  - Added Track button to Active Picks modal
+- **Added**: My Bets feature on Performance page
+  - GET/POST/PUT/DELETE endpoints for bet tracking
+  - User can track bets and update results (won/lost/pending)
+  - Stats display: Total Bets, Win Rate, Total Profit, Avg Odds
+
+### Previous Sessions
+- Unified Predictor (V5+V6) created and integrated
+- Live Score Dashboard with auto-refresh
+- Settings page simplified
+- V6 Algorithm with ML models
+- UI cleanup (removed "Source: ESPN" text, simplified Line Movement page)
