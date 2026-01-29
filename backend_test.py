@@ -228,7 +228,7 @@ class BetPredictorTestSuite:
             return
         
         # Verify algorithm
-        if data.get("algorithm") != "unified_predictor":
+        if data.get("algorithm") != "unified":
             self.log_test("Unified Predictions", False, f"Wrong algorithm: {data.get('algorithm')}")
             return
         
