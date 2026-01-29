@@ -331,11 +331,15 @@ class UnifiedBetPredictor:
     ) -> str:
         """
         Build comprehensive reasoning combining both algorithms.
+        Shows FULL detailed analysis including all factors considered.
         """
         reasoning_parts = []
         
-        # Header
+        # ===== HEADER =====
+        reasoning_parts.append(f"{'='*60}")
         reasoning_parts.append(f"🎯 {consensus_type}")
+        reasoning_parts.append(f"{'='*60}")
+        reasoning_parts.append("")
         reasoning_parts.append(f"📊 Combined Confidence: {combined_confidence:.1f}% (V6: 70%, V5: 30%)")
         reasoning_parts.append(f"💰 Combined Edge: {combined_edge:+.1f}%")
         
@@ -347,26 +351,89 @@ class UnifiedBetPredictor:
         elif v5_declined:
             reasoning_parts.append(f"⚠️ V5 declined (no strong line movement), relying on V6")
         
-        # V6 Key Factors
-        reasoning_parts.append(f"\n📊 V6 (ML ENSEMBLE) ANALYSIS:")
+        reasoning_parts.append("")
+        
+        # ===== FULL V6 ANALYSIS =====
+        reasoning_parts.append(f"{'='*60}")
+        reasoning_parts.append(f"📊 V6 ML ENSEMBLE - FULL ANALYSIS")
+        reasoning_parts.append(f"{'='*60}")
+        reasoning_parts.append("")
+        
         v6_reasoning = v6_result.get("reasoning", "")
         if v6_reasoning:
-            for line in v6_reasoning.split("\n")[:6]:  # First 6 lines
-                if line.strip():
-                    reasoning_parts.append(f"  {line.strip()}")
+            # Include FULL V6 reasoning - all sections
+            reasoning_parts.append(v6_reasoning)
         
-        # V5 Key Factors
+        reasoning_parts.append("")
+        
+        # ===== V5 LINE MOVEMENT ANALYSIS =====
+        reasoning_parts.append(f"{'='*60}")
+        reasoning_parts.append(f"📈 V5 LINE MOVEMENT ANALYSIS")
+        reasoning_parts.append(f"{'='*60}")
+        reasoning_parts.append("")
+        
         if v5_result.get("has_pick"):
-            reasoning_parts.append(f"\n📈 V5 (LINE MOVEMENT) SIGNALS:")
-            line_analysis = v5_result.get("line_movement_analysis", {})
-            if line_analysis.get("sharp_money_detected"):
-                reasoning_parts.append(f"  ✓ Sharp money detected")
-            if line_analysis.get("reverse_line_movement"):
-                reasoning_parts.append(f"  ✓ Reverse line movement (RLM)")
+            v5_pick = v5_result.get("pick", "")
+            v5_conf = v5_result.get("confidence", 0)
+            reasoning_parts.append(f"V5 Pick: {v5_pick} @ {v5_conf:.0f}% confidence")
+            reasoning_parts.append("")
             
-            key_insights = line_analysis.get("key_insights", [])
-            for insight in key_insights[:3]:
-                reasoning_parts.append(f"  ✓ {insight}")
+            line_analysis = v5_result.get("line_movement_analysis", {}) or v5_result.get("market_analysis", {})
+            
+            if line_analysis.get("sharp_money_detected"):
+                reasoning_parts.append(f"✓ SHARP MONEY DETECTED - Professional bettors active")
+            if line_analysis.get("reverse_line_movement"):
+                reasoning_parts.append(f"✓ REVERSE LINE MOVEMENT - Line moving against public")
+            
+            key_insights = line_analysis.get("key_insights", []) or v5_result.get("insights", [])
+            if key_insights:
+                reasoning_parts.append("")
+                reasoning_parts.append("Key Insights:")
+                for insight in key_insights[:5]:
+                    reasoning_parts.append(f"  • {insight}")
+            
+            # Market breakdown
+            markets = line_analysis if isinstance(line_analysis, dict) else {}
+            market_analysis = v5_result.get("market_analysis", {})
+            
+            if market_analysis:
+                reasoning_parts.append("")
+                reasoning_parts.append("Market Breakdown:")
+                for market_name, market_data in market_analysis.items():
+                    if isinstance(market_data, dict):
+                        opening = market_data.get("opening_value", "N/A")
+                        current = market_data.get("current_value", "N/A")
+                        movement = market_data.get("total_movement", 0)
+                        direction = market_data.get("movement_direction", "neutral")
+                        
+                        reasoning_parts.append(f"  • {market_name.upper()}: {opening} → {current} ({direction}, {movement:+.1f})")
+        else:
+            v5_reason = v5_result.get("reasoning", "No strong line movement signal detected")
+            reasoning_parts.append(f"V5 did not recommend a pick:")
+            reasoning_parts.append(f"  {v5_reason}")
+            
+            # Still show market status
+            market_analysis = v5_result.get("market_analysis", {})
+            if market_analysis:
+                reasoning_parts.append("")
+                reasoning_parts.append("Current Market Status:")
+                for market_name, market_data in market_analysis.items():
+                    if isinstance(market_data, dict):
+                        opening = market_data.get("opening_value", {})
+                        current = market_data.get("current_value", {})
+                        movement = market_data.get("total_movement", 0)
+                        
+                        if isinstance(opening, dict):
+                            opening_str = f"Home: {opening.get('home', 'N/A')}, Away: {opening.get('away', 'N/A')}"
+                            current_str = f"Home: {current.get('home', 'N/A')}, Away: {current.get('away', 'N/A')}"
+                        else:
+                            opening_str = str(opening)
+                            current_str = str(current)
+                        
+                        reasoning_parts.append(f"  • {market_name.upper()}: {opening_str} (no significant movement)")
+        
+        reasoning_parts.append("")
+        reasoning_parts.append(f"{'='*60}")
         
         return "\n".join(reasoning_parts)
 
