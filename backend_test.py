@@ -17,7 +17,7 @@ BACKEND_URL = os.environ.get('REACT_APP_BACKEND_URL', 'http://localhost:8001')
 if not BACKEND_URL.endswith('/api'):
     BACKEND_URL = f"{BACKEND_URL}/api"
 
-class V6TestSuite:
+class BetPredictorTestSuite:
     def __init__(self):
         self.session = None
         self.test_results = []
@@ -26,7 +26,7 @@ class V6TestSuite:
     async def setup(self):
         """Setup test session"""
         self.session = aiohttp.ClientSession()
-        print("🚀 BetPredictor V6 Testing Suite Started")
+        print("🚀 BetPredictor Backend API Testing Suite Started")
         print(f"Backend URL: {BACKEND_URL}")
         print("=" * 60)
         
