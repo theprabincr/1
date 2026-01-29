@@ -1990,6 +1990,30 @@ async def analyze_event_unified(event_id: str, sport_key: str = "basketball_nba"
 # View upcoming games in prediction window
 @api_router.get("/upcoming-predictions-window")
 async def get_upcoming_predictions_window(sport_key: str = "basketball_nba"):
+    """Get games in prediction window (45-75 min before start)"""
+    try:
+        now = datetime.now(timezone.utc)
+        window_start = now + timedelta(minutes=45)
+        window_end = now + timedelta(minutes=75)
+        
+        events = await fetch_espn_events_with_odds(sport_key, days_ahead=1)
+        
+        games_in_window = []
+        for event in events:
+            try:
+                commence_str = event.get("commence_time", "")
+                if not commence_str:
+                    continue
+                commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
+                if window_start <= commence_time <= window_end:
+                    games_in_window.append(event)
+            except:
+                continue
+        
+        return {"games": games_in_window, "count": len(games_in_window)}
+    except Exception as e:
+        logger.error(f"Error fetching prediction window: {e}")
+        return {"games": [], "count": 0}
 
 
 # ==================== MY BETS TRACKING ====================
