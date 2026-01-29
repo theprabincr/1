@@ -59,14 +59,6 @@ class BetPredictorV6:
         self.min_edge = 0.04
         self.min_models_agreement = 3  # At least 3/5 models must agree
         self.min_ensemble_confidence = 65.0  # Ensemble confidence threshold
-        
-        # TEST MODE: Lower thresholds temporarily for demonstration
-        # TODO: Remove this after testing
-        self.test_mode = True
-        if self.test_mode:
-            self.min_ensemble_confidence = 35.0  # Lowered from 65
-            self.min_models_agreement = 2  # Lowered from 3
-            self.min_edge = 0.02  # Lowered from 0.04
     
     async def analyze_and_predict(
         self,
