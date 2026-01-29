@@ -671,11 +671,11 @@ class BetPredictorTester:
 
 async def main():
     """Main test runner"""
-    async with AdaptiveLearningTester() as tester:
+    async with BetPredictorTester() as tester:
         passed, failed, total = await tester.run_all_tests()
         
         if failed == 0:
-            print("🎉 ALL ADAPTIVE LEARNING TESTS PASSED!")
+            print("🎉 ALL TESTS PASSED!")
         else:
             print(f"⚠️  {failed} out of {total} tests failed")
         
