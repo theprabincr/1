@@ -1989,6 +1989,70 @@ async def analyze_event_unified(event_id: str, sport_key: str = "basketball_nba"
 
 # View upcoming games in prediction window
 @api_router.get("/upcoming-predictions-window")
+async def get_upcoming_predictions_window(sport_key: str = "basketball_nba"):
+
+
+# ==================== MY BETS TRACKING ====================
+# User's actual bet performance tracking
+
+@api_router.get("/my-bets")
+async def get_my_bets():
+    """Get user's tracked bets"""
+    try:
+        bets = await db.my_bets.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+        return {"bets": bets}
+    except Exception as e:
+        logger.error(f"Error fetching my bets: {e}")
+        return {"bets": []}
+
+
+@api_router.post("/my-bets")
+async def add_my_bet(bet: dict):
+    """Add a new bet to track"""
+    try:
+        bet_doc = {
+            "id": str(uuid.uuid4()),
+            "event_name": bet.get("event_name"),
+            "selection": bet.get("selection"),
+            "stake": bet.get("stake"),
+            "odds": bet.get("odds"),
+            "result": bet.get("result", "pending"),
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.my_bets.insert_one(bet_doc)
+        return {"success": True, "bet": bet_doc}
+    except Exception as e:
+        logger.error(f"Error adding bet: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.put("/my-bets/{bet_id}")
+async def update_my_bet(bet_id: str, update_data: dict):
+    """Update a bet's result"""
+    try:
+        await db.my_bets.update_one(
+            {"id": bet_id},
+            {"$set": update_data}
+        )
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Error updating bet: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.delete("/my-bets/{bet_id}")
+async def delete_my_bet(bet_id: str):
+    """Delete a tracked bet"""
+    try:
+        await db.my_bets.delete_one({"id": bet_id})
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Error deleting bet: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# View upcoming games in prediction window (restored)
+@api_router.get("/upcoming-predictions-window-restored")
 async def get_upcoming_prediction_window():
     """View games that are in the 1-hour prediction window (45-75 min before start)"""
     now = datetime.now(timezone.utc)
