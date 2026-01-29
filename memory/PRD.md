@@ -150,16 +150,16 @@ Build a betting predictor application that fetches data from all future and in-p
 - **Fixed**: Line Movement page `isAutoRefresh is not defined` error
   - Removed leftover JSX block that referenced deleted state variable
   - Page now loads correctly with sport selector, events, and line chart
-- **Fixed**: POST /api/my-bets ObjectId serialization error
-  - Added `bet_doc.pop("_id", None)` before returning response
-- **Added**: "Track This Bet" functionality on Dashboard
-  - New `onTrackBet` callback on TopPickCard component
-  - Track Bet modal with stake input and potential payout calculator
-  - Added Track button to Active Picks modal
-- **Added**: My Bets feature on Performance page
-  - GET/POST/PUT/DELETE endpoints for bet tracking
-  - User can track bets and update results (won/lost/pending)
-  - Stats display: Total Bets, Win Rate, Total Profit, Avg Odds
+- **Refactored**: Performance page now tracks ALGORITHM picks (not user bets)
+  - Shows: Total Picks, Win Rate, Total Profit, ROI, Avg Odds
+  - "All Picks" list with filters: All, Pending, Completed
+  - Profit History chart shows positive (green) and negative (red) bars
+  - Removed "Add Bet" button and user bet tracking features
+  - Performance is now based on the app's automatic predictions
+- **Removed**: "Track This Bet" button from Dashboard
+  - Simplified TopPickCard component
+  - Removed track bet modal and related handlers
+  - Focus is on algorithm performance, not manual bet tracking
 
 ### Previous Sessions
 - Unified Predictor (V5+V6) created and integrated
