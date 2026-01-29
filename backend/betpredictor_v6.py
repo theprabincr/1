@@ -364,13 +364,10 @@ class BetPredictorV6:
         # 3. Model agreement >= 70%
         # 4. Clear probability edge (> 0.55 or < 0.45)
         
-        # Apply test mode threshold if enabled
-        model_agreement_threshold = 0.15 if hasattr(self, 'test_mode') and self.test_mode else 0.70
-        
         should_pick = (
             ensemble_conf >= self.min_ensemble_confidence and
             max_agreement >= self.min_models_agreement and
-            model_agreement >= model_agreement_threshold and
+            model_agreement >= 0.70 and
             (ensemble_prob > 0.55 or ensemble_prob < 0.45)
         )
         
