@@ -547,7 +547,8 @@ class BetPredictorV6:
         context: Dict,
         injury: Dict,
         psychology: Dict,
-        pick_source: str = None
+        pick_source: str = None,
+        matchup_data: Dict = None  # Full matchup data for form/records
     ) -> Dict:
         """
         Generate comprehensive pick response.
