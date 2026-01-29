@@ -1330,6 +1330,15 @@ async def auto_check_results():
                                           f"({matching_game.get('home_team')} {matching_game.get('home_score')} - "
                                           f"{matching_game.get('away_score')} {matching_game.get('away_team')})")
                                 
+                                # Clean up line movement data for this completed event
+                                event_id = prediction.get("event_id")
+                                if event_id:
+                                    deleted_history = await db.odds_history.delete_many({"event_id": event_id})
+                                    deleted_opening = await db.opening_odds.delete_one({"event_id": event_id})
+                                    logger.info(f"Cleaned up line movement data for {event_id}: "
+                                              f"{deleted_history.deleted_count} snapshots, "
+                                              f"{deleted_opening.deleted_count} opening odds")
+                                
                                 # Create notification for result
                                 await create_notification(
                                     "result",
