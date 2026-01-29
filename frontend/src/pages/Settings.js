@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { 
   Settings as SettingsIcon, Bell, Clock, Save, RefreshCw,
-  Zap, TrendingUp, AlertTriangle, Check, Globe
+  Zap, TrendingUp, Check
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -10,7 +10,6 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const Settings = () => {
   const [settings, setSettings] = useState({
     cache_duration_minutes: 60,
-    priority_sports: [],
     notification_preferences: {
       line_movement_alerts: true,
       line_movement_threshold: 5.0,
@@ -18,30 +17,15 @@ const Settings = () => {
       daily_summary: true
     }
   });
-  const [scraperStatus, setScraperStatus] = useState({ status: 'active' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const sports = [
-    { key: "basketball_nba", label: "NBA Basketball" },
-    { key: "americanfootball_nfl", label: "NFL Football" },
-    { key: "baseball_mlb", label: "MLB Baseball" },
-    { key: "icehockey_nhl", label: "NHL Hockey" },
-    { key: "soccer_epl", label: "EPL Soccer" },
-    { key: "soccer_spain_la_liga", label: "La Liga Soccer" },
-    { key: "mma_mixed_martial_arts", label: "MMA" },
-  ];
-
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const [settingsRes, statusRes] = await Promise.all([
-          axios.get(`${API}/settings`),
-          axios.get(`${API}/scraper-status`)
-        ]);
+        const settingsRes = await axios.get(`${API}/settings`);
         setSettings(settingsRes.data);
-        setScraperStatus(statusRes.data);
       } catch (error) {
         console.error("Error fetching settings:", error);
       } finally {
@@ -72,15 +56,6 @@ const Settings = () => {
         ...prev.notification_preferences,
         [key]: value
       }
-    }));
-  };
-
-  const handlePrioritySportToggle = (sportKey) => {
-    setSettings(prev => ({
-      ...prev,
-      priority_sports: prev.priority_sports.includes(sportKey)
-        ? prev.priority_sports.filter(s => s !== sportKey)
-        : [...prev.priority_sports, sportKey]
     }));
   };
 
@@ -121,42 +96,7 @@ const Settings = () => {
         </button>
       </div>
 
-      {/* ESPN Data Source Status */}
-      <div className="stat-card">
-        <h2 className="font-mono font-bold text-lg text-text-primary mb-4 flex items-center gap-2">
-          <Globe className="w-5 h-5 text-brand-primary" />
-          Data Source: ESPN
-        </h2>
-        <div className="p-4 bg-zinc-800 rounded-lg">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-text-primary font-medium">Status</span>
-            <span className="px-2 py-1 rounded text-xs bg-semantic-success/20 text-semantic-success font-bold">
-              {scraperStatus.status?.toUpperCase() || 'ACTIVE'}
-            </span>
-          </div>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-text-muted">Cached Events</span>
-              <span className="text-text-primary font-mono">{scraperStatus.cachedEvents || 0}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-text-muted">Cache Duration</span>
-              <span className="text-text-primary font-mono">{scraperStatus.cacheDuration || 60} min</span>
-            </div>
-            {scraperStatus.lastUpdate && (
-              <div className="flex justify-between">
-                <span className="text-text-muted">Last Update</span>
-                <span className="text-text-primary text-xs">{new Date(scraperStatus.lastUpdate).toLocaleString()}</span>
-              </div>
-            )}
-          </div>
-          <p className="text-text-muted text-xs mt-3 pt-3 border-t border-zinc-700">
-            Free real-time odds data from ESPN with automatic updates every 5 minutes.
-          </p>
-        </div>
-      </div>
-
-      {/* Caching Settings */}
+      {/* Performance Settings */}
       <div className="stat-card">
         <h2 className="font-mono font-bold text-lg text-text-primary mb-4 flex items-center gap-2">
           <Zap className="w-5 h-5 text-brand-primary" />
@@ -184,25 +124,8 @@ const Settings = () => {
               <span>120 min</span>
             </div>
             <p className="text-text-muted text-xs mt-2">
-              Higher values save more API calls but show less fresh data.
+              Controls how long data stays cached before refreshing.
             </p>
-          </div>
-
-          <div className="flex items-center justify-between p-4 bg-zinc-800 rounded-lg">
-            <div>
-              <p className="text-text-primary font-semibold">Auto-Rotate API Keys</p>
-              <p className="text-text-muted text-sm">Automatically switch to next key when current is exhausted</p>
-            </div>
-            <button
-              onClick={() => setSettings(prev => ({...prev, auto_rotate_keys: !prev.auto_rotate_keys}))}
-              className={`w-12 h-6 rounded-full transition-colors ${
-                settings.auto_rotate_keys ? 'bg-brand-primary' : 'bg-zinc-600'
-              }`}
-            >
-              <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
-                settings.auto_rotate_keys ? 'translate-x-6' : 'translate-x-0.5'
-              }`} />
-            </button>
           </div>
         </div>
       </div>
@@ -255,43 +178,6 @@ const Settings = () => {
             )}
           </div>
 
-          {/* Low API Alerts */}
-          <div className="p-4 bg-zinc-800 rounded-lg">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-semantic-warning" />
-                <p className="text-text-primary font-semibold">Low API Calls Warning</p>
-              </div>
-              <button
-                onClick={() => handleNotificationChange('low_api_alerts', !settings.notification_preferences.low_api_alerts)}
-                className={`w-12 h-6 rounded-full transition-colors ${
-                  settings.notification_preferences.low_api_alerts ? 'bg-brand-primary' : 'bg-zinc-600'
-                }`}
-              >
-                <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
-                  settings.notification_preferences.low_api_alerts ? 'translate-x-6' : 'translate-x-0.5'
-                }`} />
-              </button>
-            </div>
-            {settings.notification_preferences.low_api_alerts && (
-              <div className="mt-3">
-                <label className="flex items-center justify-between mb-2">
-                  <span className="text-text-muted text-sm">Alert when below</span>
-                  <span className="font-mono text-brand-primary">{settings.notification_preferences.low_api_threshold} calls</span>
-                </label>
-                <input
-                  type="range"
-                  min="10"
-                  max="100"
-                  step="10"
-                  value={settings.notification_preferences.low_api_threshold}
-                  onChange={(e) => handleNotificationChange('low_api_threshold', parseInt(e.target.value))}
-                  className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-brand-primary"
-                />
-              </div>
-            )}
-          </div>
-
           {/* Result Alerts */}
           <div className="flex items-center justify-between p-4 bg-zinc-800 rounded-lg">
             <div className="flex items-center gap-2">
@@ -333,38 +219,6 @@ const Settings = () => {
               }`} />
             </button>
           </div>
-        </div>
-      </div>
-
-      {/* Priority Sports */}
-      <div className="stat-card">
-        <h2 className="font-mono font-bold text-lg text-text-primary mb-4 flex items-center gap-2">
-          <Zap className="w-5 h-5 text-brand-primary" />
-          Priority Sports
-        </h2>
-        <p className="text-text-muted text-sm mb-4">
-          Select sports to prioritize for API calls when resources are limited.
-        </p>
-        
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {sports.map(sport => (
-            <button
-              key={sport.key}
-              onClick={() => handlePrioritySportToggle(sport.key)}
-              className={`p-3 rounded-lg border transition-all text-left ${
-                settings.priority_sports.includes(sport.key)
-                  ? 'bg-brand-primary/20 border-brand-primary text-brand-primary'
-                  : 'bg-zinc-800 border-zinc-700 text-text-secondary hover:border-zinc-600'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">{sport.label}</span>
-                {settings.priority_sports.includes(sport.key) && (
-                  <Check className="w-4 h-4" />
-                )}
-              </div>
-            </button>
-          ))}
         </div>
       </div>
     </div>

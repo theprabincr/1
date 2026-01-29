@@ -2,10 +2,10 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { 
   Trophy, RefreshCw, TrendingUp, TrendingDown,
-  CheckCircle, XCircle, Clock, DollarSign, Target,
-  BarChart3, PieChart
+  CheckCircle, XCircle, DollarSign, Target,
+  BarChart3, PlusCircle, Calendar
 } from "lucide-react";
-import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -20,7 +20,7 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color, trend }) => {
   };
 
   return (
-    <div className="stat-card" data-testid={`perf-stat-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+    <div className="stat-card">
       <div className="flex items-start justify-between mb-3">
         <div className={`p-2 rounded-lg ${colorClasses[color]}`}>
           <Icon className="w-5 h-5" />
@@ -41,168 +41,152 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color, trend }) => {
   );
 };
 
-// Win/Loss Chart
-const WinLossChart = ({ wins, losses, pushes }) => {
-  const data = [
-    { name: 'Wins', value: wins, color: '#22C55E' },
-    { name: 'Losses', value: losses, color: '#EF4444' },
-    { name: 'Pushes', value: pushes, color: '#71717A' }
-  ].filter(d => d.value > 0);
+// My Bets Row
+const MyBetRow = ({ bet }) => {
+  const statusColors = {
+    pending: "text-semantic-warning bg-semantic-warning/10",
+    won: "text-semantic-success bg-semantic-success/10",
+    lost: "text-semantic-danger bg-semantic-danger/10"
+  };
+
+  const profit = bet.result === 'won' ? (bet.stake * (bet.odds - 1)) : (bet.result === 'lost' ? -bet.stake : 0);
+  const profitPercent = ((profit / bet.stake) * 100).toFixed(1);
+
+  return (
+    <div className="p-4 bg-zinc-800 rounded-lg hover:bg-zinc-700 transition-colors">
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex-1">
+          <p className="text-text-primary font-semibold">{bet.event_name}</p>
+          <p className="text-text-muted text-sm">{bet.selection} @ {bet.odds}</p>
+          <p className="text-text-muted text-xs mt-1">
+            {new Date(bet.created_at).toLocaleDateString()} • Stake: ${bet.stake}
+          </p>
+        </div>
+        <div className="text-right">
+          <span className={`px-2 py-1 rounded text-xs font-bold ${statusColors[bet.result]}`}>
+            {bet.result.toUpperCase()}
+          </span>
+          {bet.result !== 'pending' && (
+            <p className={`text-sm font-mono mt-2 ${
+              profit >= 0 ? 'text-semantic-success' : 'text-semantic-danger'
+            }`}>
+              {profit >= 0 ? '+' : ''}${profit.toFixed(2)} ({profitPercent >= 0 ? '+' : ''}{profitPercent}%)
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Performance Chart
+const PerformanceChart = ({ bets }) => {
+  // Group by date
+  const dateGroups = {};
+  bets.forEach(bet => {
+    const date = new Date(bet.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    if (!dateGroups[date]) {
+      dateGroups[date] = { date, profit: 0, bets: 0 };
+    }
+    if (bet.result === 'won') {
+      dateGroups[date].profit += bet.stake * (bet.odds - 1);
+    } else if (bet.result === 'lost') {
+      dateGroups[date].profit -= bet.stake;
+    }
+    dateGroups[date].bets++;
+  });
+
+  const data = Object.values(dateGroups).slice(-7); // Last 7 days
 
   if (data.length === 0) {
     return (
       <div className="flex items-center justify-center h-48 text-text-muted">
-        No data available
+        No bet history available
       </div>
     );
   }
 
   return (
     <ResponsiveContainer width="100%" height={200}>
-      <RePieChart>
-        <Pie
-          data={data}
-          cx="50%"
-          cy="50%"
-          innerRadius={50}
-          outerRadius={80}
-          paddingAngle={2}
-          dataKey="value"
-        >
-          {data.map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={entry.color} />
-          ))}
-        </Pie>
+      <BarChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
+        <XAxis dataKey="date" stroke="#71717A" style={{ fontSize: '12px' }} />
+        <YAxis stroke="#71717A" style={{ fontSize: '12px' }} />
         <Tooltip 
           contentStyle={{ 
             backgroundColor: '#18181B', 
             border: '1px solid #27272A',
             borderRadius: '8px'
           }}
+          formatter={(value) => ['$' + value.toFixed(2), 'Profit']}
         />
-        <Legend 
-          formatter={(value) => <span className="text-text-secondary text-sm">{value}</span>}
-        />
-      </RePieChart>
+        <Bar dataKey="profit" fill="#22C55E" />
+      </BarChart>
     </ResponsiveContainer>
   );
 };
 
-// Recent Prediction Row
-const PredictionRow = ({ prediction }) => {
-  const statusColors = {
-    pending: "text-semantic-warning",
-    win: "text-semantic-success",
-    loss: "text-semantic-danger",
-    push: "text-text-muted"
-  };
-
-  const statusIcons = {
-    pending: Clock,
-    win: CheckCircle,
-    loss: XCircle,
-    push: Target
-  };
-
-  const StatusIcon = statusIcons[prediction.result] || Clock;
-
-  return (
-    <tr className="border-b border-zinc-800 hover:bg-zinc-800/30">
-      <td className="py-3 px-4">
-        <div>
-          <p className="text-text-primary text-sm font-medium">{prediction.home_team}</p>
-          <p className="text-text-muted text-xs">vs {prediction.away_team}</p>
-        </div>
-      </td>
-      <td className="py-3 px-4">
-        <span className="text-xs font-mono text-text-muted uppercase">
-          {prediction.sport_key?.replace(/_/g, ' ').slice(0, 15)}
-        </span>
-      </td>
-      <td className="py-3 px-4">
-        <span className="font-mono text-brand-primary text-sm">
-          {prediction.predicted_outcome?.slice(0, 12)}
-        </span>
-      </td>
-      <td className="py-3 px-4">
-        <span className={`font-mono text-sm ${
-          prediction.odds_at_prediction > 0 ? 'text-semantic-success' : 'text-text-primary'
-        }`}>
-          {typeof prediction.odds_at_prediction === 'number' ? prediction.odds_at_prediction.toFixed(2) : prediction.odds_at_prediction}
-        </span>
-      </td>
-      <td className="py-3 px-4">
-        <span className={`flex items-center gap-1 ${statusColors[prediction.result]}`}>
-          <StatusIcon className="w-4 h-4" />
-          <span className="text-sm capitalize">{prediction.result}</span>
-        </span>
-      </td>
-    </tr>
-  );
-};
-
-// Sport Performance Card
-const SportPerformanceCard = ({ sport, stats }) => {
-  const winRate = stats.total > 0 ? ((stats.wins / stats.total) * 100).toFixed(1) : 0;
-  
-  return (
-    <div className="p-4 bg-zinc-800/50 rounded-lg">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-text-primary font-medium capitalize">
-          {sport.replace(/_/g, ' ')}
-        </span>
-        <span className={`font-mono font-bold ${
-          winRate >= 55 ? 'text-semantic-success' :
-          winRate >= 45 ? 'text-semantic-warning' : 'text-semantic-danger'
-        }`}>
-          {winRate}%
-        </span>
-      </div>
-      <div className="flex gap-4 text-sm">
-        <span className="text-semantic-success">{stats.wins}W</span>
-        <span className="text-semantic-danger">{stats.losses}L</span>
-        {stats.pushes > 0 && <span className="text-text-muted">{stats.pushes}P</span>}
-      </div>
-      {/* Progress bar */}
-      <div className="mt-2 h-1.5 bg-zinc-700 rounded-full overflow-hidden">
-        <div 
-          className="h-full bg-gradient-to-r from-semantic-success to-brand-primary"
-          style={{ width: `${Math.min(winRate, 100)}%` }}
-        />
-      </div>
-    </div>
-  );
-};
-
 const Performance = () => {
+  const [myBets, setMyBets] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [performance, setPerformance] = useState(null);
+  const [showAddBetModal, setShowAddBetModal] = useState(false);
+  const [newBet, setNewBet] = useState({
+    event_name: '',
+    selection: '',
+    stake: '',
+    odds: '',
+    result: 'pending'
+  });
 
-  const fetchPerformance = async () => {
-    setLoading(true);
+  useEffect(() => {
+    fetchMyBets();
+  }, []);
+
+  const fetchMyBets = async () => {
     try {
-      const response = await axios.get(`${API}/performance`);
-      setPerformance(response.data);
+      const res = await axios.get(`${API}/my-bets`);
+      setMyBets(res.data.bets || []);
     } catch (error) {
-      console.error("Error fetching performance:", error);
+      console.error("Error fetching my bets:", error);
+      setMyBets([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const checkResults = async () => {
+  const handleAddBet = async () => {
     try {
-      await axios.post(`${API}/check-results`);
-      // Refresh performance after checking results
-      setTimeout(fetchPerformance, 2000);
+      await axios.post(`${API}/my-bets`, {
+        ...newBet,
+        stake: parseFloat(newBet.stake),
+        odds: parseFloat(newBet.odds)
+      });
+      setShowAddBetModal(false);
+      setNewBet({ event_name: '', selection: '', stake: '', odds: '', result: 'pending' });
+      fetchMyBets();
     } catch (error) {
-      console.error("Error checking results:", error);
+      console.error("Error adding bet:", error);
+      alert("Failed to add bet");
     }
   };
 
-  useEffect(() => {
-    fetchPerformance();
-  }, []);
+  // Calculate stats
+  const completedBets = myBets.filter(b => b.result !== 'pending');
+  const wins = myBets.filter(b => b.result === 'won').length;
+  const losses = myBets.filter(b => b.result === 'lost').length;
+  const winRate = completedBets.length > 0 ? (wins / completedBets.length * 100).toFixed(1) : 0;
+  
+  const totalStaked = myBets.reduce((sum, b) => sum + (b.stake || 0), 0);
+  const totalProfit = myBets.reduce((sum, b) => {
+    if (b.result === 'won') return sum + (b.stake * (b.odds - 1));
+    if (b.result === 'lost') return sum - b.stake;
+    return sum;
+  }, 0);
+  const roi = totalStaked > 0 ? ((totalProfit / totalStaked) * 100).toFixed(1) : 0;
+
+  const avgOdds = completedBets.length > 0 
+    ? (completedBets.reduce((sum, b) => sum + b.odds, 0) / completedBets.length).toFixed(2)
+    : 0;
 
   if (loading) {
     return (
@@ -213,153 +197,172 @@ const Performance = () => {
   }
 
   return (
-    <div className="space-y-6" data-testid="performance-page">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-mono font-bold text-2xl text-text-primary">Performance</h1>
-          <p className="text-text-muted text-sm mt-1">Track your prediction history</p>
+          <h1 className="font-mono font-bold text-2xl text-text-primary flex items-center gap-2">
+            <Trophy className="w-6 h-6 text-brand-primary" />
+            My Betting Performance
+          </h1>
+          <p className="text-text-muted text-sm mt-1">
+            Track your actual bets and analyze your performance
+          </p>
         </div>
-        <div className="flex gap-2">
-          <button 
-            onClick={checkResults}
-            className="btn-primary flex items-center gap-2"
-            data-testid="check-results-btn"
-          >
-            <CheckCircle className="w-4 h-4" />
-            Check Results
-          </button>
-          <button 
-            onClick={fetchPerformance}
-            className="btn-outline flex items-center gap-2"
-            data-testid="refresh-performance-btn"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Refresh
-          </button>
-        </div>
+        <button 
+          onClick={() => setShowAddBetModal(true)}
+          className="btn-primary flex items-center gap-2"
+        >
+          <PlusCircle className="w-4 h-4" />
+          Add Bet
+        </button>
       </div>
 
-      {/* Main Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard
+          title="Total Bets"
+          value={myBets.length}
+          subtitle={`${wins}W - ${losses}L`}
+          icon={BarChart3}
+          color="lime"
+        />
         <StatCard
           title="Win Rate"
-          value={`${performance?.win_rate || 0}%`}
-          subtitle="Overall accuracy"
-          icon={Trophy}
-          color={performance?.win_rate >= 55 ? "green" : performance?.win_rate >= 45 ? "yellow" : "red"}
-        />
-        <StatCard
-          title="ROI"
-          value={`${performance?.roi > 0 ? '+' : ''}${performance?.roi || 0}%`}
-          subtitle="Return on investment"
-          icon={DollarSign}
-          color={performance?.roi >= 0 ? "green" : "red"}
-        />
-        <StatCard
-          title="Total Picks"
-          value={performance?.total_predictions || 0}
-          subtitle={`${performance?.wins || 0}W - ${performance?.losses || 0}L`}
+          value={`${winRate}%`}
+          subtitle={`${completedBets.length} completed`}
           icon={Target}
-          color="blue"
+          color="green"
         />
         <StatCard
-          title="Pushes"
-          value={performance?.pushes || 0}
-          subtitle="No decision"
-          icon={Clock}
-          color="yellow"
+          title="Total Profit"
+          value={`$${totalProfit.toFixed(2)}`}
+          subtitle={`ROI: ${roi}%`}
+          icon={DollarSign}
+          color={totalProfit >= 0 ? "green" : "red"}
+          trend={parseFloat(roi)}
+        />
+        <StatCard
+          title="Avg Odds"
+          value={avgOdds}
+          subtitle={`$${totalStaked.toFixed(2)} staked`}
+          icon={TrendingUp}
+          color="blue"
         />
       </div>
 
-      {/* Charts and Breakdown */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Win/Loss Chart */}
-        <div className="stat-card">
-          <h3 className="font-mono font-bold text-lg text-text-primary mb-4 flex items-center gap-2">
-            <PieChart className="w-5 h-5 text-brand-primary" />
-            Win/Loss Distribution
-          </h3>
-          <WinLossChart 
-            wins={performance?.wins || 0}
-            losses={performance?.losses || 0}
-            pushes={performance?.pushes || 0}
-          />
-        </div>
+      {/* Performance Chart */}
+      <div className="stat-card">
+        <h2 className="font-mono font-bold text-lg text-text-primary mb-4 flex items-center gap-2">
+          <Calendar className="w-5 h-5 text-brand-primary" />
+          Profit History (Last 7 Days)
+        </h2>
+        <PerformanceChart bets={myBets} />
+      </div>
 
-        {/* Performance by Sport */}
-        <div className="lg:col-span-2 stat-card">
-          <h3 className="font-mono font-bold text-lg text-text-primary mb-4 flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-brand-primary" />
-            Performance by Sport
-          </h3>
-          
-          {performance?.by_sport && Object.keys(performance.by_sport).length > 0 ? (
-            <div className="grid md:grid-cols-2 gap-4">
-              {Object.entries(performance.by_sport).map(([sport, stats]) => (
-                <SportPerformanceCard key={sport} sport={sport} stats={stats} />
-              ))}
+      {/* My Bets List */}
+      <div className="stat-card">
+        <h2 className="font-mono font-bold text-lg text-text-primary mb-4">
+          My Bets
+        </h2>
+        <div className="space-y-3">
+          {myBets.length === 0 ? (
+            <div className="text-center py-8 text-text-muted">
+              <p>No bets tracked yet</p>
+              <button 
+                onClick={() => setShowAddBetModal(true)}
+                className="btn-primary mt-4"
+              >
+                Add Your First Bet
+              </button>
             </div>
           ) : (
-            <div className="text-center py-8 text-text-muted">
-              No sport-specific data available
-            </div>
+            myBets.slice(0, 10).map((bet, i) => <MyBetRow key={i} bet={bet} />)
           )}
         </div>
       </div>
 
-      {/* Recent Predictions Table */}
-      <div className="stat-card">
-        <h3 className="font-mono font-bold text-lg text-text-primary mb-4 flex items-center gap-2">
-          <Target className="w-5 h-5 text-brand-primary" />
-          Recent Predictions
-        </h3>
-        
-        {performance?.recent_predictions?.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-zinc-700">
-                  <th className="text-left py-3 px-4 text-text-muted text-xs font-mono uppercase">Match</th>
-                  <th className="text-left py-3 px-4 text-text-muted text-xs font-mono uppercase">Sport</th>
-                  <th className="text-left py-3 px-4 text-text-muted text-xs font-mono uppercase">Pick</th>
-                  <th className="text-left py-3 px-4 text-text-muted text-xs font-mono uppercase">Odds</th>
-                  <th className="text-left py-3 px-4 text-text-muted text-xs font-mono uppercase">Result</th>
-                </tr>
-              </thead>
-              <tbody>
-                {performance.recent_predictions.map((prediction) => (
-                  <PredictionRow key={prediction.id} prediction={prediction} />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="text-center py-12 text-text-muted">
-            <Trophy className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>No prediction history yet</p>
-            <p className="text-sm mt-2">Start making predictions to see your performance</p>
-          </div>
-        )}
-      </div>
-
-      {/* Performance Tips */}
-      <div className="stat-card bg-gradient-to-r from-zinc-900 to-zinc-800">
-        <div className="flex items-start gap-4">
-          <div className="p-3 rounded-lg bg-brand-primary/10">
-            <TrendingUp className="w-6 h-6 text-brand-primary" />
-          </div>
-          <div>
-            <h3 className="font-mono font-bold text-text-primary mb-2">Performance Insights</h3>
-            <ul className="text-text-secondary text-sm space-y-1">
-              <li>• Track all your bets to build an accurate performance history</li>
-              <li>• Focus on sports where your win rate exceeds 55% for best ROI</li>
-              <li>• Use AI analysis to identify value opportunities</li>
-              <li>• Consider line movement as an indicator of sharp action</li>
-            </ul>
+      {/* Add Bet Modal */}
+      {showAddBetModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowAddBetModal(false)}>
+          <div className="bg-zinc-900 rounded-xl p-6 w-full max-w-md border border-zinc-700" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-mono font-bold text-xl text-text-primary mb-4">Add New Bet</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="text-text-muted text-sm">Event Name</label>
+                <input
+                  type="text"
+                  value={newBet.event_name}
+                  onChange={(e) => setNewBet({...newBet, event_name: e.target.value})}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-text-primary mt-1"
+                  placeholder="Lakers vs Warriors"
+                />
+              </div>
+              <div>
+                <label className="text-text-muted text-sm">Selection</label>
+                <input
+                  type="text"
+                  value={newBet.selection}
+                  onChange={(e) => setNewBet({...newBet, selection: e.target.value})}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-text-primary mt-1"
+                  placeholder="Lakers ML"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-text-muted text-sm">Stake ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={newBet.stake}
+                    onChange={(e) => setNewBet({...newBet, stake: e.target.value})}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-text-primary mt-1"
+                    placeholder="100"
+                  />
+                </div>
+                <div>
+                  <label className="text-text-muted text-sm">Odds</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={newBet.odds}
+                    onChange={(e) => setNewBet({...newBet, odds: e.target.value})}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-text-primary mt-1"
+                    placeholder="1.91"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-text-muted text-sm">Result</label>
+                <select
+                  value={newBet.result}
+                  onChange={(e) => setNewBet({...newBet, result: e.target.value})}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-text-primary mt-1"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="won">Won</option>
+                  <option value="lost">Lost</option>
+                </select>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setShowAddBetModal(false)}
+                  className="flex-1 px-4 py-2 bg-zinc-800 text-text-primary rounded-lg hover:bg-zinc-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddBet}
+                  disabled={!newBet.event_name || !newBet.selection || !newBet.stake || !newBet.odds}
+                  className="flex-1 btn-primary"
+                >
+                  Add Bet
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
