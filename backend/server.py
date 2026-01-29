@@ -54,9 +54,6 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Emergent LLM Key
-EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
-
 # Events cache to reduce scraping (1 hour cache)
 events_cache = {}
 mock_events_cache = {}  # Cache for mock events
