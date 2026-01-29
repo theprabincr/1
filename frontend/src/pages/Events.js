@@ -678,9 +678,16 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
                       <p className="text-brand-primary font-mono font-bold text-xl">
                         {analysis.prediction.pick_display || analysis.prediction.pick}
                       </p>
-                      <div className="flex items-center gap-3 mt-2">
-                        <span className="px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-xs font-bold uppercase">
-                          {analysis.prediction.pick_type}
+                      <div className="flex flex-wrap items-center gap-3 mt-2">
+                        <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${
+                          analysis.prediction.pick_type === 'moneyline' ? 'bg-blue-500/20 text-blue-400' :
+                          analysis.prediction.pick_type === 'spread' || analysis.prediction.pick_type === 'spreads' ? 'bg-green-500/20 text-green-400' :
+                          'bg-purple-500/20 text-purple-400'
+                        }`}>
+                          {analysis.prediction.pick_type === 'moneyline' ? '💰 MONEYLINE' :
+                           analysis.prediction.pick_type === 'spread' || analysis.prediction.pick_type === 'spreads' ? '📊 SPREAD' :
+                           analysis.prediction.pick_type === 'totals' || analysis.prediction.pick_type === 'total' ? '🎯 TOTAL' :
+                           analysis.prediction.pick_type?.toUpperCase()}
                         </span>
                         <span className="text-semantic-success font-mono font-bold">
                           {analysis.prediction.confidence}% confidence
@@ -689,6 +696,13 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
                           +{analysis.prediction.edge}% edge
                         </span>
                       </div>
+                      {/* Show additional market info */}
+                      {(analysis.prediction.spread || analysis.prediction.total_line) && (
+                        <div className="mt-2 text-sm text-text-muted">
+                          {analysis.prediction.spread && <span>Spread Line: {analysis.prediction.spread}</span>}
+                          {analysis.prediction.total_line && <span>Total Line: {analysis.prediction.total_line}</span>}
+                        </div>
+                      )}
                     </div>
                     
                     {/* Reasoning */}
