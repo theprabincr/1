@@ -623,12 +623,22 @@ class BetPredictorTester:
                      f"Sport: {data.get('sport_key')}, Updates: {updates_count}, Status: {status}")
     
     async def run_all_tests(self):
-        """Run all adaptive learning tests"""
+        """Run all tests - Matchup/Lineup/Roster + Adaptive Learning"""
+        print("🏀 TESTING MATCHUP, LINEUP & ROSTER API ENDPOINTS")
+        print("=" * 60)
+        print()
+        
+        # Test new endpoints first
+        await self.test_matchup_endpoint()
+        await self.test_starting_lineup_endpoint()
+        await self.test_roster_endpoint()
+        
+        print()
         print("🧠 TESTING ADAPTIVE LEARNING SYSTEM ENDPOINTS")
         print("=" * 60)
         print()
         
-        # Test all endpoints
+        # Test adaptive learning endpoints
         await self.test_adaptive_learning_status()
         await self.test_model_stats_by_sport()
         await self.test_rolling_performance()
