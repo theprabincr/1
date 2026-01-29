@@ -470,7 +470,8 @@ class BetPredictorV6:
                 context,
                 injury,
                 psychology,
-                pick_source=pick_source
+                pick_source=pick_source,
+                matchup_data=matchup_data  # Pass full matchup data
             )
         else:
             # No pick
