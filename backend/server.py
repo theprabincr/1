@@ -40,6 +40,9 @@ from line_movement_analyzer import analyze_line_movement, LineMovementAnalyzer
 # Import BetPredictor V6 - Advanced Algorithm with ML and Ensemble
 from betpredictor_v6 import generate_v6_prediction, BetPredictorV6
 
+# Import Unified Predictor - Combines V5 + V6 with V6 weighted heavier
+from unified_predictor import generate_unified_prediction, UnifiedBetPredictor
+
 # Import lineup/roster scraper
 from lineup_scraper import get_matchup_context, fetch_team_roster
 
