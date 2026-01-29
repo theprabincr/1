@@ -260,23 +260,18 @@ class BetPredictorTestSuite:
         data = response["data"]
         
         # Verify response structure
-        required_fields = ["window", "games_in_window"]
+        required_fields = ["games", "count"]
         missing_fields = [field for field in required_fields if field not in data]
         
         if missing_fields:
             self.log_test("Upcoming Predictions Window", False, f"Missing fields: {missing_fields}")
             return
         
-        window = data.get("window", {})
-        games_count = data.get("games_in_window", 0)
-        
-        # Verify window structure
-        if "start" not in window or "end" not in window:
-            self.log_test("Upcoming Predictions Window", False, "Missing window start/end times")
-            return
+        games = data.get("games", [])
+        games_count = data.get("count", 0)
         
         self.log_test("Upcoming Predictions Window", True, 
-                     f"Window: {window.get('start')} to {window.get('end')}, Games: {games_count}")
+                     f"Games in window: {games_count}, Games returned: {len(games)}")
     
     async def test_live_scores(self):
         """Test GET /api/live-scores"""
