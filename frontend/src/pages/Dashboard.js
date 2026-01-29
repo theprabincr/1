@@ -530,7 +530,17 @@ const Dashboard = () => {
                         <p className="text-brand-primary font-bold">{pick.predicted_outcome}</p>
                         <p className="text-text-muted text-xs">{pick.prediction_type}</p>
                       </div>
-                      <p className="font-mono text-lg text-text-primary">@ {pick.odds_at_prediction?.toFixed(2)}</p>
+                      <div className="flex items-center gap-3">
+                        <p className="font-mono text-lg text-text-primary">@ {pick.odds_at_prediction?.toFixed(2)}</p>
+                        <button
+                          onClick={() => { setShowActivePicksModal(false); handleOpenTrackBet(pick); }}
+                          className="px-3 py-1.5 rounded-lg bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary font-semibold text-xs flex items-center gap-1 transition-colors"
+                          data-testid={`modal-track-bet-${pick.id || i}`}
+                        >
+                          <PlusCircle className="w-3 h-3" />
+                          Track
+                        </button>
+                      </div>
                     </div>
                     {/* Reasoning Section */}
                     {pick.reasoning && (
