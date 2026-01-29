@@ -113,6 +113,18 @@ backend:
         agent: "testing"
         comment: "GET /api/data-source-status returns ESPN/DraftKings status as 'active' with 75 cached events and 32 line movement snapshots"
 
+  - task: "Line movement endpoint"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "GET /api/line-movement/{event_id} returns proper line movement data structure with chart data and snapshots"
+
 frontend:
   - task: "Frontend testing"
     implemented: true
