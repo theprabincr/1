@@ -598,6 +598,7 @@ const Dashboard = () => {
                   key={pick.id} 
                   pick={pick} 
                   onClick={() => navigate(`/predictions`)}
+                  onTrackBet={handleOpenTrackBet}
                 />
               ))}
             </div>
