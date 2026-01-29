@@ -3277,6 +3277,21 @@ async def scheduled_unified_predictor():
                                         await create_recommendation(prediction)
                                         predictions_made += 1
                                         
+                                        # Send notification for new pick
+                                        await create_notification(
+                                            "new_pick",
+                                            f"🎯 New Pick: {home_team} vs {away_team}",
+                                            f"{unified_prediction.get('pick_display', unified_prediction.get('pick'))} "
+                                            f"({unified_prediction.get('pick_type')}) @ {confidence*100:.0f}% confidence",
+                                            {
+                                                "event_id": event_id,
+                                                "pick": unified_prediction.get('pick_display', unified_prediction.get('pick')),
+                                                "pick_type": unified_prediction.get('pick_type'),
+                                                "confidence": confidence,
+                                                "odds": unified_prediction.get("odds", 1.91)
+                                            }
+                                        )
+                                        
                                         logger.info(f"✅ UNIFIED PICK: {home_team} vs {away_team} - "
                                                   f"{unified_prediction.get('pick_type')}: {unified_prediction.get('pick_display', unified_prediction.get('pick'))} "
                                                   f"@ {confidence*100:.0f}% conf, edge: {edge*100:.1f}%, "
