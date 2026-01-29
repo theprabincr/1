@@ -10,10 +10,9 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const Settings = () => {
   const [settings, setSettings] = useState({
     notification_preferences: {
-      line_movement_alerts: true,
-      line_movement_threshold: 5.0,
       result_alerts: true,
-      daily_summary: true
+      daily_summary: true,
+      new_pick_alerts: true
     }
   });
   const [loading, setLoading] = useState(true);
