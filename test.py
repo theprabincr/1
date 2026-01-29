@@ -884,17 +884,20 @@ class BetPredictorTester:
             print_info(f"   BEFORE: id={pred_id[:12]}..., result={before.get('result') if before else 'NOT FOUND'}")
             
             # Update prediction with result - use explicit write concern
+            update_doc = {
+                "result": new_result,
+                "result_updated_at": datetime.now(timezone.utc).isoformat(),
+                "final_score": {
+                    "home": game_result["home_score"],
+                    "away": game_result["away_score"],
+                    "total": game_result["total_score"]
+                }
+            }
+            print_info(f"   Updating with: result={new_result}")
+            
             update_result = await self.db.predictions.update_one(
                 {"id": pred_id},
-                {"$set": {
-                    "result": new_result,
-                    "result_updated_at": datetime.now(timezone.utc).isoformat(),
-                    "final_score": {
-                        "home": game_result["home_score"],
-                        "away": game_result["away_score"],
-                        "total": game_result["total_score"]
-                    }
-                }}
+                {"$set": update_doc}
             )
             
             # Force a sync read
