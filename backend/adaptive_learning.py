@@ -616,7 +616,7 @@ class AdaptiveLearningSystem:
                 ts = datetime.fromisoformat(result.get("timestamp", "").replace('Z', '+00:00'))
                 if ts >= cutoff:
                     in_window.append(result)
-            except:
+            except (ValueError, TypeError):
                 continue
         
         if not in_window:
