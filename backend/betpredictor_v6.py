@@ -198,6 +198,8 @@ class BetPredictorV6:
         # 11. Ensemble Model
         ensemble = EnsembleModel(sport_key)
         ensemble_result = ensemble.combine_predictions(model_predictions)
+        # Add event odds for use in pick generation
+        ensemble_result["_event_odds"] = event.get("odds", {})
         
         logger.info(f"   Ensemble: {ensemble_result.get('ensemble_probability', 0.5)*100:.1f}% confidence, {ensemble_result.get('model_agreement', 0)*100:.1f}% agreement")
         
