@@ -919,11 +919,16 @@ class BetPredictorTester:
         total = wins + losses
         win_rate = (wins / total * 100) if total > 0 else 0
         
-        # Debug: Check database state
+        # Debug: Check database state using SAME connection
         db_wins = await self.db.predictions.count_documents({'_simulated': True, 'result': 'win'})
         db_losses = await self.db.predictions.count_documents({'_simulated': True, 'result': 'loss'})
         db_pending = await self.db.predictions.count_documents({'_simulated': True, 'result': 'pending'})
-        print_info(f"Database state: {db_wins}W-{db_losses}L, {db_pending} pending")
+        print_info(f"Database state (same conn): {db_wins}W-{db_losses}L, {db_pending} pending")
+        
+        # Also check with fresh find
+        all_sim = await self.db.predictions.find({'_simulated': True}).to_list(100)
+        results = [p.get('result') for p in all_sim]
+        print_info(f"All simulated results: {results}")
         
         self.record_test("Simulate Results", True, 
             f"{wins}W-{losses}L ({win_rate:.0f}% win rate)")
