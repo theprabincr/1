@@ -2337,7 +2337,7 @@ async def get_algorithm_factors():
                     "steam_moves": "Sudden sharp moves at multiple books",
                     "closing_line_value": "Professional bettors track this"
                 },
-                "tracking_interval": "Every 15 minutes"
+                "tracking_interval": "Every 5 minutes"
             },
             
             "8_head_to_head": {
