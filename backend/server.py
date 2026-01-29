@@ -2634,6 +2634,7 @@ async def analyze_event_unified(event_id: str, sport_key: str = "basketball_nba"
                 "prediction": prediction.get("pick"),
                 "confidence": prediction.get("confidence", 0) / 100,
                 "odds": prediction.get("odds", 1.91),
+                "odds_at_prediction": prediction.get("odds", 1.91),  # For recommendations query
                 "ai_model": "unified",
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "commence_time": event.get("commence_time", ""),
