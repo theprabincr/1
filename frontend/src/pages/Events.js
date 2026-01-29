@@ -653,6 +653,7 @@ const Events = () => {
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState([]);
   const [selectedSport, setSelectedSport] = useState("basketball_nba");
+  const [selectedEvent, setSelectedEvent] = useState(null);
 
   const sports = [
     { key: "basketball_nba", label: "NBA" },
@@ -678,13 +679,8 @@ const Events = () => {
     fetchEvents();
   }, [selectedSport]);
 
-  const handleCompare = (event) => {
-    navigate('/odds-comparison', { 
-      state: { 
-        event,
-        sportKey: selectedSport 
-      } 
-    });
+  const handleViewDetails = (event) => {
+    setSelectedEvent(event);
   };
 
   return (
@@ -734,7 +730,7 @@ const Events = () => {
             <EventCard 
               key={event.id} 
               event={event} 
-              onCompare={handleCompare}
+              onCompare={handleViewDetails}
             />
           ))}
         </div>
@@ -746,6 +742,15 @@ const Events = () => {
             No upcoming events for {sports.find(s => s.key === selectedSport)?.label || selectedSport}
           </p>
         </div>
+      )}
+
+      {/* Event Details Modal */}
+      {selectedEvent && (
+        <EventDetailsModal 
+          event={selectedEvent} 
+          onClose={() => setSelectedEvent(null)}
+          sportKey={selectedSport}
+        />
       )}
     </div>
   );
