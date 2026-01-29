@@ -7,7 +7,7 @@ import asyncio
 import aiohttp
 import json
 
-BACKEND_URL = "https://betlogic-boost.preview.emergentagent.com/api"
+BACKEND_URL = "https://predictr-ai.preview.emergentagent.com/api"
 
 async def test_multiple_events():
     """Test V6 analysis on multiple events to find picks"""

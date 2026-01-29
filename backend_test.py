@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 # Backend URL from frontend .env
-BACKEND_URL = "https://betlogic-boost.preview.emergentagent.com/api"
+BACKEND_URL = "https://predictr-ai.preview.emergentagent.com/api"
 
 class V6TestSuite:
     def __init__(self):
