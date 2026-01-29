@@ -663,22 +663,15 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Sport Filters */}
-      <div className="flex gap-2 overflow-x-auto pb-2">
-        {sports.map(sport => (
-          <button
-            key={sport.key}
-            onClick={() => setSelectedSport(sport.key)}
-            className={`px-4 py-2 rounded-lg font-mono text-sm whitespace-nowrap transition-all ${
-              selectedSport === sport.key
-                ? "bg-brand-primary text-zinc-950 font-bold"
-                : "bg-zinc-800 text-text-secondary hover:bg-zinc-700"
-            }`}
-            data-testid={`sport-filter-${sport.key}`}
-          >
-            {sport.label}
-          </button>
-        ))}
+      {/* Auto-Pick Info Banner */}
+      <div className="bg-zinc-800/50 border border-zinc-700 rounded-lg p-4 flex items-center gap-3">
+        <div className="p-2 bg-brand-primary/20 rounded-lg">
+          <Clock className="w-5 h-5 text-brand-primary" />
+        </div>
+        <div>
+          <p className="text-text-primary text-sm font-medium">Picks Auto-Generate 40 Minutes Before Game Time</p>
+          <p className="text-text-muted text-xs">Our algorithm analyzes confirmed lineups, injuries, and line movements to generate optimal picks.</p>
+        </div>
       </div>
 
       {/* Main Content Grid */}
@@ -688,7 +681,7 @@ const Dashboard = () => {
           <div className="flex items-center justify-between">
             <h2 className="font-mono font-bold text-lg text-text-primary flex items-center gap-2">
               <Zap className="w-5 h-5 text-brand-primary" />
-              Top Picks
+              Top Picks (All Sports)
             </h2>
             <button 
               onClick={() => navigate('/performance')}
