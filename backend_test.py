@@ -71,7 +71,248 @@ class BetPredictorTestSuite:
             "timestamp": datetime.now().isoformat()
         })
     
-    async def get_nba_events(self) -> List[str]:
+    async def test_api_health(self):
+        """Test GET /api/ - Basic API health check"""
+        print("\n🏥 Testing API Health Check...")
+        
+        response = await self.make_request("GET", "/")
+        
+        if response["status"] != 200:
+            self.log_test("API Health Check", False, f"Status: {response['status']}")
+            return
+        
+        data = response["data"]
+        
+        # Verify response structure
+        if "message" not in data or "status" not in data:
+            self.log_test("API Health Check", False, "Missing message or status fields")
+            return
+        
+        if data.get("status") != "running":
+            self.log_test("API Health Check", False, f"Status not running: {data.get('status')}")
+            return
+        
+        self.log_test("API Health Check", True, f"Message: {data.get('message')}, Status: {data.get('status')}")
+    
+    async def test_data_source_status(self):
+        """Test GET /api/data-source-status"""
+        print("\n📊 Testing Data Source Status...")
+        
+        response = await self.make_request("GET", "/data-source-status")
+        
+        if response["status"] != 200:
+            self.log_test("Data Source Status", False, f"Status: {response['status']}")
+            return
+        
+        data = response["data"]
+        
+        # Verify response structure
+        required_fields = ["source", "status", "cachedEvents", "lineMovementSnapshots"]
+        missing_fields = [field for field in required_fields if field not in data]
+        
+        if missing_fields:
+            self.log_test("Data Source Status", False, f"Missing fields: {missing_fields}")
+            return
+        
+        source = data.get("source")
+        status = data.get("status")
+        snapshots = data.get("lineMovementSnapshots", 0)
+        
+        self.log_test("Data Source Status", True, 
+                     f"Source: {source}, Status: {status}, Snapshots: {snapshots}")
+    
+    async def test_events_endpoint(self):
+        """Test GET /api/events/basketball_nba?pre_match_only=true"""
+        print("\n🏀 Testing Events Endpoint...")
+        
+        response = await self.make_request("GET", "/events/basketball_nba?pre_match_only=true")
+        
+        if response["status"] != 200:
+            self.log_test("Events Endpoint", False, f"Status: {response['status']}")
+            return []
+        
+        events = response["data"]
+        
+        if not isinstance(events, list):
+            self.log_test("Events Endpoint", False, "Response is not a list")
+            return []
+        
+        if len(events) == 0:
+            self.log_test("Events Endpoint", True, "No events returned (expected for pre-match only)")
+            return []
+        
+        # Verify event structure
+        event = events[0]
+        required_fields = ["id", "sport_key", "home_team", "away_team", "commence_time"]
+        missing_fields = [field for field in required_fields if field not in event]
+        
+        if missing_fields:
+            self.log_test("Events Endpoint", False, f"Missing event fields: {missing_fields}")
+            return []
+        
+        # Check for bookmakers and markets
+        bookmakers = event.get("bookmakers", [])
+        has_markets = False
+        if bookmakers:
+            for bm in bookmakers:
+                markets = bm.get("markets", [])
+                if markets:
+                    has_markets = True
+                    break
+        
+        # Store event IDs for later tests
+        event_ids = [e.get("id") for e in events[:5] if e.get("id")]
+        
+        self.log_test("Events Endpoint", True, 
+                     f"Found {len(events)} events, Markets: {has_markets}, IDs collected: {len(event_ids)}")
+        return event_ids
+    
+    async def test_v5_predictions(self):
+        """Test GET /api/predictions/v5"""
+        print("\n🎯 Testing V5 Predictions...")
+        
+        response = await self.make_request("GET", "/predictions/v5")
+        
+        if response["status"] != 200:
+            self.log_test("V5 Predictions", False, f"Status: {response['status']}")
+            return
+        
+        data = response["data"]
+        
+        # Verify response structure
+        required_fields = ["predictions", "stats", "algorithm"]
+        missing_fields = [field for field in required_fields if field not in data]
+        
+        if missing_fields:
+            self.log_test("V5 Predictions", False, f"Missing fields: {missing_fields}")
+            return
+        
+        # Verify algorithm
+        if data.get("algorithm") != "betpredictor_v5":
+            self.log_test("V5 Predictions", False, f"Wrong algorithm: {data.get('algorithm')}")
+            return
+        
+        # Verify stats structure
+        stats = data.get("stats", {})
+        required_stats = ["total", "wins", "losses", "pending", "win_rate", "avg_confidence"]
+        missing_stats = [stat for stat in required_stats if stat not in stats]
+        
+        if missing_stats:
+            self.log_test("V5 Predictions", False, f"Missing stats: {missing_stats}")
+            return
+        
+        predictions_count = len(data.get("predictions", []))
+        total_count = stats.get("total", 0)
+        
+        self.log_test("V5 Predictions", True, 
+                     f"Algorithm: {data['algorithm']}, Predictions: {predictions_count}, Total: {total_count}")
+
+    async def test_unified_predictions(self):
+        """Test GET /api/predictions/unified"""
+        print("\n🔄 Testing Unified Predictions...")
+        
+        response = await self.make_request("GET", "/predictions/unified")
+        
+        if response["status"] != 200:
+            self.log_test("Unified Predictions", False, f"Status: {response['status']}")
+            return
+        
+        data = response["data"]
+        
+        # Verify response structure
+        required_fields = ["predictions", "stats", "algorithm"]
+        missing_fields = [field for field in required_fields if field not in data]
+        
+        if missing_fields:
+            self.log_test("Unified Predictions", False, f"Missing fields: {missing_fields}")
+            return
+        
+        # Verify algorithm
+        if data.get("algorithm") != "unified_predictor":
+            self.log_test("Unified Predictions", False, f"Wrong algorithm: {data.get('algorithm')}")
+            return
+        
+        # Verify stats structure
+        stats = data.get("stats", {})
+        required_stats = ["total", "wins", "losses", "pending", "win_rate", "avg_confidence"]
+        missing_stats = [stat for stat in required_stats if stat not in stats]
+        
+        if missing_stats:
+            self.log_test("Unified Predictions", False, f"Missing stats: {missing_stats}")
+            return
+        
+        predictions_count = len(data.get("predictions", []))
+        total_count = stats.get("total", 0)
+        
+        self.log_test("Unified Predictions", True, 
+                     f"Algorithm: {data['algorithm']}, Predictions: {predictions_count}, Total: {total_count}")
+    
+    async def test_upcoming_predictions_window(self):
+        """Test GET /api/upcoming-predictions-window"""
+        print("\n⏰ Testing Upcoming Predictions Window...")
+        
+        response = await self.make_request("GET", "/upcoming-predictions-window")
+        
+        if response["status"] != 200:
+            self.log_test("Upcoming Predictions Window", False, f"Status: {response['status']}")
+            return
+        
+        data = response["data"]
+        
+        # Verify response structure
+        required_fields = ["window", "games_in_window"]
+        missing_fields = [field for field in required_fields if field not in data]
+        
+        if missing_fields:
+            self.log_test("Upcoming Predictions Window", False, f"Missing fields: {missing_fields}")
+            return
+        
+        window = data.get("window", {})
+        games_count = data.get("games_in_window", 0)
+        
+        # Verify window structure
+        if "start" not in window or "end" not in window:
+            self.log_test("Upcoming Predictions Window", False, "Missing window start/end times")
+            return
+        
+        self.log_test("Upcoming Predictions Window", True, 
+                     f"Window: {window.get('start')} to {window.get('end')}, Games: {games_count}")
+    
+    async def test_live_scores(self):
+        """Test GET /api/live-scores"""
+        print("\n🔴 Testing Live Scores...")
+        
+        response = await self.make_request("GET", "/live-scores")
+        
+        if response["status"] != 200:
+            self.log_test("Live Scores", False, f"Status: {response['status']}")
+            return
+        
+        data = response["data"]
+        
+        # Verify response structure
+        required_fields = ["live_games_count", "games"]
+        missing_fields = [field for field in required_fields if field not in data]
+        
+        if missing_fields:
+            self.log_test("Live Scores", False, f"Missing fields: {missing_fields}")
+            return
+        
+        games = data.get("games", [])
+        live_count = data.get("live_games_count", 0)
+        
+        # Verify games structure if any exist
+        if games:
+            game = games[0]
+            required_game_fields = ["home_team", "away_team", "status"]
+            missing_game_fields = [field for field in required_game_fields if field not in game]
+            
+            if missing_game_fields:
+                self.log_test("Live Scores", False, f"Missing game fields: {missing_game_fields}")
+                return
+        
+        self.log_test("Live Scores", True, 
+                     f"Live games count: {live_count}, Games returned: {len(games)}")
         """Get NBA event IDs for testing"""
         print("\n📋 Getting NBA events for testing...")
         
