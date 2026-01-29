@@ -1953,11 +1953,30 @@ async def analyze_event_v6(event_id: str, sport_key: str = "basketball_nba"):
                 "reasoning": prediction.get("reasoning", ""),
                 "edge": prediction.get("edge", 0),
                 "model_agreement": prediction.get("model_agreement", 0),
-                "ensemble_confidence": prediction.get("confidence", 0)
+                "ensemble_confidence": prediction.get("confidence", 0),
+                "predicted_outcome": prediction.get("pick", "")  # For result tracking
             }
             
             await db.predictions.insert_one(prediction_doc)
             logger.info(f"✅ V6 prediction saved: {prediction.get('pick')} at {prediction.get('confidence')}% confidence")
+            
+            # 🧠 ADAPTIVE LEARNING: Store individual model predictions for tracking
+            if adaptive_learning and prediction.get("ensemble_details"):
+                try:
+                    individual_preds = prediction.get("ensemble_details", {}).get("individual_predictions", {})
+                    if individual_preds:
+                        await adaptive_learning.record_individual_model_predictions(
+                            prediction_id=prediction_doc["id"],
+                            event_id=event_id,
+                            sport_key=sport_key,
+                            model_predictions=individual_preds,
+                            final_pick=prediction.get("pick"),
+                            home_team=home_team,
+                            away_team=away_team
+                        )
+                        logger.info(f"🧠 Stored individual model predictions for adaptive learning")
+                except Exception as learn_err:
+                    logger.warning(f"Could not store individual model predictions: {learn_err}")
         
         return {
             "event": {
