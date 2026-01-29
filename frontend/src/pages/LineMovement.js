@@ -444,7 +444,6 @@ const LineMovement = () => {
   const [loadingLine, setLoadingLine] = useState(false);
   const [selectedSport, setSelectedSport] = useState("basketball_nba");
   const [lastUpdate, setLastUpdate] = useState(null);
-  const [isAutoRefresh, setIsAutoRefresh] = useState(true);
   const [selectedMarket, setSelectedMarket] = useState("moneyline"); // moneyline, spread, totals
 
   const sports = [
