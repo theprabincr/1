@@ -1920,7 +1920,7 @@ async def get_algorithm_comparison():
     comparison = {}
     
     for algo in algorithms:
-        predictions = await db.predictions.find({"ai_model": algo}).to_list(10000)
+        predictions = await db.predictions.find({"ai_model": algo}, {"_id": 0}).to_list(10000)
         completed = [p for p in predictions if p.get("result") in ["win", "loss"]]
         
         wins = len([p for p in completed if p.get("result") == "win"])
