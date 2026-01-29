@@ -867,8 +867,9 @@ class BetPredictorTester:
             game_result = await self.simulate_game_result(event, prediction)
             
             # Update prediction with result
+            pred_id = prediction["id"]
             update_result = await self.db.predictions.update_one(
-                {"id": prediction["id"]},
+                {"id": pred_id},
                 {"$set": {
                     "result": game_result["result"],
                     "result_updated_at": datetime.now(timezone.utc).isoformat(),
@@ -880,8 +881,7 @@ class BetPredictorTester:
                 }}
             )
             
-            if update_result.modified_count == 0:
-                print_warning(f"Failed to update prediction {prediction.get('id', 'unknown')[:8]}")
+            print_info(f"   Update ID={pred_id[:12]}... matched={update_result.matched_count}, modified={update_result.modified_count}")
             
             if game_result["result"] == "win":
                 wins += 1
