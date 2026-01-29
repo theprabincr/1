@@ -6,7 +6,7 @@ import {
   Home, TrendingUp, Trophy, 
   Settings, ChevronRight, RefreshCw,
   Calendar, Clock, Zap, DollarSign, Wifi,
-  Bell, Globe, Activity
+  Bell, Activity
 } from "lucide-react";
 
 // Pages
