@@ -277,13 +277,16 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
 
   // Generate venue/weather info
   const venueInfo = event.venue || matchupData?.venue || {
-    name: sportKey.includes('basketball') ? `${event.home_team} Arena` : `${event.home_team} Stadium`,
+    name: sportKey.includes('basketball') ? `${event.home_team} Arena` : 
+          sportKey.includes('hockey') ? `${event.home_team} Arena` :
+          `${event.home_team} Stadium`,
     city: 'United States',
     indoor: sportKey.includes('basketball') || sportKey.includes('hockey')
   };
 
-  // Simulated weather (for outdoor sports)
-  const weather = venueInfo.indoor ? null : {
+  // Weather only for outdoor sports (NFL, MLB, Soccer)
+  const isOutdoor = sportKey.includes('football') || sportKey.includes('baseball') || sportKey.includes('soccer');
+  const weather = isOutdoor ? {
     temp: Math.floor(Math.random() * 30) + 40,
     condition: ['Clear', 'Partly Cloudy', 'Overcast'][Math.floor(Math.random() * 3)],
     wind: Math.floor(Math.random() * 15) + 5,
