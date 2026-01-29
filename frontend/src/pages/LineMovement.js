@@ -483,16 +483,16 @@ const LineMovement = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSport]);
 
-  // Real-time polling for line movement data (every 30 seconds)
+  // Real-time polling for line movement data (every 30 seconds) - Always enabled
   useEffect(() => {
-    if (!selectedEvent || !isAutoRefresh) return;
+    if (!selectedEvent) return;
     
     const pollInterval = setInterval(() => {
       fetchLineMovement(selectedEvent.id, true); // silent refresh
     }, 30000); // 30 seconds
     
     return () => clearInterval(pollInterval);
-  }, [selectedEvent, isAutoRefresh, selectedSport]);
+  }, [selectedEvent, selectedSport]);
 
   const fetchLineMovement = async (eventId, silent = false) => {
     if (!silent) setLoadingLine(true);
