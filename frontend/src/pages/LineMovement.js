@@ -748,9 +748,6 @@ const LineMovement = () => {
                     {lineData.total_snapshots} snapshot{lineData.total_snapshots > 1 ? 's' : ''}
                   </span>
                 )}
-                <span className="text-xs text-brand-primary bg-brand-primary/10 px-2 py-1 rounded">
-                  Source: ESPN
-                </span>
               </div>
             </div>
             
