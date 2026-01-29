@@ -2248,6 +2248,175 @@ async def get_model_performance():
     }
 
 
+@api_router.get("/algorithm-factors")
+async def get_algorithm_factors():
+    """
+    Returns a comprehensive list of all factors that influence the prediction algorithm.
+    This documents exactly what the algorithm considers when making picks.
+    """
+    return {
+        "prediction_timing": {
+            "trigger_time": "40 minutes before game start",
+            "reason": "ESPN releases starting lineups ~1 hour before game. At 40 min, lineups are confirmed.",
+            "window": "35-50 minutes before game start"
+        },
+        
+        "data_sources": {
+            "primary": "ESPN API (FREE)",
+            "odds": "ESPN/DraftKings embedded odds",
+            "real_time": True,
+            "note": "All data is REAL from ESPN, not mocked"
+        },
+        
+        "algorithm_structure": {
+            "primary": "UNIFIED Algorithm (V5 + V6 combined)",
+            "v6_weight": "70% (ML ensemble - primary decision maker)",
+            "v5_weight": "30% (Line movement - confirmation/validation)"
+        },
+        
+        "factors_considered": {
+            "1_starting_lineups": {
+                "description": "Confirmed starting 5 (or 11 for soccer/NFL)",
+                "when_available": "~1 hour before game (ESPN releases)",
+                "impact": "HIGH - affects team strength projection",
+                "data_source": "ESPN Game Summary API"
+            },
+            
+            "2_injury_reports": {
+                "description": "Player injuries with status (Out, Questionable, Day-to-Day)",
+                "impact": "HIGH - weighted by player importance/position",
+                "key_positions": {
+                    "NBA": ["Star players", "Starting PG", "Primary scorer"],
+                    "NFL": ["QB (highest impact)", "RB", "WR1"],
+                    "NHL": ["Goalie (highest impact)", "Top-line players"]
+                },
+                "data_source": "ESPN Team Roster API"
+            },
+            
+            "3_elo_ratings": {
+                "description": "Dynamic team strength ratings",
+                "sport_specific_k_factors": {
+                    "NBA": 20,
+                    "NFL": 28,
+                    "NHL": 18,
+                    "Soccer": 22
+                },
+                "includes": "Home court advantage adjustment",
+                "updates": "After each game result"
+            },
+            
+            "4_recent_form": {
+                "description": "Last 10 games performance",
+                "metrics": ["Win/loss record", "Average margin", "Winning/losing streak"],
+                "weighting": "Recent games weighted more heavily (exponential decay)"
+            },
+            
+            "5_home_away_splits": {
+                "description": "Team performance at home vs on road",
+                "impact": {
+                    "NBA": "3-4 points home advantage",
+                    "NFL": "2.5-3 points home advantage",
+                    "NHL": "~0.15 goal home advantage"
+                }
+            },
+            
+            "6_rest_days_travel": {
+                "description": "Days since last game + travel distance",
+                "factors": {
+                    "back_to_back": "Negative impact on performance",
+                    "3+_days_rest": "Positive impact",
+                    "timezone_changes": "Affects road teams",
+                    "altitude": "Denver (NBA/NHL) altitude adjustment"
+                }
+            },
+            
+            "7_line_movement": {
+                "description": "How betting lines have moved since opening",
+                "sharp_indicators": {
+                    "reverse_line_movement": "Line moves opposite to public betting",
+                    "steam_moves": "Sudden sharp moves at multiple books",
+                    "closing_line_value": "Professional bettors track this"
+                },
+                "tracking_interval": "Every 15 minutes"
+            },
+            
+            "8_head_to_head": {
+                "description": "Historical matchup results between teams",
+                "lookback": "Last 10 meetings",
+                "impact": "MEDIUM - patterns can indicate matchup advantages"
+            },
+            
+            "9_key_player_impact": {
+                "description": "Individual player importance to team",
+                "methodology": "Position-weighted impact scores",
+                "star_player_factor": "Missing star player can move line 3-5 points"
+            },
+            
+            "10_advanced_metrics": {
+                "NBA": ["Four Factors (eFG%, TOV%, ORB%, FT rate)", "Net Rating", "Pace"],
+                "NFL": ["DVOA-style efficiency", "EPA per play", "Success rate"],
+                "NHL": ["Corsi/Fenwick (possession)", "Expected goals", "Save percentage"]
+            },
+            
+            "11_monte_carlo_simulation": {
+                "description": "Statistical simulation of game outcomes",
+                "iterations": "1000+ simulations per game",
+                "output": "Win probability distribution, spread coverage %, total over/under %"
+            },
+            
+            "12_market_psychology": {
+                "description": "Public betting patterns and contrarian opportunities",
+                "factors": [
+                    "Public bet percentages",
+                    "Overvalued favorites detection",
+                    "Underdog value identification",
+                    "Media narrative impact"
+                ]
+            },
+            
+            "13_weather_conditions": {
+                "applicable_to": ["NFL", "MLB", "Soccer (outdoor)"],
+                "not_applicable": ["NBA", "NHL (indoor)"],
+                "factors": ["Temperature", "Wind speed", "Precipitation"]
+            }
+        },
+        
+        "ml_ensemble_models": {
+            "description": "5 sub-models vote on each pick",
+            "models": {
+                "elo_model": "Team strength based predictions (20% weight)",
+                "context_model": "Rest, travel, situational factors (15% weight)",
+                "line_movement_model": "Sharp money and line analysis (25% weight)",
+                "statistical_model": "Logistic regression on all features (20% weight)",
+                "psychology_model": "Market efficiency and contrarian value (20% weight)"
+            },
+            "consensus_required": "3/5 models must agree for a pick",
+            "adaptive_learning": "Weights adjust based on historical accuracy"
+        },
+        
+        "pick_criteria": {
+            "minimum_confidence": "70% (60% for unified)",
+            "minimum_edge": "4% over implied odds",
+            "model_agreement": "At least 3 of 5 models must agree",
+            "strong_signal_bypass": "85%+ from single model can override"
+        },
+        
+        "output_markets": {
+            "moneyline": "Win/lose prediction",
+            "spread": "Point spread coverage",
+            "total": "Over/under total points"
+        },
+        
+        "real_match_functionality": {
+            "works_with_real_matches": True,
+            "auto_prediction": "40 minutes before game start",
+            "auto_result_tracking": "Checks ESPN every 2 minutes for final scores",
+            "win_loss_calculation": "Automatic based on actual game results",
+            "performance_tracking": "Stored in MongoDB with full history"
+        }
+    }
+
+
 # ==================== ADAPTIVE LEARNING ENDPOINTS ====================
 # Monitor and control the self-improving ML system
 
