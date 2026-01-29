@@ -3243,7 +3243,7 @@ async def send_daily_summary_notification():
         else:
             message = "No picks were generated today. Check back tomorrow!"
         
-        await create_notification(
+        result = await create_notification(
             "daily_summary",
             "📊 Daily Performance Summary",
             message,
@@ -3256,10 +3256,16 @@ async def send_daily_summary_notification():
             }
         )
         
-        logger.info(f"Daily summary sent: {wins}W-{losses}L, ${total_profit:+.2f}")
+        if result:
+            logger.info(f"Daily summary sent: {wins}W-{losses}L, ${total_profit:+.2f}")
+            return {"wins": wins, "losses": losses, "profit": total_profit}
+        else:
+            logger.debug("Daily summary skipped (duplicate)")
+            return None
         
     except Exception as e:
-        logger.info(f"Error creating daily summary: {e}")
+        logger.error(f"Error creating daily summary: {e}")
+        return None
 
 @api_router.post("/notifications/daily-summary")
 async def trigger_daily_summary():
