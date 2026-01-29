@@ -1719,7 +1719,7 @@ async def analyze_event_v5(event_id: str, sport_key: str = "basketball_nba"):
 async def get_prediction_stats():
     """Get BetPredictor V5 performance statistics"""
     
-    all_predictions = await db.predictions.find({"ai_model": "betpredictor_v5"}).to_list(10000)
+    all_predictions = await db.predictions.find({"ai_model": "betpredictor_v5"}, {"_id": 0}).to_list(10000)
     
     completed = [p for p in all_predictions if p.get("result") in ["win", "loss"]]
     wins = len([p for p in completed if p.get("result") == "win"])
