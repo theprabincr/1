@@ -1,169 +1,226 @@
-# BetPredictor - AI-Powered Sports Betting Predictor
+# BetPredictor - Product Requirements Document
+
+## Overview
+
+BetPredictor is an AI-powered sports betting prediction application that uses machine learning ensemble models to analyze sports events and provide data-driven betting recommendations.
 
 ## Original Problem Statement
-Build a betting predictor application that fetches data from all future and in-play sports events, takes into account various popular sportsbook odds and their movement. Acts wisely to track the line movement, does game analysis as to why the lines are moving, runs comparisons and recommends bets. Also after the events are over, keeps track of either that bet lost or won to keep record of the algorithm prediction for users' reference as to how the app is performing.
+
+> Build a betting predictor application that fetches data from all future and in-play sports events, takes into account various popular sportsbook odds and their movement. Acts wisely to track the line movement, does game analysis as to why the lines are moving, runs comparisons and recommends bets. Also after the events are over, keeps track of either that bet lost or won to keep record of the algorithm prediction for users' reference as to how the app is performing.
 
 ## User Personas
-1. **Sports Bettor** - Wants data-driven insights to make informed betting decisions
-2. **Sharp Bettor** - Tracks line movement and odds arbitrage opportunities
-3. **Casual Fan** - Looks for AI-powered recommendations with analysis
 
-## Core Requirements (Static)
-- Real-time odds from OddsPortal (FREE - no API key required)
-- European/decimal odds format
-- Track all bookmakers available on OddsPortal (bet365, Pinnacle, FanDuel, DraftKings, BetMGM, Unibet, Betway, 1xBet, etc.)
-- AI analysis using GPT-5.2
-- Auto-generate recommendations without user interaction
-- Line movement tracking with hourly updates
-- Auto-track results 5 hours after event completion
-- No authentication required
+1. **Data-Driven Bettor** - Wants ML-powered insights backed by statistics and analysis
+2. **Sharp Bettor** - Tracks line movement and identifies sharp money opportunities
+3. **Casual Sports Fan** - Looks for easy-to-understand recommendations with reasoning
 
-## What's Been Implemented (January 2025)
+## Core Architecture
 
-### Data Source Migration ✅
-- **Removed**: The Odds API (paid service)
-- **Added**: OddsPortal web scraper (FREE)
-  - Playwright-based scraping with httpx fallback
-  - Captures opening odds when market first seen
-  - Stores hourly snapshots for line movement tracking
-  - Imports all bookmakers from OddsPortal dynamically
+### Unified Prediction Engine
 
-### Backend (FastAPI + MongoDB)
-- [x] GET /api/sports - List available sports (NBA, NFL, MLB, NHL, EPL, La Liga, MMA)
-- [x] GET /api/events/{sport_key} - Get upcoming events with odds from OddsPortal
-- [x] GET /api/line-movement/{event_id} - Line movement history with opening/current odds
-- [x] GET /api/odds-comparison/{event_id} - Compare odds across books
-- [x] POST /api/analyze - AI analysis using GPT-5.2
-- [x] GET /api/recommendations - Get auto-generated AI picks (70%+ confidence filter, 3-day window)
-- [x] PUT /api/result - Track win/loss/push
-- [x] GET /api/performance - Performance statistics
-- [x] GET /api/scraper-status - OddsPortal scraper status
-- [x] POST /api/scrape-odds - Manual scrape trigger
-- [x] GET /api/scores/{sport_key} - Real-time scores from ESPN API (NEW)
-- [x] GET /api/live-scores - All in-progress games across sports (NEW)
-- [x] GET /api/pending-results - Pending predictions by status (NEW)
-- [x] POST /api/check-results - Trigger result checking (NEW)
+The application uses a **two-algorithm approach** that combines:
 
-### Background Tasks (Automatic)
-- [x] Auto-scrape OddsPortal every hour for odds updates
-- [x] Store opening odds when event first seen
-- [x] Store hourly odds snapshots for line movement
-- [x] Auto-generate recommendations every 4 hours (70%+ confidence, 3-day window)
-- [x] Check line movements hourly and update confidence
-- [x] **Auto-check results every 15 MINUTES using ESPN API** (UPDATED)
-- [x] **Automatic win/loss calculation based on final scores** (NEW)
+| Algorithm | Weight | Focus |
+|-----------|--------|-------|
+| **V6 (ML Ensemble)** | 70% | 5 independent ML models |
+| **V5 (Line Movement)** | 30% | Sharp money & RLM detection |
 
-### Frontend (React + Tailwind)
-- [x] Dashboard with auto-generated Top Picks (filtered to 70%+ confidence)
-- [x] Events page with decimal odds from multiple bookmakers
-- [x] **Line Movement page** with:
-  - Sport selector (NBA, NFL, MLB, NHL, EPL)
-  - Event list with bookmaker counts
-  - Interactive chart showing odds movement over time
-  - Opening vs Current odds comparison with % change
-  - Bookmakers list with individual odds
-  - Source: OddsPortal badge
-- [x] Odds Comparison with best odds highlighted
-- [x] Performance tracking with win/loss history (auto-updated)
-- [x] Notifications system (includes result notifications)
+### V6 ML Ensemble - 5 Sub-Models
+
+1. **ELO Model** - Team strength ratings with home advantage
+2. **Context Model** - Rest, travel, altitude, schedule factors
+3. **Line Movement Model** - Odds movement signals
+4. **Statistical Model** - Monte Carlo + Logistic Regression
+5. **Psychology Model** - Market bias & contrarian opportunities
+
+### Decision Requirements
+
+A pick is ONLY generated when:
+- Combined confidence ≥ 60%
+- At least 3/5 V6 models agree
+- Model agreement ≥ 25%
+- Clear probability edge exists
+- Minimum edge ≥ 4%
+
+## Features Implemented
+
+### Data Collection ✅
+- [x] ESPN API integration for odds, scores, and team stats
+- [x] DraftKings odds via ESPN
+- [x] Real-time score tracking
+- [x] Team records and recent form
+- [x] Injury reports with position weighting
+
+### Analysis Engine ✅
+- [x] ELO rating system with sport-specific configurations
+- [x] Advanced metrics (NBA Four Factors, NFL Efficiency, NHL Possession)
+- [x] Context analysis (rest days, travel, altitude, schedule)
+- [x] Smart injury analysis (position-weighted, severity-adjusted)
+- [x] Monte Carlo simulations (1,000+ iterations)
+- [x] Poisson modeling for low-scoring sports
+- [x] Market psychology (bias detection, contrarian opportunities)
+- [x] Logistic regression with sport-specific weights
+- [x] 5-model ensemble voting system
+
+### Prediction System ✅
+- [x] Unified predictor combining V5 + V6
+- [x] Auto-generate predictions 40 minutes before game
+- [x] Comprehensive reasoning with all factors
+- [x] Edge calculation against odds
+- [x] Confidence scoring
+
+### Line Movement ✅
+- [x] Opening odds capture (when event first seen)
+- [x] 5-minute snapshot intervals
+- [x] Sharp money detection
+- [x] Reverse line movement (RLM) identification
+- [x] Steam move detection
+
+### Result Tracking ✅
+- [x] Auto-check results every 15 minutes
+- [x] ESPN API score fetching
+- [x] Win/loss/push determination
+- [x] Performance statistics calculation
+- [x] Adaptive learning (model weight adjustment)
+
+### Frontend ✅
+- [x] Dashboard with stats and top picks
+- [x] Events page with live odds
+- [x] Line Movement page with charts
+- [x] Performance tracking with ROI
+- [x] Collapsible, color-coded analysis sections
+- [x] Notifications system
 - [x] Settings page
 
-### Key Features (January 2025 Update)
-- **Real-time Score Tracking**: ESPN API integration for live and final scores
-- **Automatic Result Calculation**: Win/loss/push automatically determined based on:
-  - Moneyline: Which team won
-  - Spread: Did team cover the spread
-  - Total (O/U): Combined score vs line
-- **70%+ Confidence Filter**: Only high-confidence recommendations shown
-- **Time Window Filter**: Pre-match bets only (today to 3 days out)
-- **15-Minute Result Checking**: Background task checks completed games frequently
+## Technical Stack
 
-### Removed Features
-- [x] API Keys management (no longer needed - OddsPortal is free)
-- [x] Bankroll feature
-- [x] Standalone Analytics page (merged into Performance)
+### Backend
+- **Framework**: FastAPI (Python 3.11)
+- **Database**: MongoDB with motor async driver
+- **Data Source**: ESPN API (free, no key required)
 
-### Design
-- Dark terminal/HFT theme with lime green (#ADFF2F) and cyan (#00CED1) accents
-- JetBrains Mono for data, Manrope for body
-- All bookmakers from OddsPortal displayed dynamically
+### Frontend
+- **Framework**: React 18
+- **Styling**: Tailwind CSS
+- **Charts**: Recharts
+- **Icons**: Lucide React
 
-## Database Collections
-- `events_cache` - Cached scraped events
-- `opening_odds` - First seen odds for each event
-- `odds_history` - Hourly odds snapshots for line movement
-- `predictions` - AI-generated betting predictions
-- `notifications` - System alerts
+### ML Components
+- Logistic Regression
+- Monte Carlo Simulation
+- Poisson Distribution Modeling
+- Ensemble Voting System
+- Adaptive Weight Learning
 
-## Tech Stack
-- **Backend**: FastAPI, MongoDB (motor), Playwright, httpx
-- **Frontend**: React, Tailwind CSS, Recharts, Lucide Icons, Shadcn UI
-- **AI Model**: GPT-5.2 (OpenAI via Emergent LLM Key)
-- **Data Source**: OddsPortal (FREE web scraping)
+## Database Schema
 
-## Available Bookmakers (from OddsPortal)
-- bet365, Pinnacle, 1xBet, Betfair, Unibet, Betway
-- William Hill, Betsson, bwin, 888sport
-- DraftKings, FanDuel, BetMGM, Caesars, PointsBet
-- Bovada, BetOnline.ag, MyBookie, Betcris, Cloudbet, Stake
+### predictions
+```javascript
+{
+  id: UUID,
+  event_id: String,
+  sport_key: String,
+  home_team: String,
+  away_team: String,
+  prediction: String,
+  confidence: Number (0-1),
+  odds_at_prediction: Number,
+  prediction_type: "moneyline" | "spread" | "total",
+  result: "pending" | "win" | "loss" | "push",
+  reasoning: String,  // Full detailed analysis
+  edge: Number,
+  consensus_level: String,
+  created_at: ISO String
+}
+```
 
-## Prioritized Backlog
+### opening_odds
+First-seen odds for each event
 
-### P0 - Critical ✅ DONE
-- [x] OddsPortal integration (replaces paid API)
-- [x] Line movement tracking with opening/current odds
-- [x] Hourly odds snapshots
-- [x] Auto-generate recommendations
+### odds_history
+Snapshots every 5 minutes for line movement
 
-### P1 - Important
-- [ ] Push notifications for sharp line movements (>5% change)
-- [ ] More robust error handling for OddsPortal scraping
-- [ ] Spreads and totals in line movement chart
+### model_performance
+Sub-model accuracy tracking for weight adjustment
 
-### P2 - Nice to Have
-- [ ] More sports coverage
-- [ ] Historical performance export
-- [ ] Social sharing
+## API Endpoints
 
-## API Endpoints Summary
-
+### Core
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| /api/sports | GET | List available sports |
-| /api/events/{sport_key} | GET | Get events with odds |
-| /api/line-movement/{event_id} | GET | Line movement history |
-| /api/odds-comparison/{event_id} | GET | Compare bookmaker odds |
-| /api/analyze | POST | AI game analysis |
-| /api/recommendations | GET | AI betting picks |
-| /api/result | PUT | Update prediction result |
-| /api/performance | GET | Performance stats |
-| /api/scraper-status | GET | Scraper health check |
-| /api/scrape-odds | POST | Manual scrape trigger |
-| /api/my-bets | GET | Get user's tracked bets |
-| /api/my-bets | POST | Add a new bet to track |
-| /api/my-bets/{bet_id} | PUT | Update bet result (won/lost/pending) |
-| /api/my-bets/{bet_id} | DELETE | Remove tracked bet |
+| `/api/` | GET | Health check |
+| `/api/sports` | GET | Available sports |
+| `/api/events/{sport_key}` | GET | Events with odds |
+| `/api/recommendations` | GET | AI picks (60%+ confidence) |
+| `/api/performance` | GET | Win/loss statistics |
+
+### Analysis
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/analyze-unified/{event_id}` | POST | Full unified analysis |
+| `/api/analyze-v6/{event_id}` | POST | V6 ML ensemble only |
+| `/api/analyze-v5/{event_id}` | POST | V5 line movement only |
+| `/api/line-movement/{event_id}` | GET | Line movement history |
+
+## Background Tasks
+
+| Task | Frequency | Purpose |
+|------|-----------|---------|
+| Line Movement Checker | 5 min | Snapshot odds |
+| Prediction Generator | 40 min before game | Auto-generate picks |
+| Result Checker | 15 min | Update win/loss |
+| Adaptive Learning | Per result | Adjust model weights |
+
+## Analysis Sections (Frontend Display)
+
+The prediction analysis is displayed with collapsible, color-coded sections:
+
+1. **Prediction Overview** (green) - Pick, confidence, edge
+2. **Model Agreement** (blue) - All 5 model votes
+3. **Team Strength** (purple) - ELO ratings
+4. **Recent Form & Records** (purple) - Season record, streaks, last 5 games
+5. **Situational Factors** (gray) - Rest, travel, back-to-back
+6. **Injury Impact** (red) - Key injuries
+7. **Line Movement** (cyan) - Sharp money, RLM
+8. **Simulation Results** (orange) - Monte Carlo probabilities
+9. **Key Factors** (green) - Summary of most important factors
+
+## Future Enhancements (Backlog)
+
+### P1 - High Priority
+- [ ] Push notifications for significant line movements (>5%)
+- [ ] Player prop analysis
+- [ ] More sports coverage
+
+### P2 - Medium Priority
+- [ ] Historical performance export
+- [ ] Bankroll management tools
+- [ ] Social sharing
+
+### P3 - Nice to Have
+- [ ] Live in-game betting model
+- [ ] Deep learning neural networks
+- [ ] Multi-league arbitrage detection
+
+## Design Principles
+
+1. **Conservative by Design** - Only recommend high-confidence picks
+2. **Transparent Analysis** - Show all factors considered
+3. **Adaptive** - Self-improve based on results
+4. **User-Friendly** - Clean, collapsible UI for complex data
 
 ## Changelog
 
-### January 29, 2026
-- **Fixed**: Line Movement page `isAutoRefresh is not defined` error
-  - Removed leftover JSX block that referenced deleted state variable
-  - Page now loads correctly with sport selector, events, and line chart
-- **Refactored**: Performance page now tracks ALGORITHM picks (not user bets)
-  - Shows: Total Picks, Win Rate, Total Profit, ROI, Avg Odds
-  - "All Picks" list with filters: All, Pending, Completed
-  - Profit History chart shows positive (green) and negative (red) bars
-  - Removed "Add Bet" button and user bet tracking features
-  - Performance is now based on the app's automatic predictions
-- **Removed**: "Track This Bet" button from Dashboard
-  - Simplified TopPickCard component
-  - Removed track bet modal and related handlers
-  - Focus is on algorithm performance, not manual bet tracking
+### Latest Update (January 2026)
+- Enhanced analysis display with collapsible, color-coded sections
+- Added Recent Form & Records section with last 5 games
+- Full V6 reasoning now included in unified analysis
+- Fixed schema mismatch for predictions (odds_at_prediction)
+- Lowered confidence threshold from 70% to 60% for dashboard
 
-### Previous Sessions
-- Unified Predictor (V5+V6) created and integrated
-- Live Score Dashboard with auto-refresh
-- Settings page simplified
-- V6 Algorithm with ML models
-- UI cleanup (removed "Source: ESPN" text, simplified Line Movement page)
+### Previous Updates
+- Unified Predictor (V5+V6) integration
+- ESPN API data source
+- Adaptive learning system
+- Monte Carlo simulations
+- 5-model ensemble system
