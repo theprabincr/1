@@ -44,7 +44,12 @@ from betpredictor_v6 import generate_v6_prediction, BetPredictorV6
 from unified_predictor import generate_unified_prediction, UnifiedBetPredictor
 
 # Import lineup/roster scraper
-from lineup_scraper import get_matchup_context, fetch_team_roster
+from lineup_scraper import (
+    get_matchup_context, 
+    fetch_team_roster, 
+    fetch_starting_lineup,
+    get_full_roster_with_starters
+)
 
 # Import Adaptive Learning System for self-improving ML
 from adaptive_learning import (
