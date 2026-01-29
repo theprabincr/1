@@ -890,6 +890,13 @@ class BetPredictorTester:
                 losses += 1
                 print_error(f"{event['home_team']} vs {event['away_team']}: LOSS")
             
+            # Verify update worked
+            verify = await self.db.predictions.find_one({"id": prediction["id"]})
+            if verify:
+                actual_result = verify.get("result", "unknown")
+                if actual_result != game_result["result"]:
+                    print_warning(f"   Update FAILED! Expected {game_result['result']}, got {actual_result}")
+            
             print(f"         Final: {game_result['home_score']}-{game_result['away_score']}")
             print(f"         Pick: {prediction['predicted_outcome']}")
             
