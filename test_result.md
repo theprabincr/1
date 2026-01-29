@@ -480,6 +480,21 @@ backend:
         agent: "testing"
         comment: "✅ BETPREDICTOR V6 ADVANCED ALGORITHM WORKING PERFECTLY: All 4 requested V6 endpoints tested successfully with 100% pass rate (7/7 tests). (1) GET /api/predictions/v6 returns correct structure with predictions array, stats (total, wins, losses, pending, win_rate, avg_confidence), algorithm='betpredictor_v6', and comprehensive description. (2) POST /api/analyze-v6/{event_id}?sport_key=basketball_nba tested with 5 different NBA events - all returned complete response structure with event data (id, home_team, away_team, commence_time, sport_key), prediction data with has_pick field, ensemble_details with 5 models (elo_model, context_model, line_movement_model, statistical_model, psychology_model), simulation_data with monte_carlo outcomes, and matchup_summary with elo_diff, context_advantage, injury_advantage. Conservative algorithm working as designed - correctly declined picks when ensemble confidence < 65% or model agreement < 70%. (3) GET /api/predictions/comparison includes both betpredictor_v5 and betpredictor_v6 with complete stats and descriptions. (4) GET /api/model-performance returns all 5 sub-models with accuracy, correct, total, roi, current_weight fields. V6 Features verified: Ensemble of 5 models, conservative approach (3+ models must agree), comprehensive reasoning with multi-factor analysis, simulation data included, ELO/context/injury analysis present. Algorithm working exactly as specified - quality over quantity approach."
 
+  - task: "Adaptive Learning System"
+    implemented: true
+    working: true
+    file: "backend/adaptive_learning.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "🧠 IMPLEMENTED ADAPTIVE LEARNING SYSTEM: The algorithm now learns from results! NEW FEATURES: (1) Persistent model performance tracking in MongoDB (model_performance, lr_weights, calibration_data collections), (2) Individual model predictions stored with each pick, (3) Dynamic ensemble weight adjustment based on rolling accuracy, (4) Online learning for logistic regression weights (updates after each result), (5) Confidence calibration tracking (Brier score). NEW ENDPOINTS: GET /api/adaptive-learning/status, GET /api/adaptive-learning/model-stats/{sport_key}, GET /api/adaptive-learning/rolling-performance/{model_name}, GET /api/adaptive-learning/calibration, GET /api/adaptive-learning/lr-weights/{sport_key}. The system will automatically improve as more predictions are made and results come in."
+      - working: true
+        agent: "testing"
+        comment: "✅ ADAPTIVE LEARNING SYSTEM WORKING PERFECTLY: All 5 requested endpoints tested successfully with 100% pass rate (23/23 total tests including extended scenarios). CORE TESTS: (1) GET /api/adaptive-learning/status returns status='active', model_performance object, current_weights_by_sport for basketball_nba/americanfootball_nfl/icehockey_nhl with all 5 model weights (elo_model, context_model, line_movement_model, statistical_model, psychology_model), (2) GET /api/adaptive-learning/model-stats/basketball_nba returns sport_key, model_stats, current_weights with all 5 models, best_performer and worst_performer fields, (3) GET /api/adaptive-learning/rolling-performance/elo_model?sport_key=basketball_nba&days=30 correctly handles newly initialized system with 'No data found' response (expected behavior), (4) GET /api/adaptive-learning/calibration returns sport_key='all', calibration object with buckets array, brier_score, interpretation, total_samples, (5) GET /api/adaptive-learning/lr-weights/basketball_nba returns sport_key, weights object with 9 parameters (elo_diff, form_diff, margin_diff, rest_advantage, home_advantage, injury_impact, line_movement, four_factors, intercept), updates_count=0, status='using_defaults', note about online learning. EXTENDED TESTS: Verified all 3 sports (NBA/NFL/NHL), all 5 models, multiple time windows (7/14/30/60 days), sport-specific calibration. System properly initialized and ready to learn from prediction results. All response structures match specifications exactly."
+
 frontend:
   - task: "API Keys Management Page"
     implemented: true
