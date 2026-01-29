@@ -1,185 +1,134 @@
 # BetPredictor - AI-Powered Sports Betting Predictor
 
-A full-stack application that provides AI-powered sports betting recommendations by analyzing real-time odds from multiple sportsbooks.
+A sophisticated full-stack application that provides ML-powered sports betting recommendations by analyzing real-time odds, team statistics, line movements, and multiple predictive models.
 
-## Features
+## 🎯 Overview
+
+BetPredictor uses a **Unified Prediction Engine** that combines two algorithms:
+- **V6 (ML Ensemble)** - 5 machine learning models with 70% weight
+- **V5 (Line Movement)** - Sharp money detection with 30% weight
+
+Only when both algorithms align (or V6 shows strong confidence) does the system generate a pick.
+
+## ✨ Features
 
 ### Core Functionality
-- **Real-time Odds Tracking**: Fetches live odds from The Odds API across 7 major sportsbooks
-- **AI-Powered Analysis**: Uses GPT-5.2 to analyze all markets (Moneyline, Spreads, Totals) and recommend best value bets
-- **Auto-Generated Recommendations**: Automatically generates picks every 6 hours sorted by confidence
-- **Line Movement Tracking**: Monitors odds changes hourly and updates confidence accordingly
-- **Auto Result Tracking**: Automatically fetches game scores and updates prediction results
-- **Multi-Sport Coverage**: NBA, NFL, MLB, NHL, Soccer (EPL, La Liga), MMA, Tennis
+- **Real-time Data**: Live odds, scores, and team stats from ESPN/DraftKings
+- **ML Ensemble**: 5 independent models vote on each pick (ELO, Context, Line Movement, Statistical, Psychology)
+- **Smart Predictions**: Auto-generates picks 40 minutes before game time after lineup confirmations
+- **Line Movement Tracking**: Monitors odds changes with 5-minute snapshots
+- **Auto Result Tracking**: Checks game results every 15 minutes via ESPN API
+- **Adaptive Learning**: Models self-adjust weights based on historical accuracy
 
-### Sportsbooks Tracked
-1. DraftKings
-2. FanDuel
-3. BetMGM
-4. Pinnacle
-5. Unibet
-6. Betway
-7. BetOnline
+### Prediction Analysis Includes
+- **Team Strength**: ELO ratings with home advantage adjustments
+- **Recent Form & Records**: Season records, home/away splits, last 10 games, win streaks
+- **Last 5 Games**: Game-by-game results with scores
+- **Situational Factors**: Rest days, back-to-back detection, travel impact
+- **Injury Impact**: Position-weighted, severity-adjusted analysis
+- **Line Movement**: Sharp money detection, reverse line movement (RLM)
+- **Monte Carlo Simulations**: 1,000+ game simulations
+- **Market Psychology**: Public bias detection, contrarian opportunities
 
-### Market Types Analyzed
-- **Moneyline (ML)**: Straight win/loss bets
-- **Spread (SPR)**: Point spread bets
-- **Totals (O/U)**: Over/Under bets
+### Sports Covered
+| Sport | Key | Features |
+|-------|-----|----------|
+| 🏀 NBA | `basketball_nba` | Four Factors, pace analysis, full ELO |
+| 🏈 NFL | `americanfootball_nfl` | Efficiency metrics, QB injury weighting |
+| 🏒 NHL | `hockey_nhl` | Possession metrics, goalie impact |
+| ⚽ EPL | `soccer_epl` | Poisson modeling, home advantage |
 
-## Tech Stack
+## 🏗️ Architecture
 
-### Backend
-- **Framework**: FastAPI (Python 3.11)
-- **Database**: MongoDB
-- **AI Integration**: Emergent Integrations (GPT-5.2)
-- **Odds Data**: The Odds API
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    UNIFIED PREDICTOR                         │
+├──────────────────────────┬──────────────────────────────────┤
+│   V6 ML ENSEMBLE (70%)   │   V5 LINE MOVEMENT (30%)         │
+├──────────────────────────┼──────────────────────────────────┤
+│ • ELO Model              │ • Sharp Money Detection          │
+│ • Context Model          │ • Reverse Line Movement (RLM)    │
+│ • Line Movement Model    │ • Steam Move Detection           │
+│ • Statistical Model      │ • Market Phase Analysis          │
+│ • Psychology Model       │ • Opening vs Current Comparison  │
+├──────────────────────────┴──────────────────────────────────┤
+│              DECISION: 60%+ Combined Confidence              │
+│              REQUIRES: 3/5 Models Agree (V6)                 │
+└─────────────────────────────────────────────────────────────┘
+```
 
-### Frontend
-- **Framework**: React 18
-- **Styling**: Tailwind CSS
-- **Charts**: Recharts
-- **Icons**: Lucide React
-- **Date Handling**: date-fns
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 /app
 ├── backend/
-│   ├── server.py           # Main FastAPI application
-│   ├── requirements.txt    # Python dependencies
-│   └── .env               # Environment variables
+│   ├── server.py              # FastAPI main application
+│   ├── unified_predictor.py   # Combines V5 + V6 algorithms
+│   ├── betpredictor_v5.py     # Line movement analysis
+│   ├── betpredictor_v6.py     # ML ensemble engine
+│   ├── ml_models.py           # Logistic regression & ensemble
+│   ├── advanced_metrics.py    # ELO & sport-specific metrics
+│   ├── context_analyzer.py    # Rest, travel, altitude analysis
+│   ├── injury_analyzer.py     # Position-weighted injury impact
+│   ├── market_psychology.py   # Bias detection & contrarian
+│   ├── simulation_engine.py   # Monte Carlo & Poisson modeling
+│   ├── adaptive_learning.py   # Self-adjusting model weights
+│   ├── espn_data_provider.py  # ESPN odds & stats fetcher
+│   ├── espn_scores.py         # Live score tracking
+│   └── line_movement_analyzer.py
 ├── frontend/
 │   ├── src/
-│   │   ├── App.js         # Main React component with routing
-│   │   ├── App.css        # Component styles
-│   │   ├── index.css      # Global styles (Tailwind)
-│   │   └── pages/
-│   │       ├── Dashboard.js      # Main dashboard with stats & picks
-│   │       ├── Events.js         # Events listing with odds
-│   │       ├── LineMovement.js   # Line movement charts
-│   │       ├── OddsComparison.js # Side-by-side odds comparison
-│   │       ├── Predictions.js    # AI predictions page
-│   │       └── Performance.js    # Win/loss tracking
-│   ├── package.json       # Node dependencies
-│   ├── tailwind.config.js # Tailwind configuration
-│   └── .env              # Frontend environment variables
+│   │   ├── App.js             # Main router
+│   │   ├── pages/
+│   │   │   ├── Dashboard.js   # Stats & top picks
+│   │   │   ├── Events.js      # All events with odds
+│   │   │   ├── LineMovement.js# Line movement charts
+│   │   │   ├── Performance.js # Win/loss tracking
+│   │   │   └── Settings.js    # App settings
+│   │   └── App.css            # Styles
+│   └── package.json
 ├── memory/
-│   └── PRD.md            # Product Requirements Document
-└── README.md             # This file
+│   └── PRD.md                 # Product requirements
+└── README.md
 ```
 
-## API Endpoints
+## 🔌 API Endpoints
 
 ### Events & Odds
 | Endpoint | Method | Description |
 |----------|--------|-------------|
+| `/api/` | GET | Health check |
 | `/api/sports` | GET | List available sports |
-| `/api/events/{sport_key}` | GET | Get events with odds (cached 30 min) |
-| `/api/event/{event_id}` | GET | Get specific event details |
-| `/api/odds-comparison/{event_id}` | GET | Compare odds across sportsbooks |
-| `/api/line-movement/{event_id}` | GET | Get line movement history |
-| `/api/scores/{sport_key}` | GET | Get recent game scores |
+| `/api/events/{sport_key}` | GET | Get events with odds |
+| `/api/line-movement/{event_id}` | GET | Line movement history |
+| `/api/data-source-status` | GET | ESPN data source status |
 
 ### Predictions
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/recommendations` | GET | Get AI recommendations (sorted by confidence) |
-| `/api/recommendations` | POST | Create new recommendation |
-| `/api/generate-recommendations` | POST | Generate AI picks for a sport |
-| `/api/analyze` | POST | Run AI analysis on specific event |
+| `/api/recommendations` | GET | Get AI recommendations (60%+ confidence) |
+| `/api/analyze-unified/{event_id}` | POST | Manual unified analysis |
+| `/api/analyze-v6/{event_id}` | POST | V6 ML analysis only |
+| `/api/analyze-v5/{event_id}` | POST | V5 line movement only |
 
-### System
+### Performance
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/` | GET | Health check |
-| `/api/api-usage` | GET | API usage stats and background task status |
-| `/api/performance` | GET | Win/loss performance statistics |
-| `/api/check-results` | POST | Trigger result checking |
+| `/api/performance` | GET | Win/loss statistics |
+| `/api/notifications` | GET | System notifications |
 
-## Background Tasks
+## ⚙️ Background Tasks
 
-The application runs three background tasks automatically:
+| Task | Frequency | Description |
+|------|-----------|-------------|
+| Line Movement Checker | 5 minutes | Snapshot odds for all events |
+| Prediction Generator | 40 min before game | Auto-generate picks |
+| Result Checker | 15 minutes | Check completed games via ESPN |
+| Adaptive Learning | After each result | Update model weights |
 
-1. **Recommendation Generator** (Every 6 hours)
-   - Analyzes upcoming events across all sports
-   - Generates AI-powered picks for best value bets
-   - Skips generation if API calls < 30 remaining
+## 🗄️ Database Collections
 
-2. **Line Movement Checker** (Every hour)
-   - Monitors odds changes for pending predictions
-   - Updates confidence based on movement direction
-   - Adds movement notes to analysis
-
-3. **Result Checker** (Every 2 hours)
-   - Checks for completed games (5+ hours after start)
-   - Fetches scores from The Odds API
-   - Updates prediction results (win/loss/push)
-
-## Environment Variables
-
-### Backend (.env)
-```env
-MONGO_URL="mongodb://localhost:27017"
-DB_NAME="test_database"
-CORS_ORIGINS="*"
-EMERGENT_LLM_KEY=your_emergent_key
-ODDS_API_KEY=your_odds_api_key
-```
-
-### Frontend (.env)
-```env
-REACT_APP_BACKEND_URL=http://localhost:8001
-```
-
-## Installation & Setup
-
-### Prerequisites
-- Python 3.11+
-- Node.js 18+
-- MongoDB
-- The Odds API key (free tier: 500 requests/month)
-- Emergent LLM key (for AI analysis)
-
-### Backend Setup
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-# Add your API keys to .env
-uvicorn server:app --host 0.0.0.0 --port 8001 --reload
-```
-
-### Frontend Setup
-```bash
-cd frontend
-yarn install
-# Update REACT_APP_BACKEND_URL in .env if needed
-yarn start
-```
-
-## API Rate Limiting
-
-The app includes smart API usage management:
-
-- **30-minute cache** for events data
-- **Auto-skip** recommendation generation when < 30 API calls remaining
-- **API usage tracking** displayed in sidebar
-- **Free tier**: 500 requests/month
-
-## Odds Format
-
-All odds are displayed in **European/Decimal format**:
-- 1.50 = -200 American (heavy favorite)
-- 2.00 = +100 American (even money)
-- 3.00 = +200 American (underdog)
-
-**Odds Range Filter**: 1.5 - 20 (excludes extreme values)
-
-## Database Schema
-
-### Predictions Collection
+### predictions
 ```javascript
 {
   id: String (UUID),
@@ -187,73 +136,108 @@ All odds are displayed in **European/Decimal format**:
   sport_key: String,
   home_team: String,
   away_team: String,
-  commence_time: String (ISO),
-  prediction_type: "moneyline" | "spread" | "total",
-  predicted_outcome: String,
+  prediction: String,           // Team name
   confidence: Number (0-1),
-  analysis: String,
-  ai_model: String,
   odds_at_prediction: Number,
+  prediction_type: "moneyline" | "spread" | "total",
   result: "pending" | "win" | "loss" | "push",
-  created_at: String (ISO),
-  line_movement_pct: Number (optional),
-  current_odds: Number (optional)
+  reasoning: String,            // Full detailed analysis
+  edge: Number,
+  consensus_level: "strong" | "weak" | "v6_only",
+  created_at: String (ISO)
 }
 ```
 
-### Odds History Collection
-```javascript
-{
-  event_id: String,
-  timestamp: String (ISO),
-  bookmaker: String,
-  bookmaker_title: String,
-  market: String,
-  outcomes: Array
-}
-```
+### opening_odds
+Stores first-seen odds for each event (for line movement comparison)
 
-## Design System
+### odds_history
+Hourly snapshots of odds for line movement tracking
+
+### model_performance
+Tracks accuracy of each sub-model for adaptive weight adjustment
+
+## 🎨 Design System
 
 ### Colors
-- **Background**: #09090B (default), #18181B (paper), #27272A (subtle)
+- **Background**: #09090B (dark), #18181B (paper), #27272A (subtle)
 - **Text**: #FAFAFA (primary), #A1A1AA (secondary), #71717A (muted)
-- **Brand**: #CCFF00 (lime green)
+- **Brand**: #CCFF00 (lime green accent)
 - **Semantic**: Success (#22C55E), Danger (#EF4444), Warning (#EAB308)
 
 ### Fonts
-- **Headings/Data**: JetBrains Mono
-- **Body**: Manrope
+- **Data/Numbers**: JetBrains Mono
+- **Body Text**: Manrope
 
-## Future Improvements
+## 🚀 Tech Stack
 
-### P1 - High Priority
-- Push notifications for significant line movements
-- Historical odds tracking (requires API upgrade)
-- Prop bets support
+### Backend
+- **Framework**: FastAPI (Python 3.11)
+- **Database**: MongoDB (motor async driver)
+- **Data Source**: ESPN API (odds, scores, stats)
 
-### P2 - Medium Priority
-- More sports coverage
-- Bankroll management
-- Social sharing
-- User accounts
+### Frontend
+- **Framework**: React 18
+- **Styling**: Tailwind CSS
+- **Charts**: Recharts
+- **Icons**: Lucide React
 
-## Troubleshooting
+### ML Components
+- Logistic Regression with sport-specific weights
+- Monte Carlo Simulation (1,000+ iterations)
+- Poisson Modeling for low-scoring sports
+- 5-Model Ensemble with dynamic weight adjustment
+
+## 📊 Algorithm Decision Requirements
+
+A pick is only recommended when ALL conditions are met:
+
+1. ✅ **Ensemble Confidence ≥ 60%** (combined V5+V6)
+2. ✅ **At least 3 out of 5 V6 models agree**
+3. ✅ **Model Agreement ≥ 25%**
+4. ✅ **Clear probability edge (>55% or <45%)**
+5. ✅ **Minimum edge ≥ 4%**
+
+If any requirement fails, **NO PICK** is generated with detailed reasoning.
+
+## 🔧 Environment Variables
+
+### Backend (.env)
+```env
+MONGO_URL="mongodb://localhost:27017"
+DB_NAME="test_database"
+CORS_ORIGINS="*"
+```
+
+### Frontend (.env)
+```env
+REACT_APP_BACKEND_URL=<your-backend-url>
+```
+
+## 📈 Performance Tracking
+
+The app automatically tracks:
+- **Win Rate**: Percentage of winning predictions
+- **ROI**: Return on investment based on $100 fixed bets
+- **Model Accuracy**: Individual sub-model performance
+- **Brier Score**: Probability calibration metric
+
+## 🛠️ Troubleshooting
 
 ### Common Issues
 
-1. **No events showing**
-   - Check if ODDS_API_KEY is valid
-   - Verify the sport has upcoming events
-   - Check API usage limits
+1. **No picks generating**
+   - Algorithm is conservative by design
+   - Check if games are within 40-minute window
+   - View `/api/analyze-unified/{event_id}` for detailed reasoning
 
-2. **AI analysis not working**
-   - Verify EMERGENT_LLM_KEY is set
-   - Check backend logs for errors
+2. **Line movement not showing**
+   - Requires multiple snapshots over time
+   - Check `/api/data-source-status` for ESPN connection
 
-3. **Predictions not auto-updating**
-   - Background tasks run on schedule (2-6 hours)
-   - Check `/api/api-usage` for task status
+3. **Results not updating**
+   - Background task runs every 15 minutes
+   - Check `/var/log/supervisor/backend.err.log`
 
 ### Logs
 ```bash
@@ -262,14 +246,17 @@ tail -f /var/log/supervisor/backend.err.log
 
 # Check supervisor status
 sudo supervisorctl status
+
+# Restart services
+sudo supervisorctl restart all
 ```
 
-## License
+## 📝 License
 
 MIT License - Feel free to modify and use for personal projects.
 
-## Credits
+## 🙏 Credits
 
-- **Odds Data**: [The Odds API](https://the-odds-api.com/)
-- **AI Analysis**: OpenAI GPT-5.2 via Emergent Integrations
+- **Data Source**: ESPN API
 - **Icons**: [Lucide](https://lucide.dev/)
+- **Charts**: [Recharts](https://recharts.org/)
