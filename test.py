@@ -869,11 +869,21 @@ class BetPredictorTester:
             pred_id = prediction["id"]
             new_result = game_result["result"]
             
+            # Debug: Check if ID exists in database
+            exists_in_db = await self.db.predictions.find_one({"id": pred_id})
+            if not exists_in_db:
+                # Try with _id if "id" doesn't work
+                print_warning(f"   ID {pred_id[:12]}... NOT FOUND in DB, trying alternative...")
+                alt_pred = await self.db.predictions.find_one({"_simulated": True, "home_team": event.get("home_team")})
+                if alt_pred:
+                    pred_id = alt_pred["id"]
+                    print_info(f"   Found alternative ID: {pred_id[:12]}...")
+            
             # Debug: Check before update
             before = await self.db.predictions.find_one({"id": pred_id})
             print_info(f"   BEFORE: id={pred_id[:12]}..., result={before.get('result') if before else 'NOT FOUND'}")
             
-            # Update prediction with result
+            # Update prediction with result - use explicit write concern
             update_result = await self.db.predictions.update_one(
                 {"id": pred_id},
                 {"$set": {
@@ -887,9 +897,12 @@ class BetPredictorTester:
                 }}
             )
             
+            # Force a sync read
+            await asyncio.sleep(0.1)
+            
             # Debug: Check after update
             after = await self.db.predictions.find_one({"id": pred_id})
-            print_info(f"   AFTER: id={pred_id[:12]}..., result={after.get('result') if after else 'NOT FOUND'}")
+            print_info(f"   AFTER: id={pred_id[:12]}..., result={after.get('result') if after else 'NOT FOUND'}, matched={update_result.matched_count}, mod={update_result.modified_count}")
             
             if game_result["result"] == "win":
                 wins += 1
