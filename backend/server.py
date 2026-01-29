@@ -1832,6 +1832,159 @@ async def get_model_performance():
     }
 
 
+# ==================== UNIFIED PREDICTOR ENDPOINTS ====================
+# Combines V5 + V6 with V6 weighted 70%
+
+@api_router.get("/predictions/unified")
+async def get_unified_predictions(limit: int = 50, result: str = None):
+    """Get unified predictions (V5 + V6 combined with V6 weighted 70%)"""
+    query = {"ai_model": "unified"}
+    if result:
+        query["result"] = result
+    
+    predictions = await db.predictions.find(query).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    # Stats
+    all_unified = await db.predictions.find({"ai_model": "unified"}).to_list(10000)
+    
+    wins = len([p for p in all_unified if p.get("result") == "win"])
+    losses = len([p for p in all_unified if p.get("result") == "loss"])
+    pending = len([p for p in all_unified if p.get("result") == "pending"])
+    
+    win_rate = wins / (wins + losses) * 100 if (wins + losses) > 0 else 0
+    avg_confidence = sum(p.get("confidence", 0) for p in all_unified) / len(all_unified) if all_unified else 0
+    
+    return {
+        "predictions": predictions,
+        "stats": {
+            "total": len(all_unified),
+            "wins": wins,
+            "losses": losses,
+            "pending": pending,
+            "win_rate": round(win_rate, 1),
+            "avg_confidence": round(avg_confidence * 100 if avg_confidence < 1 else avg_confidence, 1)
+        },
+        "algorithm": "unified",
+        "description": "Combines V5 (line movement) + V6 (ML ensemble) with V6 weighted 70%"
+    }
+
+
+@api_router.post("/analyze-unified/{event_id}")
+async def analyze_event_unified(event_id: str, sport_key: str = "basketball_nba"):
+    """
+    Analyze event using UNIFIED predictor (V5 + V6 combined)
+    
+    - Runs both V5 (line movement) and V6 (ML ensemble)
+    - Combines results with V6 weighted 70%, V5 weighted 30%
+    - Agreement bonus when both algorithms align
+    - Single pick recommendation (no conflicts)
+    """
+    
+    # Fetch event data
+    events = await fetch_espn_events_with_odds(sport_key, days_ahead=3)
+    event = next((e for e in events if e.get("id") == event_id or e.get("espn_id") == event_id), None)
+    
+    if not event:
+        raise HTTPException(status_code=404, detail=f"Event {event_id} not found for sport {sport_key}")
+    
+    home_team = event.get("home_team", "")
+    away_team = event.get("away_team", "")
+    
+    logger.info(f"🔄 UNIFIED Manual Analysis: {home_team} vs {away_team}")
+    
+    # Get comprehensive data
+    matchup_data = await get_comprehensive_matchup_data(event, sport_key)
+    
+    squad_data = {
+        "home_team": {"injuries": []},
+        "away_team": {"injuries": []}
+    }
+    
+    try:
+        home_roster = await fetch_team_roster(event.get("home_team_id", ""), sport_key)
+        away_roster = await fetch_team_roster(event.get("away_team_id", ""), sport_key)
+        squad_data["home_team"]["injuries"] = home_roster.get("injuries", [])
+        squad_data["away_team"]["injuries"] = away_roster.get("injuries", [])
+    except Exception as e:
+        logger.warning(f"Could not fetch roster data: {e}")
+    
+    # Get line movement history
+    line_movement_history = []
+    opening_odds = {}
+    
+    try:
+        history_docs = await db.odds_history.find({"event_id": event_id}).sort("timestamp", 1).to_list(1000)
+        line_movement_history = history_docs
+        
+        if history_docs:
+            opening_odds = history_docs[0]
+        
+        opening_doc = await db.opening_odds.find_one({"event_id": event_id})
+        if opening_doc:
+            opening_odds = opening_doc
+    except Exception as e:
+        logger.warning(f"Could not fetch line movement history: {e}")
+    
+    current_odds = event.get("odds", {})
+    
+    # Run unified analysis
+    try:
+        prediction = await generate_unified_prediction(
+            event,
+            sport_key,
+            squad_data,
+            matchup_data,
+            line_movement_history,
+            opening_odds,
+            current_odds
+        )
+        
+        # Save prediction if it has a pick
+        if prediction.get("has_pick"):
+            prediction_doc = {
+                "id": str(uuid.uuid4()),
+                "event_id": event_id,
+                "sport_key": sport_key,
+                "home_team": home_team,
+                "away_team": away_team,
+                "prediction": prediction.get("pick"),
+                "confidence": prediction.get("confidence", 0) / 100,
+                "odds": prediction.get("odds", 1.91),
+                "ai_model": "unified",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "commence_time": event.get("commence_time", ""),
+                "prediction_type": prediction.get("pick_type", "moneyline"),
+                "result": "pending",
+                "reasoning": prediction.get("reasoning", ""),
+                "edge": prediction.get("edge", 0),
+                "consensus_level": prediction.get("consensus_level", "unknown")
+            }
+            
+            await db.predictions.insert_one(prediction_doc)
+            logger.info(f"✅ Unified prediction saved: {prediction.get('pick')} at {prediction.get('confidence')}% confidence")
+        
+        return {
+            "event": {
+                "id": event_id,
+                "home_team": home_team,
+                "away_team": away_team,
+                "commence_time": event.get("commence_time", ""),
+                "sport_key": sport_key
+            },
+            "prediction": prediction,
+            "data_summary": {
+                "line_movement_snapshots": len(line_movement_history),
+                "has_opening_odds": bool(opening_odds),
+                "squad_data_available": bool(squad_data.get("home_team", {}).get("injuries") or squad_data.get("away_team", {}).get("injuries")),
+                "matchup_data_available": bool(matchup_data)
+            }
+        }
+    
+    except Exception as e:
+        logger.error(f"Error in unified analysis: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Unified analysis failed: {str(e)}")
+
+
 # View upcoming games in prediction window
 @api_router.get("/upcoming-predictions-window")
 async def get_upcoming_prediction_window():
