@@ -785,68 +785,6 @@ class BetPredictorTester:
         
         self.record_test("Generate Predictions", predictions_created > 0, 
             f"{predictions_created} predictions created (V5:{v5_picks}, V6:{v6_picks})")
-                    
-                    print_pick(f"{event['home_team']} vs {event['away_team']}")
-                    print(f"         Pick: {prediction['predicted_outcome']}")
-                    print(f"         Confidence: {prediction['confidence']*100:.0f}%")
-                    print(f"         Type: {prediction['prediction_type']}")
-                else:
-                    print_warning(f"No pick for {event['home_team']} vs {event['away_team']} (low confidence)")
-            else:
-                print_error(f"Failed to analyze {event['home_team']} vs {event['away_team']}")
-        
-        # If no predictions were created by V6, create some manually for testing
-        if predictions_created == 0:
-            print_warning("V6 didn't generate picks (conservative). Creating manual test picks...")
-            
-            for event in self.simulated_events[:3]:
-                prediction_id = str(uuid.uuid4())
-                
-                # Randomly choose pick type
-                pick_type = random.choice(["moneyline", "spread", "total"])
-                
-                if pick_type == "moneyline":
-                    pick = random.choice([event["home_team"], event["away_team"]])
-                    odds = event["odds"]["home_ml_decimal"] if pick == event["home_team"] else event["odds"]["away_ml_decimal"]
-                elif pick_type == "spread":
-                    if random.random() < 0.5:
-                        pick = f"{event['home_team']} {event['odds']['spread']:+.1f}"
-                    else:
-                        pick = f"{event['away_team']} {-event['odds']['spread']:+.1f}"
-                    odds = 1.91
-                else:
-                    pick = f"{'Over' if random.random() < 0.5 else 'Under'} {event['odds']['total']}"
-                    odds = 1.91
-                
-                prediction = {
-                    "id": prediction_id,
-                    "event_id": event["id"],
-                    "sport_key": event["sport_key"],
-                    "home_team": event["home_team"],
-                    "away_team": event["away_team"],
-                    "commence_time": event["commence_time"],
-                    "prediction_type": pick_type,
-                    "predicted_outcome": pick,
-                    "confidence": random.uniform(0.65, 0.85),
-                    "analysis": f"Simulated {pick_type} pick for testing",
-                    "ai_model": "betpredictor_v6",
-                    "odds_at_prediction": odds,
-                    "result": "pending",
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                    "_simulated": True,
-                    "_event": event
-                }
-                
-                await self.db.predictions.insert_one(prediction)
-                self.created_predictions.append(prediction)
-                predictions_created += 1
-                
-                print_pick(f"{event['home_team']} vs {event['away_team']}")
-                print(f"         Pick: {pick} ({pick_type})")
-                print(f"         Confidence: {prediction['confidence']*100:.0f}%")
-        
-        self.record_test("Generate Predictions", predictions_created > 0, 
-            f"{predictions_created} predictions created")
     
     async def test_verify_predictions_in_api(self):
         """Test 7: Verify Predictions Appear in API"""
