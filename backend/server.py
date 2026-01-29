@@ -3426,6 +3426,12 @@ async def scheduled_espn_odds_refresh():
 @app.on_event("startup")
 async def startup_event():
     """Start background tasks on app startup"""
+    global adaptive_learning
+    
+    # Initialize Adaptive Learning System
+    logger.info("🧠 Initializing Adaptive Learning System...")
+    adaptive_learning = await create_adaptive_learning_system(db)
+    logger.info("✅ Adaptive Learning System ready - models will now learn from results!")
     
     # Run immediate cleanup for completed/started events on startup
     logger.info("🧹 Running startup cleanup for completed events...")
