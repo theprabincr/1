@@ -144,6 +144,111 @@ const TopPickCard = ({ pick, onClick }) => {
   );
 };
 
+// Reusable Pick Card for modals
+const PickCard = ({ pick, showResult = false }) => {
+  const FIXED_BANKROLL = 100;
+  
+  // Format the pick display based on prediction type
+  const formatPick = () => {
+    const outcome = pick.predicted_outcome || '';
+    
+    if (pick.prediction_type === 'spread') {
+      // Check if outcome already has spread value (e.g., "Boston Celtics -5.5")
+      if (outcome.match(/-?\d+\.?\d*/)) {
+        return outcome;
+      }
+      // Try to extract spread from analysis or reasoning
+      const analysis = pick.analysis || pick.reasoning || '';
+      const spreadMatch = analysis.match(/(-?\d+\.?\d*)\s*(?:point|spread|pts)/i);
+      if (spreadMatch) {
+        const isHome = outcome.toLowerCase().includes(pick.home_team?.toLowerCase());
+        return `${outcome} ${isHome ? '' : '+'}${spreadMatch[1]}`;
+      }
+      // Default: indicate it's a spread pick
+      return `${outcome} (spread)`;
+    } else if (pick.prediction_type === 'total') {
+      return outcome; // e.g., "Over 225.5"
+    }
+    return outcome; // Moneyline just shows team name
+  };
+  
+  // Market badge
+  const marketBadge = {
+    'moneyline': { label: 'ML', color: 'bg-blue-500/20 text-blue-400' },
+    'spread': { label: 'SPR', color: 'bg-purple-500/20 text-purple-400' },
+    'total': { label: 'O/U', color: 'bg-orange-500/20 text-orange-400' }
+  }[pick.prediction_type] || { label: 'ML', color: 'bg-blue-500/20 text-blue-400' };
+  
+  // Calculate profit/loss
+  const odds = pick.odds_at_prediction || 1.91;
+  let profit = 0;
+  if (pick.result === 'win') {
+    profit = FIXED_BANKROLL * (odds - 1);
+  } else if (pick.result === 'loss') {
+    profit = -FIXED_BANKROLL;
+  }
+  
+  // Result badge
+  const resultBadge = {
+    'win': { label: 'WON', color: 'bg-semantic-success/20 text-semantic-success' },
+    'loss': { label: 'LOST', color: 'bg-semantic-danger/20 text-semantic-danger' },
+    'push': { label: 'PUSH', color: 'bg-text-muted/20 text-text-muted' },
+    'pending': { label: 'PENDING', color: 'bg-semantic-warning/20 text-semantic-warning' }
+  }[pick.result] || { label: 'PENDING', color: 'bg-semantic-warning/20 text-semantic-warning' };
+  
+  return (
+    <div className="bg-zinc-800 rounded-lg p-4">
+      <div className="flex items-start justify-between mb-2">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${marketBadge.color}`}>
+              {marketBadge.label}
+            </span>
+            <p className="text-text-primary font-semibold">{pick.home_team} vs {pick.away_team}</p>
+          </div>
+          <p className="text-text-muted text-sm">
+            {pick.commence_time ? new Date(pick.commence_time).toLocaleDateString() : ''} 
+            {pick.commence_time ? ` at ${new Date(pick.commence_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}` : ''}
+          </p>
+        </div>
+        <div className="text-right flex flex-col gap-1">
+          <span className={`px-2 py-1 rounded text-xs font-bold ${
+            pick.confidence >= 0.7 ? 'bg-semantic-success/20 text-semantic-success' :
+            pick.confidence >= 0.5 ? 'bg-semantic-warning/20 text-semantic-warning' :
+            'bg-text-muted/20 text-text-muted'
+          }`}>
+            {(pick.confidence * 100).toFixed(0)}%
+          </span>
+          {showResult && (
+            <span className={`px-2 py-1 rounded text-xs font-bold ${resultBadge.color}`}>
+              {resultBadge.label}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center justify-between mt-3 pt-3 border-t border-zinc-700">
+        <div>
+          <p className="text-brand-primary font-bold font-mono">{formatPick()}</p>
+          <p className="text-text-muted text-xs mt-1">$100 bet @ {odds.toFixed(2)}</p>
+        </div>
+        {showResult && pick.result !== 'pending' && (
+          <p className={`font-mono text-lg font-bold ${
+            profit >= 0 ? 'text-semantic-success' : 'text-semantic-danger'
+          }`}>
+            {profit >= 0 ? '+' : ''}${profit.toFixed(2)}
+          </p>
+        )}
+      </div>
+      {(pick.reasoning || pick.analysis) && (
+        <div className="mt-3 pt-3 border-t border-zinc-700">
+          <p className="text-xs text-text-muted mb-1">Analysis</p>
+          <p className="text-text-secondary text-xs leading-relaxed">{pick.reasoning || pick.analysis}</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Live Event Card
 const LiveEventCard = ({ event }) => {
   const bestOdds = getBestOdds(event.bookmakers || []);
