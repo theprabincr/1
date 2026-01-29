@@ -37,6 +37,9 @@ from espn_scores import (
 from betpredictor_v5 import generate_v5_prediction, BetPredictorV5
 from line_movement_analyzer import analyze_line_movement, LineMovementAnalyzer
 
+# Import BetPredictor V6 - Advanced Algorithm with ML and Ensemble
+from betpredictor_v6 import generate_v6_prediction, BetPredictorV6
+
 # Import lineup/roster scraper
 from lineup_scraper import get_matchup_context, fetch_team_roster
 
