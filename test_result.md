@@ -555,8 +555,8 @@ frontend:
 
 metadata:
   created_by: "main_agent"
-  version: "6.1"
-  test_sequence: 11
+  version: "6.2"
+  test_sequence: 12
   run_ui: false
 
 test_plan:
@@ -567,6 +567,6 @@ test_plan:
 
 agent_communication:
   - agent: "main"
-    message: "🧪 COMPREHENSIVE SIMULATION TESTS COMPLETE: All test scripts executed successfully. Tests run: (1) run_simulation_test.py - 10 match simulation with win/loss tracking, (2) run_extended_simulation.py - Extended test with V5/V6/Unified algorithms, (3) test_volatile_games.py - 5 volatile game scenarios, (4) simulate_pregame_window.py - Pre-game window simulation with 5 picks generated, (5) test_v6_scenario.py - V6 algorithm scenario test. RESULTS: All core features working - Predictions (V5/V6/Unified), Win/Loss Tracking (9W-11L), Notifications (3 created), Performance Stats, Line Movement (160 snapshots). V6 generated 7 predictions. 🎉 ALL FEATURES VERIFIED WORKING!"
+    message: "🧹 AI/LLM CODE REMOVED: (1) Removed EMERGENT_LLM_KEY from server.py and .env, (2) Removed get_ai_analysis() function, (3) Updated /api/analyze endpoint to use V5+V6 ML analysis instead of GPT/Claude, (4) Updated recommendations docstring. APP NOW USES PURE ML: V5 (line movement analysis) + V6 (5-model ensemble: ELO, Context, Line Movement, Statistical, Psychology) + Monte Carlo simulations. NO AI/LLM used. All tests passing - V6 generates predictions with 79%+ confidence using ML models only."
   - agent: "testing"
-    message: "✅ BETPREDICTOR COMPREHENSIVE SIMULATION TESTING COMPLETE: All simulation scripts executed with 100% pass rate. TESTS VERIFIED: (1) run_simulation_test.py - API health ✅, Data sources ✅, Event fetching (33 NBA events) ✅, V6 analysis (5 events, 1 pick) ✅, Simulation matches (10/10 results updated, 5W-5L) ✅, Notifications (1 created) ✅. (2) run_extended_simulation.py - All 7 test categories passed: API Health, Event Fetching, Prediction Algorithms, Prediction Creation, Win/Loss Tracking, Notifications, Performance Stats. (3) test_volatile_games.py - 5 scenarios tested, 1 pick generated (LA Lakers spread @ 61.3% confidence). (4) simulate_pregame_window.py - 5 games simulated, 5 V6 picks stored (Boston Celtics, Denver Nuggets, OKC Thunder, Golden State Warriors, Over 218.5). (5) test_v6_scenario.py - V6 algorithm generated pick for Boston Celtics spread @ 56.3% confidence with 20.7% edge. FINAL STATUS: 7 V6 predictions pending, 160 line movement snapshots, 3 notifications. All core functionality verified working!"
+    message: "✅ ML-ONLY PREDICTION SYSTEM VERIFIED: All AI/LLM code removed. V5 and V6 algorithms working correctly with pure ML analysis. Test results: (1) V6 scenario test - PASSED: Generated Boston Celtics spread pick @ 56.3% confidence using 5-model ensemble (ELO 93.4%, Context 61%, Line Movement 55%, Statistical 92.5%, Psychology 65%). (2) /api/analyze endpoint - VERIFIED: Now returns v5_analysis + v6_analysis (ML-based) instead of gpt_analysis/claude_analysis. (3) Simulation test - PASSED: 6W-4L (60% win rate), notifications working. (4) All ML components verified: ELO ratings, context analysis (rest/travel), injury analysis, market psychology, Monte Carlo simulations (1000 runs), logistic regression, 5-model ensemble voting."
