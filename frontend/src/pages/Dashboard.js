@@ -345,6 +345,14 @@ const Dashboard = () => {
           onClick={() => setShowActivePicksModal(true)}
         />
         <StatCard
+          title="Total Picks"
+          value={allPicks.length}
+          subtitle="All time picks"
+          icon={Target}
+          color="blue"
+          onClick={() => setShowAllPicksModal(true)}
+        />
+        <StatCard
           title="Live Games"
           value={liveScores.length}
           subtitle="Click for scores"
