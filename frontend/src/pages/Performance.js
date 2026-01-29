@@ -120,8 +120,10 @@ const PredictionRow = ({ prediction }) => {
   );
 };
 
-// Profit History Chart with positive/negative bars
+// Enhanced Profit History Chart - Cumulative line with daily bars
 const ProfitHistoryChart = ({ predictions }) => {
+  const FIXED_BANKROLL = 100; // Fixed $100 bankroll
+  
   // Group predictions by date and calculate daily profit
   const dateGroups = {};
   
@@ -133,73 +135,200 @@ const ProfitHistoryChart = ({ predictions }) => {
     
     const date = new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     if (!dateGroups[date]) {
-      dateGroups[date] = { date, profit: 0, wins: 0, losses: 0 };
+      dateGroups[date] = { date, profit: 0, wins: 0, losses: 0, bets: 0, rawDate: new Date(dateStr) };
     }
     
     const odds = p.odds_at_prediction || 1.91;
-    const unitStake = 100;
     
     if (p.result === 'win') {
-      dateGroups[date].profit += unitStake * (odds - 1);
+      dateGroups[date].profit += FIXED_BANKROLL * (odds - 1);
       dateGroups[date].wins++;
     } else if (p.result === 'loss') {
-      dateGroups[date].profit -= unitStake;
+      dateGroups[date].profit -= FIXED_BANKROLL;
       dateGroups[date].losses++;
     }
+    dateGroups[date].bets++;
   });
 
-  // Get last 7 days of data
-  const data = Object.values(dateGroups).slice(-7);
+  // Sort by date and get last 14 days
+  const sortedData = Object.values(dateGroups)
+    .sort((a, b) => a.rawDate - b.rawDate)
+    .slice(-14);
+
+  // Calculate cumulative profit
+  let runningTotal = 0;
+  const data = sortedData.map(d => {
+    runningTotal += d.profit;
+    return {
+      ...d,
+      profit: Math.round(d.profit * 100) / 100,
+      cumulative: Math.round(runningTotal * 100) / 100,
+      winRate: d.bets > 0 ? Math.round((d.wins / d.bets) * 100) : 0
+    };
+  });
 
   if (data.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-48 text-text-muted">
-        <BarChart3 className="w-12 h-12 mb-2 opacity-30" />
-        <p>No completed predictions yet</p>
-        <p className="text-xs mt-1">Results will appear here after games finish</p>
+      <div className="flex flex-col items-center justify-center h-64 text-text-muted bg-zinc-800/30 rounded-xl border border-dashed border-zinc-700">
+        <BarChart3 className="w-16 h-16 mb-3 opacity-20" />
+        <p className="text-lg font-medium">No Completed Bets Yet</p>
+        <p className="text-xs mt-2 text-center max-w-xs">
+          Your profit history will appear here after games are completed and results are verified.
+        </p>
+        <div className="flex items-center gap-2 mt-4 px-4 py-2 bg-brand-primary/10 rounded-lg">
+          <DollarSign className="w-4 h-4 text-brand-primary" />
+          <span className="text-brand-primary text-sm font-mono">$100 per bet</span>
+        </div>
       </div>
     );
   }
 
+  // Calculate summary stats
+  const totalProfit = data[data.length - 1]?.cumulative || 0;
+  const totalBets = data.reduce((sum, d) => sum + d.bets, 0);
+  const totalWins = data.reduce((sum, d) => sum + d.wins, 0);
+  const totalLosses = data.reduce((sum, d) => sum + d.losses, 0);
+  const overallWinRate = totalBets > 0 ? Math.round((totalWins / totalBets) * 100) : 0;
+
+  // Custom tooltip
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      const dayData = payload[0].payload;
+      return (
+        <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-4 shadow-2xl min-w-[180px]">
+          <p className="text-brand-primary font-bold text-sm mb-3 border-b border-zinc-700 pb-2">{label}</p>
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-text-muted text-xs">Daily P/L:</span>
+              <span className={`font-mono font-bold ${dayData.profit >= 0 ? 'text-semantic-success' : 'text-semantic-danger'}`}>
+                {dayData.profit >= 0 ? '+' : ''}${dayData.profit.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-text-muted text-xs">Cumulative:</span>
+              <span className={`font-mono font-bold ${dayData.cumulative >= 0 ? 'text-semantic-success' : 'text-semantic-danger'}`}>
+                {dayData.cumulative >= 0 ? '+' : ''}${dayData.cumulative.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center pt-2 border-t border-zinc-700">
+              <span className="text-text-muted text-xs">Record:</span>
+              <span className="font-mono text-sm">
+                <span className="text-semantic-success">{dayData.wins}W</span>
+                <span className="text-text-muted"> - </span>
+                <span className="text-semantic-danger">{dayData.losses}L</span>
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-text-muted text-xs">Win Rate:</span>
+              <span className={`font-mono text-sm font-bold ${
+                dayData.winRate >= 55 ? 'text-semantic-success' : 
+                dayData.winRate >= 45 ? 'text-semantic-warning' : 'text-semantic-danger'
+              }`}>
+                {dayData.winRate}%
+              </span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
-    <ResponsiveContainer width="100%" height={220}>
-      <BarChart data={data} margin={{ top: 20, right: 20, bottom: 5, left: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#27272A" vertical={false} />
-        <XAxis 
-          dataKey="date" 
-          stroke="#71717A" 
-          style={{ fontSize: '11px' }}
-          axisLine={{ stroke: '#27272A' }}
-          tickLine={false}
-        />
-        <YAxis 
-          stroke="#71717A" 
-          style={{ fontSize: '11px' }}
-          axisLine={{ stroke: '#27272A' }}
-          tickLine={false}
-          tickFormatter={(value) => `$${value}`}
-        />
-        <Tooltip 
-          contentStyle={{ 
-            backgroundColor: '#18181B', 
-            border: '1px solid #27272A',
-            borderRadius: '8px',
-            padding: '10px'
-          }}
-          formatter={(value, name) => [`$${value.toFixed(2)}`, 'Profit/Loss']}
-          labelStyle={{ color: '#A1A1AA', marginBottom: '5px' }}
-        />
-        <ReferenceLine y={0} stroke="#71717A" strokeDasharray="3 3" />
-        <Bar dataKey="profit" radius={[4, 4, 0, 0]}>
-          {data.map((entry, index) => (
-            <Cell 
-              key={`cell-${index}`} 
-              fill={entry.profit >= 0 ? '#22C55E' : '#EF4444'} 
-            />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+    <div className="space-y-4">
+      {/* Summary Stats Row */}
+      <div className="grid grid-cols-4 gap-3">
+        <div className="bg-zinc-800/50 rounded-lg p-3 text-center">
+          <p className="text-text-muted text-xs mb-1">Total P/L</p>
+          <p className={`font-mono font-bold text-lg ${totalProfit >= 0 ? 'text-semantic-success' : 'text-semantic-danger'}`}>
+            {totalProfit >= 0 ? '+' : ''}${totalProfit.toFixed(2)}
+          </p>
+        </div>
+        <div className="bg-zinc-800/50 rounded-lg p-3 text-center">
+          <p className="text-text-muted text-xs mb-1">Record</p>
+          <p className="font-mono font-bold text-lg">
+            <span className="text-semantic-success">{totalWins}</span>
+            <span className="text-text-muted">-</span>
+            <span className="text-semantic-danger">{totalLosses}</span>
+          </p>
+        </div>
+        <div className="bg-zinc-800/50 rounded-lg p-3 text-center">
+          <p className="text-text-muted text-xs mb-1">Win Rate</p>
+          <p className={`font-mono font-bold text-lg ${
+            overallWinRate >= 55 ? 'text-semantic-success' : 
+            overallWinRate >= 45 ? 'text-semantic-warning' : 'text-semantic-danger'
+          }`}>
+            {overallWinRate}%
+          </p>
+        </div>
+        <div className="bg-zinc-800/50 rounded-lg p-3 text-center">
+          <p className="text-text-muted text-xs mb-1">Bet Size</p>
+          <p className="font-mono font-bold text-lg text-brand-primary">$100</p>
+        </div>
+      </div>
+
+      {/* Chart */}
+      <ResponsiveContainer width="100%" height={280}>
+        <BarChart data={data} margin={{ top: 20, right: 30, bottom: 5, left: 10 }}>
+          <defs>
+            <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#22C55E" stopOpacity={0.9}/>
+              <stop offset="100%" stopColor="#22C55E" stopOpacity={0.3}/>
+            </linearGradient>
+            <linearGradient id="lossGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#EF4444" stopOpacity={0.9}/>
+              <stop offset="100%" stopColor="#EF4444" stopOpacity={0.3}/>
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="#27272A" vertical={false} />
+          <XAxis 
+            dataKey="date" 
+            stroke="#71717A" 
+            style={{ fontSize: '10px', fontFamily: 'monospace' }}
+            axisLine={{ stroke: '#3F3F46' }}
+            tickLine={false}
+            tick={{ fill: '#A1A1AA' }}
+          />
+          <YAxis 
+            stroke="#71717A" 
+            style={{ fontSize: '10px', fontFamily: 'monospace' }}
+            axisLine={{ stroke: '#3F3F46' }}
+            tickLine={false}
+            tick={{ fill: '#A1A1AA' }}
+            tickFormatter={(value) => `$${value}`}
+            width={60}
+          />
+          <Tooltip content={<CustomTooltip />} />
+          <ReferenceLine y={0} stroke="#52525B" strokeWidth={2} />
+          <Bar dataKey="profit" radius={[6, 6, 0, 0]} maxBarSize={50}>
+            {data.map((entry, index) => (
+              <Cell 
+                key={`cell-${index}`} 
+                fill={entry.profit >= 0 ? 'url(#profitGradient)' : 'url(#lossGradient)'}
+                stroke={entry.profit >= 0 ? '#22C55E' : '#EF4444'}
+                strokeWidth={1}
+              />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+
+      {/* Legend */}
+      <div className="flex items-center justify-center gap-6 pt-2 border-t border-zinc-800">
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded bg-semantic-success"></div>
+          <span className="text-text-muted text-xs">Profitable Day</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded bg-semantic-danger"></div>
+          <span className="text-text-muted text-xs">Losing Day</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-1 bg-zinc-500"></div>
+          <span className="text-text-muted text-xs">Break-even</span>
+        </div>
+      </div>
+    </div>
   );
 };
 
