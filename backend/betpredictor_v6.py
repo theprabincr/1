@@ -674,6 +674,110 @@ class BetPredictorV6:
             reasoning_parts.append("Teams are evenly matched in strength.")
         reasoning_parts.append("")
         
+        # ===== SECTION 3.5: RECENT FORM & RECORDS =====
+        reasoning_parts.append("RECENT FORM & RECORDS")
+        reasoning_parts.append("")
+        
+        matchup_data = matchup_data or {}
+        home_team_data = matchup_data.get("home_team", {})
+        away_team_data = matchup_data.get("away_team", {})
+        
+        # Home team form
+        home_form = home_team_data.get("form", {})
+        home_stats = home_team_data.get("stats", {})
+        home_record = home_stats.get("record", home_form.get("record", "N/A"))
+        home_home_record = home_stats.get("home_record", "N/A")
+        home_wins = home_form.get("wins", 0)
+        home_losses = home_form.get("losses", 0)
+        home_streak = home_form.get("streak", 0)
+        home_win_pct = home_form.get("win_pct", 0.5)
+        home_avg_margin = home_form.get("avg_margin", 0)
+        
+        reasoning_parts.append(f"{home_team}:")
+        reasoning_parts.append(f"  • Season Record: {home_record}")
+        if home_home_record and home_home_record != "N/A":
+            reasoning_parts.append(f"  • Home Record: {home_home_record}")
+        if home_wins > 0 or home_losses > 0:
+            reasoning_parts.append(f"  • Last 10 Games: {home_wins}W-{home_losses}L ({home_win_pct*100:.0f}%)")
+        if home_streak != 0:
+            streak_text = f"{abs(home_streak)}W streak" if home_streak > 0 else f"{abs(home_streak)}L streak"
+            reasoning_parts.append(f"  • Current Streak: {streak_text}")
+            if home_streak >= 3:
+                key_factors.append(f"{home_team} on {home_streak}W win streak")
+            elif home_streak <= -3:
+                key_factors.append(f"{home_team} on {abs(home_streak)}L losing streak")
+        if home_avg_margin != 0:
+            reasoning_parts.append(f"  • Avg Point Margin: {home_avg_margin:+.1f}")
+        
+        reasoning_parts.append("")
+        
+        # Away team form
+        away_form = away_team_data.get("form", {})
+        away_stats = away_team_data.get("stats", {})
+        away_record = away_stats.get("record", away_form.get("record", "N/A"))
+        away_away_record = away_stats.get("away_record", "N/A")
+        away_wins = away_form.get("wins", 0)
+        away_losses = away_form.get("losses", 0)
+        away_streak = away_form.get("streak", 0)
+        away_win_pct = away_form.get("win_pct", 0.5)
+        away_avg_margin = away_form.get("avg_margin", 0)
+        
+        reasoning_parts.append(f"{away_team}:")
+        reasoning_parts.append(f"  • Season Record: {away_record}")
+        if away_away_record and away_away_record != "N/A":
+            reasoning_parts.append(f"  • Away Record: {away_away_record}")
+        if away_wins > 0 or away_losses > 0:
+            reasoning_parts.append(f"  • Last 10 Games: {away_wins}W-{away_losses}L ({away_win_pct*100:.0f}%)")
+        if away_streak != 0:
+            streak_text = f"{abs(away_streak)}W streak" if away_streak > 0 else f"{abs(away_streak)}L streak"
+            reasoning_parts.append(f"  • Current Streak: {streak_text}")
+            if away_streak >= 3:
+                key_factors.append(f"{away_team} on {away_streak}W win streak")
+            elif away_streak <= -3:
+                key_factors.append(f"{away_team} on {abs(away_streak)}L losing streak")
+        if away_avg_margin != 0:
+            reasoning_parts.append(f"  • Avg Point Margin: {away_avg_margin:+.1f}")
+        
+        reasoning_parts.append("")
+        
+        # Recent games summary
+        home_recent = home_team_data.get("recent_games", [])
+        away_recent = away_team_data.get("recent_games", [])
+        
+        if home_recent:
+            reasoning_parts.append(f"{home_team} - Last 5 Games:")
+            for game in home_recent[:5]:
+                opponent = game.get("opponent", "Unknown")
+                our_score = game.get("our_score", 0)
+                opp_score = game.get("opponent_score", 0)
+                won = game.get("won", False)
+                home_away = "vs" if game.get("is_home", True) else "@"
+                result = "W" if won else "L"
+                reasoning_parts.append(f"    {result} {home_away} {opponent} ({our_score}-{opp_score})")
+            reasoning_parts.append("")
+        
+        if away_recent:
+            reasoning_parts.append(f"{away_team} - Last 5 Games:")
+            for game in away_recent[:5]:
+                opponent = game.get("opponent", "Unknown")
+                our_score = game.get("our_score", 0)
+                opp_score = game.get("opponent_score", 0)
+                won = game.get("won", False)
+                home_away = "vs" if game.get("is_home", True) else "@"
+                result = "W" if won else "L"
+                reasoning_parts.append(f"    {result} {home_away} {opponent} ({our_score}-{opp_score})")
+            reasoning_parts.append("")
+        
+        # Form comparison
+        if home_win_pct > 0 and away_win_pct > 0:
+            form_diff = home_win_pct - away_win_pct
+            if abs(form_diff) > 0.2:
+                better_form = home_team if form_diff > 0 else away_team
+                reasoning_parts.append(f"Form Advantage: {better_form} ({abs(form_diff)*100:.0f}% better recent form)")
+                key_factors.append(f"{better_form} in better recent form")
+        
+        reasoning_parts.append("")
+        
         # ===== SECTION 4: SITUATIONAL FACTORS =====
         reasoning_parts.append("SITUATIONAL FACTORS")
         reasoning_parts.append("")
