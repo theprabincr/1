@@ -1606,6 +1606,229 @@ async def get_prediction_stats():
         }
     }
 
+
+# ==================== BETPREDICTOR V6 ENDPOINTS ====================
+# Advanced algorithm with Phase 1-3 enhancements
+
+@api_router.get("/predictions/v6")
+async def get_v6_predictions(limit: int = 50, result: str = None):
+    """Get BetPredictor V6 predictions (advanced algorithm)"""
+    query = {"ai_model": "betpredictor_v6"}
+    if result:
+        query["result"] = result
+    
+    predictions = await db.predictions.find(query).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    # Stats
+    all_v6 = await db.predictions.find({"ai_model": "betpredictor_v6"}).to_list(10000)
+    
+    wins = len([p for p in all_v6 if p.get("result") == "win"])
+    losses = len([p for p in all_v6 if p.get("result") == "loss"])
+    pending = len([p for p in all_v6 if p.get("result") == "pending"])
+    
+    win_rate = wins / (wins + losses) * 100 if (wins + losses) > 0 else 0
+    avg_confidence = sum(p.get("confidence", 0) for p in all_v6) / len(all_v6) if all_v6 else 0
+    
+    return {
+        "predictions": predictions,
+        "stats": {
+            "total": len(all_v6),
+            "wins": wins,
+            "losses": losses,
+            "pending": pending,
+            "win_rate": round(win_rate, 1),
+            "avg_confidence": round(avg_confidence, 1)
+        },
+        "algorithm": "betpredictor_v6",
+        "description": "Advanced ML ensemble with ELO, context, simulations, and psychology analysis"
+    }
+
+
+@api_router.post("/analyze-v6/{event_id}")
+async def analyze_event_v6(event_id: str, sport_key: str = "basketball_nba"):
+    """
+    Analyze a specific event using BetPredictor V6 (Advanced Algorithm)
+    
+    Features:
+    - Phase 1: ELO ratings, context (rest/travel/altitude), smart injury weighting, advanced metrics
+    - Phase 2: Monte Carlo simulations, Poisson modeling, market psychology, contrarian opportunities
+    - Phase 3: Logistic regression, 5-model ensemble, Kelly Criterion, historical tracking
+    """
+    
+    # Fetch event data from ESPN
+    events = await fetch_espn_events_with_odds(sport_key, days_ahead=3)
+    event = next((e for e in events if e.get("id") == event_id or e.get("espn_id") == event_id), None)
+    
+    if not event:
+        raise HTTPException(status_code=404, detail=f"Event {event_id} not found for sport {sport_key}")
+    
+    home_team = event.get("home_team", "")
+    away_team = event.get("away_team", "")
+    
+    logger.info(f"🚀 V6 Manual Analysis: {home_team} vs {away_team}")
+    
+    # Get comprehensive matchup data
+    matchup_data = await get_comprehensive_matchup_data(event, sport_key)
+    
+    # Get squad data (injuries)
+    squad_data = {
+        "home_team": {"injuries": []},
+        "away_team": {"injuries": []}
+    }
+    
+    try:
+        home_roster = await fetch_team_roster(event.get("home_team_id", ""), sport_key)
+        away_roster = await fetch_team_roster(event.get("away_team_id", ""), sport_key)
+        squad_data["home_team"]["injuries"] = home_roster.get("injuries", [])
+        squad_data["away_team"]["injuries"] = away_roster.get("injuries", [])
+    except Exception as e:
+        logger.warning(f"Could not fetch roster data: {e}")
+    
+    # Get line movement history
+    line_movement_history = []
+    opening_odds = {}
+    
+    try:
+        history_query = {"event_id": event_id}
+        history_docs = await db.odds_history.find(history_query).sort("timestamp", 1).to_list(1000)
+        line_movement_history = history_docs
+        
+        if history_docs:
+            opening_odds = history_docs[0]
+        
+        # Also check opening_odds collection
+        opening_doc = await db.opening_odds.find_one({"event_id": event_id})
+        if opening_doc:
+            opening_odds = opening_doc
+    except Exception as e:
+        logger.warning(f"Could not fetch line movement history: {e}")
+    
+    # Get current odds
+    current_odds = event.get("odds", {})
+    
+    # Run V6 analysis
+    try:
+        prediction = await generate_v6_prediction(
+            event,
+            sport_key,
+            squad_data,
+            matchup_data,
+            line_movement_history,
+            opening_odds,
+            current_odds
+        )
+        
+        # Save prediction if it has a pick
+        if prediction.get("has_pick"):
+            prediction_doc = {
+                "id": str(uuid.uuid4()),
+                "event_id": event_id,
+                "sport_key": sport_key,
+                "home_team": home_team,
+                "away_team": away_team,
+                "prediction": prediction.get("pick"),
+                "confidence": prediction.get("confidence", 0) / 100,
+                "odds": prediction.get("odds", 1.91),
+                "ai_model": "betpredictor_v6",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "commence_time": event.get("commence_time", ""),
+                "prediction_type": prediction.get("pick_type", "moneyline"),
+                "result": "pending",
+                "reasoning": prediction.get("reasoning", ""),
+                "edge": prediction.get("edge", 0),
+                "model_agreement": prediction.get("model_agreement", 0),
+                "ensemble_confidence": prediction.get("confidence", 0)
+            }
+            
+            await db.predictions.insert_one(prediction_doc)
+            logger.info(f"✅ V6 prediction saved: {prediction.get('pick')} at {prediction.get('confidence')}% confidence")
+        
+        return {
+            "event": {
+                "id": event_id,
+                "home_team": home_team,
+                "away_team": away_team,
+                "commence_time": event.get("commence_time", ""),
+                "sport_key": sport_key
+            },
+            "prediction": prediction,
+            "data_summary": {
+                "line_movement_snapshots": len(line_movement_history),
+                "has_opening_odds": bool(opening_odds),
+                "squad_data_available": bool(squad_data.get("home_team", {}).get("injuries") or squad_data.get("away_team", {}).get("injuries")),
+                "matchup_data_available": bool(matchup_data)
+            }
+        }
+    
+    except Exception as e:
+        logger.error(f"Error in V6 analysis: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"V6 analysis failed: {str(e)}")
+
+
+@api_router.get("/predictions/comparison")
+async def get_algorithm_comparison():
+    """Compare performance of different prediction algorithms"""
+    
+    algorithms = ["betpredictor_v5", "betpredictor_v6"]
+    comparison = {}
+    
+    for algo in algorithms:
+        predictions = await db.predictions.find({"ai_model": algo}).to_list(10000)
+        completed = [p for p in predictions if p.get("result") in ["win", "loss"]]
+        
+        wins = len([p for p in completed if p.get("result") == "win"])
+        losses = len([p for p in completed if p.get("result") == "loss"])
+        pending = len([p for p in predictions if p.get("result") == "pending"])
+        
+        win_rate = wins / len(completed) * 100 if completed else 0
+        avg_confidence = sum(p.get("confidence", 0) for p in predictions) / len(predictions) if predictions else 0
+        
+        # Calculate by pick type
+        ml_picks = len([p for p in predictions if p.get("prediction_type") == "moneyline"])
+        spread_picks = len([p for p in predictions if p.get("prediction_type") == "spread"])
+        total_picks = len([p for p in predictions if p.get("prediction_type") == "total"])
+        
+        description = ""
+        if algo == "betpredictor_v5":
+            description = "Comprehensive line movement analysis with sharp money detection"
+        elif algo == "betpredictor_v6":
+            description = "Advanced ML ensemble: ELO + Context + Simulations + Psychology + 5-model voting"
+        
+        comparison[algo] = {
+            "total": len(predictions),
+            "wins": wins,
+            "losses": losses,
+            "pending": pending,
+            "win_rate": round(win_rate, 1),
+            "avg_confidence": round(avg_confidence * 100 if avg_confidence < 1 else avg_confidence, 1),
+            "pick_types": {
+                "moneyline": ml_picks,
+                "spread": spread_picks,
+                "total": total_picks
+            },
+            "description": description
+        }
+    
+    return {
+        "algorithms": comparison,
+        "recommendation": "V6 uses advanced ML and ensemble methods for higher accuracy"
+    }
+
+
+@api_router.get("/model-performance")
+async def get_model_performance():
+    """Get performance metrics for individual V6 sub-models"""
+    from ml_models import ModelPerformanceTracker
+    
+    stats = ModelPerformanceTracker.get_model_stats()
+    
+    return {
+        "sub_models": stats,
+        "description": "V6 uses 5 sub-models: ELO, Context, Line Movement, Statistical, and Psychology",
+        "note": "Weights are automatically adjusted based on historical performance"
+    }
+
+
 # View upcoming games in prediction window
 @api_router.get("/upcoming-predictions-window")
 async def get_upcoming_prediction_window():
