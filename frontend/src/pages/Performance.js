@@ -389,6 +389,7 @@ const Performance = () => {
   });
 
   // Calculate stats
+  const FIXED_BANKROLL = 100; // Fixed $100 per bet
   const totalPicks = allPredictions.length;
   const pendingCount = allPredictions.filter(p => p.result === 'pending').length;
   const completedPredictions = allPredictions.filter(p => p.result !== 'pending');
@@ -398,12 +399,11 @@ const Performance = () => {
   const winRate = performance?.win_rate || 0;
   const roi = performance?.roi || 0;
   
-  // Calculate total profit and avg odds
+  // Calculate total profit using fixed $100 bankroll
   const totalProfit = completedPredictions.reduce((sum, p) => {
     const odds = p.odds_at_prediction || 1.91;
-    const unitStake = 100;
-    if (p.result === 'win') return sum + unitStake * (odds - 1);
-    if (p.result === 'loss') return sum - unitStake;
+    if (p.result === 'win') return sum + FIXED_BANKROLL * (odds - 1);
+    if (p.result === 'loss') return sum - FIXED_BANKROLL;
     return sum;
   }, 0);
   
