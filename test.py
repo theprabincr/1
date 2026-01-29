@@ -1022,7 +1022,7 @@ class BetPredictorTester:
         print(f"\n{Colors.BOLD}{Colors.CYAN}")
         print("=" * 70)
         print("   BETPREDICTOR COMPREHENSIVE TEST SUITE")
-        print("   WITH FULL SIMULATION")
+        print("   WITH FULL SIMULATION & PRE-GAME ANALYSIS")
         print("=" * 70)
         print(f"{Colors.END}")
         print(f"Backend URL: {BACKEND_URL}")
@@ -1044,6 +1044,11 @@ class BetPredictorTester:
         await self.test_recommendations_endpoint()
         await self.test_daily_summary_notification()
         await self.test_line_movement_for_simulated()
+        
+        # New Pre-Game Analysis Tests
+        await self.test_pregame_analysis_real_events()
+        await self.test_upcoming_predictions_window()
+        await self.test_analyze_endpoint_with_custom_data()
         
         # Print summary
         self.print_summary()
