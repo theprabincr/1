@@ -3272,9 +3272,9 @@ async def trigger_daily_summary():
     """Manually trigger a daily summary notification"""
     result = await send_daily_summary_notification()
     if result:
-        return {"message": "Daily summary notification created", "data": result}
+        return {"message": "Daily summary notification created", "created": True, "data": result}
     else:
-        return {"message": "Daily summary skipped (duplicate within 5 minutes)", "data": None}
+        return {"message": "Daily summary notification already exists (within 5 min window)", "created": False, "data": None}
 
 @api_router.post("/notifications/result-test")
 async def trigger_result_notification():
