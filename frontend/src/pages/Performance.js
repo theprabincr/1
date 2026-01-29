@@ -55,6 +55,13 @@ const PredictionRow = ({ prediction }) => {
   const status = statusConfig[prediction.result] || statusConfig.pending;
   const StatusIcon = status.icon;
   
+  // Market badge
+  const marketBadge = {
+    'moneyline': { label: 'ML', color: 'bg-blue-500/20 text-blue-400' },
+    'spread': { label: 'SPR', color: 'bg-purple-500/20 text-purple-400' },
+    'total': { label: 'O/U', color: 'bg-orange-500/20 text-orange-400' }
+  }[prediction.prediction_type] || { label: 'ML', color: 'bg-blue-500/20 text-blue-400' };
+  
   // Calculate profit/loss for completed predictions using fixed bankroll
   const odds = prediction.odds_at_prediction || 1.91;
   let profit = 0;
@@ -70,11 +77,17 @@ const PredictionRow = ({ prediction }) => {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
+  // Get the analysis text
+  const analysisText = prediction.analysis || prediction.reasoning || '';
+
   return (
     <div className="p-4 bg-zinc-800 rounded-lg hover:bg-zinc-750 transition-colors" data-testid={`prediction-${prediction.event_id}`}>
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
+            <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${marketBadge.color}`}>
+              {marketBadge.label}
+            </span>
             <span className="text-xs font-mono text-text-muted uppercase">
               {prediction.sport_key?.replace(/_/g, ' ')}
             </span>
@@ -118,6 +131,14 @@ const PredictionRow = ({ prediction }) => {
           )}
         </div>
       </div>
+      
+      {/* Analysis Section - Always show if available */}
+      {analysisText && (
+        <div className="mt-4 pt-4 border-t border-zinc-700">
+          <p className="text-xs text-text-muted mb-2 font-semibold uppercase tracking-wide">V6 Analysis</p>
+          <p className="text-text-secondary text-sm leading-relaxed whitespace-pre-line">{analysisText}</p>
+        </div>
+      )}
     </div>
   );
 };
