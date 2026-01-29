@@ -728,10 +728,33 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
                     {analysis.prediction.reasoning && (
                       <div className="pt-3 border-t border-zinc-700">
                         <p className="text-xs text-text-muted mb-2">DETAILED ANALYSIS</p>
-                        <div className="bg-zinc-800/50 rounded-lg p-3 max-h-96 overflow-y-auto">
-                          <pre className="text-text-secondary text-xs font-mono whitespace-pre-wrap leading-relaxed">
-                            {analysis.prediction.reasoning}
-                          </pre>
+                        <div className="bg-zinc-800/50 rounded-lg p-4 max-h-[400px] overflow-y-auto space-y-4">
+                          {analysis.prediction.reasoning.split('\n\n').map((section, idx) => {
+                            const lines = section.split('\n').filter(l => l.trim());
+                            if (lines.length === 0) return null;
+                            
+                            // Check if first line is a section header (all caps or specific keywords)
+                            const firstLine = lines[0];
+                            const isHeader = /^[A-Z\s]+$/.test(firstLine) || 
+                                           ['PREDICTION', 'MODEL', 'TEAM', 'SITUATIONAL', 'INJURY', 'LINE', 'SIMULATION', 'WHY', 'KEY'].some(h => firstLine.includes(h));
+                            
+                            return (
+                              <div key={idx} className="text-sm">
+                                {isHeader && (
+                                  <h4 className="text-brand-primary font-semibold text-xs uppercase tracking-wide mb-2">
+                                    {firstLine}
+                                  </h4>
+                                )}
+                                <div className="text-text-secondary space-y-1">
+                                  {lines.slice(isHeader ? 1 : 0).map((line, lineIdx) => (
+                                    <p key={lineIdx} className={`${line.startsWith('  ') ? 'pl-3 text-text-muted' : ''}`}>
+                                      {line}
+                                    </p>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
