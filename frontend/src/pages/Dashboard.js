@@ -321,9 +321,6 @@ const Dashboard = () => {
   const [showAllPicksModal, setShowAllPicksModal] = useState(false);
   const [liveScores, setLiveScores] = useState([]);
   const [showLiveScoresModal, setShowLiveScoresModal] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState(null);
-  const [eventDetails, setEventDetails] = useState(null);
-  const [loadingEventDetails, setLoadingEventDetails] = useState(false);
 
   const sports = [
     { key: "basketball_nba", label: "NBA" },
