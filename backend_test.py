@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 """
-BetPredictor V6 Advanced Algorithm Testing Suite
-Tests the V6 endpoints for comprehensive algorithm functionality
+BetPredictor Backend API Testing Suite
+Tests all backend endpoints including V5, V6, unified predictions, and core functionality
 """
 
 import asyncio
 import aiohttp
 import json
 import sys
+import os
 from datetime import datetime
 from typing import Dict, List, Optional
 
-# Backend URL - use localhost for local testing
-BACKEND_URL = "http://localhost:8001/api"
+# Get backend URL from environment or use localhost
+BACKEND_URL = os.environ.get('REACT_APP_BACKEND_URL', 'http://localhost:8001')
+if not BACKEND_URL.endswith('/api'):
+    BACKEND_URL = f"{BACKEND_URL}/api"
 
 class V6TestSuite:
     def __init__(self):
