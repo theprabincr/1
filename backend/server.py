@@ -316,6 +316,97 @@ async def create_test_notification():
     )
     return {"message": "Test notification created"}
 
+@api_router.post("/notifications/daily-summary")
+async def trigger_daily_summary():
+    """Manually trigger a daily summary notification"""
+    try:
+        now = datetime.now(timezone.utc)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # Get today's predictions
+        predictions = await db.predictions.find({
+            "created_at": {"$gte": today_start.isoformat()}
+        }).to_list(100)
+        
+        # Get today's results
+        completed = [p for p in predictions if p.get("result") in ["win", "loss", "push"]]
+        wins = len([p for p in completed if p.get("result") == "win"])
+        losses = len([p for p in completed if p.get("result") == "loss"])
+        pending = len([p for p in predictions if p.get("result") == "pending"])
+        
+        # Calculate profit
+        total_profit = 0
+        for p in completed:
+            odds = p.get("odds_at_prediction", 1.91)
+            if p.get("result") == "win":
+                total_profit += 100 * (odds - 1)
+            elif p.get("result") == "loss":
+                total_profit -= 100
+        
+        # Create summary message
+        if len(predictions) > 0 or len(completed) > 0:
+            win_rate = (wins / len(completed) * 100) if len(completed) > 0 else 0
+            message = f"Today's Results: {wins}W-{losses}L ({win_rate:.0f}% win rate)\n"
+            message += f"Profit/Loss: ${total_profit:+.2f}\n"
+            message += f"Pending picks: {pending}"
+        else:
+            message = "No picks were generated today. Check back tomorrow!"
+        
+        await create_notification(
+            "daily_summary",
+            "📊 Daily Performance Summary",
+            message,
+            {
+                "date": now.date().isoformat(),
+                "wins": wins,
+                "losses": losses,
+                "pending": pending,
+                "profit": total_profit
+            }
+        )
+        
+        return {"message": "Daily summary notification created", "data": {"wins": wins, "losses": losses, "profit": total_profit}}
+    except Exception as e:
+        return {"error": str(e)}
+
+@api_router.post("/notifications/result-test")
+async def trigger_result_notification():
+    """Manually trigger a result notification for testing"""
+    # Get a random completed prediction
+    prediction = await db.predictions.find_one({"result": {"$in": ["win", "loss"]}})
+    
+    if prediction:
+        result = prediction.get("result", "win")
+        odds = prediction.get("odds_at_prediction", 1.91)
+        profit = 100 * (odds - 1) if result == "win" else -100
+        
+        await create_notification(
+            "result",
+            f"🎯 Bet Result: {result.upper()}",
+            f"{prediction.get('home_team')} vs {prediction.get('away_team')} - "
+            f"Your pick: {prediction.get('predicted_outcome')} - {result.upper()}! (${profit:+.2f})",
+            {
+                "prediction_id": prediction.get("id"),
+                "result": result,
+                "pick": prediction.get("predicted_outcome"),
+                "profit": profit
+            }
+        )
+        return {"message": f"Result notification created for {result}", "profit": profit}
+    else:
+        # Create a sample result notification
+        await create_notification(
+            "result",
+            "🎯 Bet Result: WIN",
+            "Boston Celtics vs Portland Trail Blazers - Your pick: Boston Celtics -12.5 - WIN! (+$91.00)",
+            {
+                "result": "win",
+                "pick": "Boston Celtics -12.5",
+                "profit": 91.00
+            }
+        )
+        return {"message": "Sample result notification created"}
+
 # ==================== SETTINGS ENDPOINTS ====================
 
 @api_router.get("/settings")
