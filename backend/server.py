@@ -2044,6 +2044,8 @@ async def add_my_bet(bet: dict):
             "created_at": datetime.now(timezone.utc).isoformat()
         }
         await db.my_bets.insert_one(bet_doc)
+        # Remove _id before returning (MongoDB adds it after insert)
+        bet_doc.pop("_id", None)
         return {"success": True, "bet": bet_doc}
     except Exception as e:
         logger.error(f"Error adding bet: {e}")
