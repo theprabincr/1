@@ -1388,6 +1388,28 @@ async def auto_check_results():
                                         }
                                     }
                                 )
+                                
+                                # 🧠 ADAPTIVE LEARNING: Update model performance from this result
+                                if adaptive_learning:
+                                    try:
+                                        # Determine the actual winner
+                                        home_score = matching_game.get("home_score", 0)
+                                        away_score = matching_game.get("away_score", 0)
+                                        
+                                        if prediction.get("prediction_type") == "moneyline":
+                                            actual_winner = prediction.get("home_team") if home_score > away_score else prediction.get("away_team")
+                                        else:
+                                            # For spread/totals, the "winner" is which side covered
+                                            actual_winner = prediction.get("predicted_outcome") if result == "win" else "opponent"
+                                        
+                                        await adaptive_learning.update_model_performance_from_result(
+                                            prediction_id=prediction.get("id"),
+                                            actual_winner=actual_winner,
+                                            sport_key=sport_key
+                                        )
+                                        logger.info(f"🧠 Adaptive learning updated for prediction {prediction.get('id')}")
+                                    except Exception as learn_err:
+                                        logger.error(f"Adaptive learning error: {learn_err}")
                         
                     except Exception as e:
                         logger.error(f"Error processing prediction {prediction.get('id')}: {e}")
