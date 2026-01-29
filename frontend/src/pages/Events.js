@@ -281,6 +281,13 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
   // Context factors
   const contextFactors = analysis?.prediction?.context_factors || [];
 
+  // Check if game is within analysis window (1 hour)
+  const gameTime = new Date(event.commence_time);
+  const now = new Date();
+  const minutesUntilGame = (gameTime - now) / (1000 * 60);
+  const isWithinAnalysisWindow = minutesUntilGame <= 60 && minutesUntilGame > 0;
+  const isGameStarted = minutesUntilGame <= 0;
+
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 overflow-y-auto">
       <div className="bg-zinc-900 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden my-4">
