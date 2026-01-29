@@ -2221,8 +2221,8 @@ async def delete_my_bet(bet_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# View upcoming games in prediction window (restored)
-@api_router.get("/upcoming-predictions-window-restored")
+# View upcoming games in prediction window
+@api_router.get("/upcoming-predictions-window")
 async def get_upcoming_prediction_window():
     """View games that are in the 1-hour prediction window (45-75 min before start)"""
     now = datetime.now(timezone.utc)
@@ -2246,10 +2246,10 @@ async def get_upcoming_prediction_window():
                     commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
                     time_to_start = (commence_time - now).total_seconds() / 60  # in minutes
                     
-                    # Check if already has V3 prediction
-                    has_v3_prediction = await db.predictions.find_one({
+                    # Check if already has unified prediction
+                    has_prediction = await db.predictions.find_one({
                         "event_id": event.get("id"),
-                        "ai_model": "enhanced_v3"
+                        "ai_model": "unified"
                     }) is not None
                     
                     game_info = {
@@ -2259,7 +2259,7 @@ async def get_upcoming_prediction_window():
                         "away_team": event.get("away_team"),
                         "commence_time": commence_str,
                         "minutes_to_start": round(time_to_start),
-                        "has_v3_prediction": has_v3_prediction
+                        "has_prediction": has_prediction
                     }
                     
                     if window_start <= commence_time <= window_end:
@@ -2284,7 +2284,7 @@ async def get_upcoming_prediction_window():
         "games_in_window": sorted(games_in_window, key=lambda x: x["minutes_to_start"]),
         "upcoming_games": sorted(upcoming_games, key=lambda x: x["minutes_to_start"])[:10],
         "total_in_window": len(games_in_window),
-        "message": "Games in prediction window will be automatically analyzed by V3 algorithm"
+        "message": "Games in prediction window will be automatically analyzed by Unified Predictor (V5+V6)"
     }
 
 @api_router.get("/odds-comparison/{event_id}")
