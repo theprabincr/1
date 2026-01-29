@@ -316,25 +316,18 @@ const Dashboard = () => {
   const [recommendations, setRecommendations] = useState([]);
   const [allPicks, setAllPicks] = useState([]);
   const [events, setEvents] = useState([]);
-  const [selectedSport, setSelectedSport] = useState("basketball_nba");
   const [showActivePicksModal, setShowActivePicksModal] = useState(false);
   const [showAllPicksModal, setShowAllPicksModal] = useState(false);
   const [liveScores, setLiveScores] = useState([]);
   const [showLiveScoresModal, setShowLiveScoresModal] = useState(false);
 
-  const sports = [
-    { key: "basketball_nba", label: "NBA" },
-    { key: "americanfootball_nfl", label: "NFL" },
-    { key: "baseball_mlb", label: "MLB" },
-    { key: "icehockey_nhl", label: "NHL" },
-    { key: "soccer_epl", label: "EPL" },
-  ];
+  // All supported sports for fetching events
+  const sportKeys = ["basketball_nba", "americanfootball_nfl", "baseball_mlb", "icehockey_nhl", "soccer_epl"];
 
   const fetchData = async () => {
     setLoading(true);
     try {
       // Fetch events from ALL sports
-      const sportKeys = sports.map(s => s.key);
       const eventsPromises = sportKeys.map(key => 
         axios.get(`${API}/events/${key}`).catch(() => ({ data: [] }))
       );
