@@ -912,6 +912,12 @@ class BetPredictorTester:
         total = wins + losses
         win_rate = (wins / total * 100) if total > 0 else 0
         
+        # Debug: Check database state
+        db_wins = await self.db.predictions.count_documents({'_simulated': True, 'result': 'win'})
+        db_losses = await self.db.predictions.count_documents({'_simulated': True, 'result': 'loss'})
+        db_pending = await self.db.predictions.count_documents({'_simulated': True, 'result': 'pending'})
+        print_info(f"Database state: {db_wins}W-{db_losses}L, {db_pending} pending")
+        
         self.record_test("Simulate Results", True, 
             f"{wins}W-{losses}L ({win_rate:.0f}% win rate)")
     
