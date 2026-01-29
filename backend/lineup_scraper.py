@@ -265,3 +265,200 @@ async def get_matchup_context(home_team: str, away_team: str, sport_key: str) ->
         },
         "fetched_at": datetime.now(timezone.utc).isoformat()
     }
+
+
+async def fetch_starting_lineup(espn_event_id: str, sport_key: str) -> Dict:
+    """
+    Fetch confirmed starting lineup for a game.
+    ESPN typically releases lineups 1 hour before game time.
+    
+    Returns:
+        Dict with home/away starters, or empty if not yet announced
+    """
+    result = {
+        "home": {
+            "team": "",
+            "starters": [],
+            "confirmed": False
+        },
+        "away": {
+            "team": "",
+            "starters": [],
+            "confirmed": False
+        },
+        "lineup_status": "not_available",
+        "message": "Starting lineups not yet announced"
+    }
+    
+    if sport_key not in ESPN_GAME_SUMMARY:
+        return result
+    
+    url = ESPN_GAME_SUMMARY[sport_key].format(event_id=espn_event_id)
+    
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        try:
+            response = await client.get(url)
+            if response.status_code != 200:
+                return result
+            
+            data = response.json()
+            
+            # Check game status
+            header = data.get("header", {})
+            competitions = header.get("competitions", [{}])
+            if competitions:
+                status = competitions[0].get("status", {})
+                status_type = status.get("type", {}).get("name", "")
+                
+                # If game is in progress or final, starters are from boxscore
+                if status_type in ["STATUS_IN_PROGRESS", "STATUS_HALFTIME", "STATUS_FINAL", "STATUS_FINAL_OT"]:
+                    result["lineup_status"] = "confirmed"
+                    result["message"] = "Lineup confirmed (game started)"
+                elif status_type == "STATUS_SCHEDULED":
+                    # Check if we have projected starters
+                    pass
+            
+            # Parse boxscore for starters
+            boxscore = data.get("boxscore", {})
+            
+            # Get team names
+            teams = boxscore.get("teams", [])
+            for team in teams:
+                team_data = team.get("team", {})
+                team_name = team_data.get("displayName", "")
+                home_away = team.get("homeAway", "")
+                
+                if home_away == "home":
+                    result["home"]["team"] = team_name
+                else:
+                    result["away"]["team"] = team_name
+            
+            # Parse players - starters typically listed first or have "starter" flag
+            players_data = boxscore.get("players", [])
+            
+            for team_players in players_data:
+                home_away = team_players.get("homeAway", "")
+                team_key = "home" if home_away == "home" else "away"
+                
+                statistics = team_players.get("statistics", [])
+                
+                for stat_cat in statistics:
+                    athletes = stat_cat.get("athletes", [])
+                    
+                    starters_found = []
+                    for athlete in athletes:
+                        athlete_info = athlete.get("athlete", {})
+                        player_name = athlete_info.get("displayName", "")
+                        position = athlete_info.get("position", {}).get("abbreviation", "")
+                        
+                        # Check if marked as starter
+                        is_starter = athlete.get("starter", False)
+                        
+                        # Also check stats - starters typically have more minutes
+                        stats = athlete.get("stats", [])
+                        minutes = 0
+                        if stats and len(stats) > 0:
+                            try:
+                                # Minutes is usually first stat in NBA
+                                min_str = stats[0] if stats else "0"
+                                if ":" in str(min_str):
+                                    parts = str(min_str).split(":")
+                                    minutes = int(parts[0])
+                                else:
+                                    minutes = int(float(min_str)) if min_str else 0
+                            except (ValueError, TypeError):
+                                minutes = 0
+                        
+                        if player_name:
+                            starters_found.append({
+                                "name": player_name,
+                                "position": position,
+                                "is_starter": is_starter,
+                                "minutes": minutes
+                            })
+                    
+                    # Sort by starter flag, then by minutes
+                    starters_found.sort(key=lambda x: (-int(x["is_starter"]), -x["minutes"]))
+                    
+                    # Take top 5 (typical starting lineup size)
+                    for starter in starters_found[:5]:
+                        result[team_key]["starters"].append({
+                            "name": starter["name"],
+                            "position": starter["position"]
+                        })
+                    
+                    if result[team_key]["starters"]:
+                        result[team_key]["confirmed"] = True
+                        result["lineup_status"] = "confirmed"
+                        result["message"] = "Starting lineup confirmed"
+                    
+                    break  # Only process first stat category
+            
+            # If no starters from boxscore, try to get projected starters
+            if not result["home"]["starters"] and not result["away"]["starters"]:
+                # Check for roster data with depth chart info
+                rosters = data.get("rosters", [])
+                for roster in rosters:
+                    home_away = roster.get("homeAway", "")
+                    team_key = "home" if home_away == "home" else "away"
+                    
+                    entries = roster.get("roster", [])
+                    starters = []
+                    
+                    for entry in entries:
+                        if entry.get("starter", False) or entry.get("position", {}).get("name", "").lower() == "starter":
+                            player = entry.get("athlete", {})
+                            starters.append({
+                                "name": player.get("displayName", ""),
+                                "position": entry.get("position", {}).get("abbreviation", "")
+                            })
+                    
+                    if starters:
+                        result[team_key]["starters"] = starters[:5]
+                        result[team_key]["confirmed"] = False  # Projected, not confirmed
+                        result["lineup_status"] = "projected"
+                        result["message"] = "Projected starting lineup (not yet confirmed)"
+            
+        except Exception as e:
+            logger.error(f"Error fetching starting lineup for {espn_event_id}: {e}")
+    
+    return result
+
+
+async def get_full_roster_with_starters(team_name: str, sport_key: str, espn_event_id: str = None) -> Dict:
+    """
+    Get full team roster with starting lineup info when available.
+    
+    Args:
+        team_name: Team name
+        sport_key: Sport key
+        espn_event_id: Optional event ID to get game-specific starters
+    
+    Returns:
+        Dict with roster, starters, injuries, and key players
+    """
+    # Get base roster
+    roster = await fetch_team_roster(team_name, sport_key)
+    
+    result = {
+        "team": team_name,
+        "roster": roster.get("players", []),
+        "injuries": roster.get("injuries", []),
+        "key_players": roster.get("key_players", []),
+        "starters": [],
+        "starters_confirmed": False
+    }
+    
+    # If we have an event ID, try to get confirmed starters
+    if espn_event_id:
+        lineup = await fetch_starting_lineup(espn_event_id, sport_key)
+        
+        # Determine if this team is home or away
+        if team_name.lower() in lineup.get("home", {}).get("team", "").lower():
+            result["starters"] = lineup["home"]["starters"]
+            result["starters_confirmed"] = lineup["home"]["confirmed"]
+        elif team_name.lower() in lineup.get("away", {}).get("team", "").lower():
+            result["starters"] = lineup["away"]["starters"]
+            result["starters_confirmed"] = lineup["away"]["confirmed"]
+    
+    return result
