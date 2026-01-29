@@ -3172,17 +3172,37 @@ async def scheduled_line_movement_cleanup():
 
 # Background task for daily summary notification
 async def scheduled_daily_summary():
-    """Background task that sends daily summary notification"""
-    # Calculate time until next 9 PM UTC (or run immediately if testing)
+    """Background task that sends daily summary notification at 9 PM UTC"""
+    # Wait 1 hour on startup to avoid sending summary immediately
+    await asyncio.sleep(3600)
+    
     while True:
         try:
+            now = datetime.now(timezone.utc)
+            
+            # Calculate time until 9 PM UTC
+            target_hour = 21  # 9 PM UTC
+            if now.hour >= target_hour:
+                # Already past 9 PM, wait until tomorrow 9 PM
+                tomorrow = now + timedelta(days=1)
+                target_time = tomorrow.replace(hour=target_hour, minute=0, second=0, microsecond=0)
+            else:
+                # Wait until today 9 PM
+                target_time = now.replace(hour=target_hour, minute=0, second=0, microsecond=0)
+            
+            wait_seconds = (target_time - now).total_seconds()
+            
+            if wait_seconds > 0:
+                logger.info(f"📊 Daily summary scheduled for {target_time.isoformat()} (in {wait_seconds/3600:.1f} hours)")
+                await asyncio.sleep(wait_seconds)
+            
             # Check if daily summary is enabled
             settings = await db.settings.find_one({}, {"_id": 0})
-            if settings and settings.get('notification_preferences', {}).get('daily_summary', True):
+            if not settings or settings.get('notification_preferences', {}).get('daily_summary', True):
                 await send_daily_summary_notification()
             
-            # Wait 24 hours before next summary
-            await asyncio.sleep(86400)  # 24 hours
+            # Wait a bit before next cycle to ensure we're past target time
+            await asyncio.sleep(60)
             
         except Exception as e:
             logger.error(f"Daily summary error: {e}")
