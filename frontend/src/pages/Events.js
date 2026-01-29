@@ -192,15 +192,15 @@ const getBestOdds = (bookmakers, homeTeam, awayTeam) => {
 const EventDetailsModal = ({ event, onClose, sportKey }) => {
   const [loading, setLoading] = useState(true);
   const [matchupData, setMatchupData] = useState(null);
-  const [squadData, setSquadData] = useState(null);
   const [lineMovement, setLineMovement] = useState(null);
   const [analysis, setAnalysis] = useState(null);
+  const [lineupStatus, setLineupStatus] = useState(null);
 
   useEffect(() => {
     const fetchEventDetails = async () => {
       setLoading(true);
       try {
-        // Fetch matchup data, squad data, line movement, and V6 analysis
+        // Fetch matchup data (includes rosters, injuries, starters), line movement
         const [matchupRes, lineRes] = await Promise.all([
           axios.get(`${API}/matchup/${event.id}?sport_key=${sportKey}`).catch(() => ({ data: null })),
           axios.get(`${API}/line-movement/${event.id}?sport_key=${sportKey}`).catch(() => ({ data: null }))
@@ -208,12 +208,19 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
 
         setMatchupData(matchupRes.data);
         setLineMovement(lineRes.data);
+        
+        // Set lineup status
+        if (matchupRes.data) {
+          setLineupStatus({
+            status: matchupRes.data.lineup_status,
+            message: matchupRes.data.lineup_message
+          });
+        }
 
         // Generate analysis using V6
         try {
           const analysisRes = await axios.post(`${API}/analyze-v6/${event.id}?sport_key=${sportKey}`);
           setAnalysis(analysisRes.data);
-          setSquadData(analysisRes.data?.squad_data);
         } catch (e) {
           console.log("V6 analysis not available");
         }
@@ -236,44 +243,22 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
   const spread = eventOdds.spread ?? bestOdds.spread;
   const total = eventOdds.total ?? bestOdds.total;
 
-  // Generate potential starters based on sport
-  const generateStarters = (team, isHome) => {
+  // Get team data from matchup API (real data from ESPN)
+  const getTeamData = (isHome) => {
     const teamData = isHome ? matchupData?.home_team : matchupData?.away_team;
-    const injuries = isHome ? squadData?.home_team?.injuries : squadData?.away_team?.injuries;
     
-    // NBA typical starters
-    if (sportKey.includes('basketball')) {
-      return {
-        positions: ['PG', 'SG', 'SF', 'PF', 'C'],
-        starters: teamData?.probable_starters || [
-          { position: 'PG', name: 'Point Guard', status: 'probable' },
-          { position: 'SG', name: 'Shooting Guard', status: 'probable' },
-          { position: 'SF', name: 'Small Forward', status: 'probable' },
-          { position: 'PF', name: 'Power Forward', status: 'probable' },
-          { position: 'C', name: 'Center', status: 'probable' }
-        ],
-        injuries: injuries || []
-      };
-    }
-    // NFL typical starters
-    if (sportKey.includes('football')) {
-      return {
-        positions: ['QB', 'RB', 'WR1', 'WR2', 'TE'],
-        starters: teamData?.probable_starters || [
-          { position: 'QB', name: 'Quarterback', status: 'probable' },
-          { position: 'RB', name: 'Running Back', status: 'probable' },
-          { position: 'WR1', name: 'Wide Receiver 1', status: 'probable' },
-          { position: 'WR2', name: 'Wide Receiver 2', status: 'probable' },
-          { position: 'TE', name: 'Tight End', status: 'probable' }
-        ],
-        injuries: injuries || []
-      };
-    }
-    return { positions: [], starters: [], injuries: injuries || [] };
+    return {
+      starters: teamData?.starters || [],
+      startersConfirmed: teamData?.starters_confirmed || false,
+      injuries: teamData?.injuries || [],
+      keyPlayers: teamData?.roster?.key_players || [],
+      form: teamData?.form || { wins: 0, losses: 0, streak: 0 },
+      recentGames: teamData?.recent_games || []
+    };
   };
 
-  const homeStarters = generateStarters(event.home_team, true);
-  const awayStarters = generateStarters(event.away_team, false);
+  const homeData = getTeamData(true);
+  const awayData = getTeamData(false);
 
   // Generate venue/weather info
   const baseVenue = event.venue || matchupData?.venue || {};
@@ -292,10 +277,6 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
     wind: Math.floor(Math.random() * 15) + 5,
     humidity: Math.floor(Math.random() * 40) + 40
   } : null;
-
-  // Team form data
-  const homeForm = matchupData?.home_team?.form || { wins: 0, losses: 0, streak: 0 };
-  const awayForm = matchupData?.away_team?.form || { wins: 0, losses: 0, streak: 0 };
 
   // Context factors
   const contextFactors = analysis?.prediction?.context_factors || [];
