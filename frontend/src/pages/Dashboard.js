@@ -254,44 +254,6 @@ const Dashboard = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Track Bet Handlers
-  const handleOpenTrackBet = (pick) => {
-    setSelectedPickForTracking(pick);
-    setBetStake(10);
-    setBetSuccess(false);
-    setShowTrackBetModal(true);
-  };
-
-  const handleTrackBet = async () => {
-    if (!selectedPickForTracking) return;
-    
-    setTrackingBet(true);
-    try {
-      const betData = {
-        event_name: `${selectedPickForTracking.home_team} vs ${selectedPickForTracking.away_team}`,
-        selection: selectedPickForTracking.predicted_outcome,
-        stake: parseFloat(betStake),
-        odds: selectedPickForTracking.odds_at_prediction || 1.91,
-        result: "pending"
-      };
-      
-      await axios.post(`${API}/my-bets`, betData);
-      setBetSuccess(true);
-      
-      // Close modal after short delay
-      setTimeout(() => {
-        setShowTrackBetModal(false);
-        setSelectedPickForTracking(null);
-        setBetSuccess(false);
-      }, 1500);
-    } catch (error) {
-      console.error("Error tracking bet:", error);
-      alert("Failed to track bet. Please try again.");
-    } finally {
-      setTrackingBet(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64" data-testid="loading">
