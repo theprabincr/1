@@ -2982,13 +2982,12 @@ async def startup_event():
     asyncio.create_task(scheduled_line_movement_checker())
     logger.info("Started line movement checker - monitors for significant line moves")
     
-    # START BETPREDICTOR V5 - Makes predictions 1 hour before games with comprehensive line movement analysis
-    asyncio.create_task(scheduled_pregame_predictor())
-    logger.info("📊 Started BETPREDICTOR V5 - Comprehensive line movement analysis 1 hour before game")
+    # START UNIFIED PREDICTOR - Combines V5 (line movement) + V6 (ML ensemble) with V6 weighted 70%
+    asyncio.create_task(scheduled_unified_predictor())
+    logger.info("🔄 Started UNIFIED PREDICTOR - V5 + V6 combined (V6 weighted 70%)")
     
-    # START BETPREDICTOR V6 - Advanced ML ensemble predictions 1 hour before games
-    asyncio.create_task(scheduled_pregame_predictor_v6())
-    logger.info("🚀 Started BETPREDICTOR V6 - Advanced ML ensemble with 5-model consensus")
+    # Note: Individual V5 and V6 schedulers disabled in favor of unified approach
+    # Endpoints still available for manual analysis: /api/analyze-v5 and /api/analyze-v6
     
     # Start ESPN odds refresh - EVERY 5 MINUTES for accurate line tracking
     asyncio.create_task(scheduled_espn_odds_refresh())
