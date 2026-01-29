@@ -349,6 +349,7 @@ class BetPredictorV6:
     ) -> Dict:
         """
         Make final betting decision based on ensemble and thresholds.
+        Research-backed decision logic with strong signal bypass.
         """
         ensemble_prob = ensemble_result.get("ensemble_probability", 0.5)
         ensemble_conf = ensemble_result.get("ensemble_confidence", 0)
@@ -359,43 +360,90 @@ class BetPredictorV6:
         # Count how many models agree on a pick
         individual_preds = ensemble_result.get("individual_predictions", {})
         picks_count = {}
-        for model_pred in individual_preds.values():
+        model_confidences = {}  # Track individual model confidences
+        
+        for model_name, model_pred in individual_preds.items():
             pick = model_pred.get("pick")
+            conf = model_pred.get("confidence", 0)
             if pick:
                 picks_count[pick] = picks_count.get(pick, 0) + 1
+                if pick not in model_confidences:
+                    model_confidences[pick] = []
+                model_confidences[pick].append((model_name, conf))
         
         max_agreement = max(picks_count.values()) if picks_count else 0
         
-        # Requirements for making a pick:
-        # 1. Ensemble confidence >= 55% (adjusted for real-world scenarios)
+        # Check for STRONG SIGNAL BYPASS
+        # If ONE model is extremely confident (85%+) with good edge, consider it
+        strong_signal_pick = None
+        strong_signal_model = None
+        strong_signal_conf = 0
+        
+        for pick, model_confs in model_confidences.items():
+            for model_name, conf in model_confs:
+                if conf >= self.strong_signal_threshold:
+                    if conf > strong_signal_conf:
+                        strong_signal_pick = pick
+                        strong_signal_model = model_name
+                        strong_signal_conf = conf
+        
+        # Standard ensemble requirements:
+        # 1. Ensemble confidence >= 60% (research optimal)
         # 2. At least 3/5 models agree on same pick  
-        # 3. Model agreement >= 25% (allows reasonable variance)
+        # 3. Model agreement >= 25%
         # 4. Clear probability edge (> 0.55 or < 0.45)
         
-        should_pick = (
+        should_pick_ensemble = (
             ensemble_conf >= self.min_ensemble_confidence and
             max_agreement >= self.min_models_agreement and
             model_agreement >= 0.25 and
             (ensemble_prob > 0.55 or ensemble_prob < 0.45)
         )
         
-        if should_pick and consensus_pick:
+        # Strong signal bypass (single model extremely confident)
+        should_pick_strong_signal = (
+            strong_signal_pick is not None and
+            strong_signal_conf >= self.strong_signal_threshold
+        )
+        
+        # Determine which pick to use
+        final_pick = None
+        pick_source = None
+        
+        if should_pick_ensemble and consensus_pick:
+            final_pick = consensus_pick
+            pick_source = "ensemble"
+        elif should_pick_strong_signal:
+            final_pick = strong_signal_pick
+            pick_source = f"strong_signal_{strong_signal_model}"
+            # Override ensemble probability with model's confidence
+            ensemble_prob = strong_signal_conf / 100
+            ensemble_conf = strong_signal_conf
+        
+        if final_pick:
             # Determine market type
             markets = line_analysis.get("markets", {})
             best_market = self._determine_best_market(markets, event)
             
             # Calculate edge
-            pick_odds = self._get_pick_odds(consensus_pick, best_market["market"], event)
+            pick_odds = self._get_pick_odds(final_pick, best_market["market"], event)
             implied_prob = 1 / pick_odds if pick_odds > 1 else 0.5
-            edge = ensemble_prob - implied_prob if consensus_pick == home_team else (1 - ensemble_prob) - implied_prob
             
-            if edge < self.min_edge:
+            if final_pick == home_team:
+                edge = ensemble_prob - implied_prob
+            else:
+                edge = (1 - ensemble_prob) - implied_prob if ensemble_prob < 0.5 else ensemble_prob - implied_prob
+            
+            # Strong signal picks require higher edge
+            required_edge = self.strong_signal_edge if pick_source and "strong_signal" in pick_source else self.min_edge
+            
+            if edge < required_edge:
                 # No edge, decline pick
                 return self._generate_no_pick_response(
                     ensemble_result,
                     home_team,
                     away_team,
-                    f"Insufficient edge ({edge*100:.1f}% < {self.min_edge*100}%)",
+                    f"Insufficient edge ({edge*100:.1f}% < {required_edge*100}%)",
                     line_analysis,
                     simulation,
                     matchup_metrics
@@ -403,7 +451,7 @@ class BetPredictorV6:
             
             # Generate pick
             return self._generate_pick_response(
-                consensus_pick,
+                final_pick,
                 best_market,
                 ensemble_prob,
                 ensemble_conf,
@@ -417,7 +465,8 @@ class BetPredictorV6:
                 matchup_metrics,
                 context,
                 injury,
-                psychology
+                psychology,
+                pick_source=pick_source
             )
         else:
             # No pick
@@ -425,17 +474,19 @@ class BetPredictorV6:
             if ensemble_conf < self.min_ensemble_confidence:
                 reasons.append(f"Ensemble confidence {ensemble_conf:.0f}% < {self.min_ensemble_confidence}%")
             if max_agreement < self.min_models_agreement:
-                reasons.append(f"Only {max_agreement}/{len(individual_preds)} models agree")
+                reasons.append(f"Only {max_agreement}/{len(individual_preds)} models agree (need {self.min_models_agreement})")
             if model_agreement < 0.25:
                 reasons.append(f"Model agreement {model_agreement*100:.0f}% < 25%")
             if 0.45 <= ensemble_prob <= 0.55:
                 reasons.append(f"Probability too close to 50% ({ensemble_prob*100:.0f}%)")
+            if not strong_signal_pick:
+                reasons.append(f"No strong signal (need {self.strong_signal_threshold}%+)")
             
             return self._generate_no_pick_response(
                 ensemble_result,
                 home_team,
                 away_team,
-                "; ".join(reasons),
+                "; ".join(reasons) if reasons else "No clear edge",
                 line_analysis,
                 simulation,
                 matchup_metrics
