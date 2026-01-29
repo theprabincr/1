@@ -8,7 +8,7 @@ import aiohttp
 import json
 from pprint import pprint
 
-BACKEND_URL = "https://project-scanner-23.preview.emergentagent.com/api"
+BACKEND_URL = "http://localhost:8001/api"
 
 async def detailed_v6_test():
     """Test V6 response structures in detail"""
