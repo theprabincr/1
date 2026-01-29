@@ -407,6 +407,42 @@ async def trigger_result_notification():
         )
         return {"message": "Sample result notification created"}
 
+@api_router.post("/notifications/new-pick-test")
+async def trigger_new_pick_notification():
+    """Manually trigger a new pick notification for testing"""
+    # Get a random pending prediction
+    prediction = await db.predictions.find_one({"result": "pending"})
+    
+    if prediction:
+        await create_notification(
+            "new_pick",
+            f"🎯 New Pick: {prediction.get('home_team')} vs {prediction.get('away_team')}",
+            f"{prediction.get('predicted_outcome')} ({prediction.get('prediction_type')}) "
+            f"@ {prediction.get('confidence', 0.7)*100:.0f}% confidence",
+            {
+                "event_id": prediction.get("event_id"),
+                "pick": prediction.get("predicted_outcome"),
+                "pick_type": prediction.get("prediction_type"),
+                "confidence": prediction.get("confidence", 0.7),
+                "odds": prediction.get("odds_at_prediction", 1.91)
+            }
+        )
+        return {"message": "New pick notification created", "pick": prediction.get("predicted_outcome")}
+    else:
+        # Create a sample new pick notification
+        await create_notification(
+            "new_pick",
+            "🎯 New Pick: Boston Celtics vs Portland Trail Blazers",
+            "Boston Celtics -12.5 (spread) @ 75% confidence",
+            {
+                "pick": "Boston Celtics -12.5",
+                "pick_type": "spread",
+                "confidence": 0.75,
+                "odds": 1.91
+            }
+        )
+        return {"message": "Sample new pick notification created"}
+
 # ==================== SETTINGS ENDPOINTS ====================
 
 @api_router.get("/settings")
