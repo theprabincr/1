@@ -418,8 +418,8 @@ class BetPredictorV6:
                 reasons.append(f"Ensemble confidence {ensemble_conf:.0f}% < {self.min_ensemble_confidence}%")
             if max_agreement < self.min_models_agreement:
                 reasons.append(f"Only {max_agreement}/{len(individual_preds)} models agree")
-            if model_agreement < 0.70:
-                reasons.append(f"Model agreement {model_agreement*100:.0f}% < 70%")
+            if model_agreement < 0.25:
+                reasons.append(f"Model agreement {model_agreement*100:.0f}% < 25%")
             if 0.45 <= ensemble_prob <= 0.55:
                 reasons.append(f"Probability too close to 50% ({ensemble_prob*100:.0f}%)")
             
