@@ -118,14 +118,16 @@ def parse_roster_response(data: dict, team_name: str) -> Dict:
     try:
         athletes = data.get("athletes", [])
         
-        for category in athletes:
-            items = category.get("items", [])
-            position = category.get("position", "")
-            
-            for player in items:
+        # ESPN now returns a flat array of athletes
+        for player in athletes:
+            if isinstance(player, dict):
+                # Get position
+                position_data = player.get("position", {})
+                position = position_data.get("abbreviation", "") if isinstance(position_data, dict) else ""
+                
                 player_info = {
-                    "name": player.get("displayName", ""),
-                    "position": player.get("position", {}).get("abbreviation", position),
+                    "name": player.get("displayName", player.get("fullName", "")),
+                    "position": position,
                     "jersey": player.get("jersey", ""),
                     "status": "active"
                 }
@@ -133,16 +135,30 @@ def parse_roster_response(data: dict, team_name: str) -> Dict:
                 # Check for injuries
                 injuries = player.get("injuries", [])
                 if injuries:
-                    injury = injuries[0]
+                    injury = injuries[0] if isinstance(injuries[0], dict) else {}
                     player_info["status"] = injury.get("status", "questionable")
-                    player_info["injury"] = injury.get("type", {}).get("description", "")
-                    result["injuries"].append(player_info)
+                    injury_type = injury.get("type", {})
+                    if isinstance(injury_type, dict):
+                        player_info["injury"] = injury_type.get("description", "")
+                    result["injuries"].append({
+                        "name": player_info["name"],
+                        "position": position,
+                        "status": player_info["status"],
+                        "injury": player_info.get("injury", "Unknown")
+                    })
                 
                 result["players"].append(player_info)
                 
-                # Mark key players (starters typically have lower jersey numbers or specific positions)
-                if player_info["position"] in ["PG", "SG", "SF", "PF", "C", "QB", "RB", "WR", "G", "D", "C"]:
+                # Mark key players (starters based on position)
+                key_positions = ["PG", "SG", "SF", "PF", "C", "G", "F",  # Basketball
+                                "QB", "RB", "WR", "TE",  # Football
+                                "G", "D", "C",  # Hockey
+                                "GK", "DF", "MF", "FW"]  # Soccer
+                if position in key_positions:
                     result["key_players"].append(player_info["name"])
+        
+        # Limit key players to top 10
+        result["key_players"] = result["key_players"][:10]
         
     except Exception as e:
         logger.error(f"Error parsing roster: {e}")
