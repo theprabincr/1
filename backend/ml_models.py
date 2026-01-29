@@ -170,7 +170,7 @@ class EnsembleModel:
         
         # Calculate model agreement (standard deviation of probabilities)
         prob_std = statistics.stdev(model_probs) if len(model_probs) > 1 else 0.0
-        agreement = 1.0 - min(1.0, prob_std / 0.15)  # Lower std = higher agreement
+        agreement = 1.0 - min(1.0, prob_std / 0.25)  # Lower std = higher agreement (adjusted from 0.15 to 0.25)
         
         # Calculate consensus
         pick_counts = {}
