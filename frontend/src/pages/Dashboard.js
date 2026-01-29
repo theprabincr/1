@@ -486,7 +486,7 @@ const Dashboard = () => {
                 onClick={() => { setShowActivePicksModal(false); navigate('/performance'); }}
                 className="btn-primary w-full"
               >
-                View All Predictions
+                View Performance
               </button>
             </div>
           </div>
