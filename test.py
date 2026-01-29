@@ -785,6 +785,238 @@ class BetPredictorTester:
         else:
             self.record_test("Line Movement", False, "No simulated events")
     
+    async def test_pregame_analysis_real_events(self):
+        """Test 16: Pre-Game Analysis on Real Upcoming Events"""
+        print_header("TEST 16: Pre-Game Analysis (Real Events with Full Reasoning)")
+        
+        print_info("Testing V5, V6, and Unified analysis on real upcoming events...")
+        
+        # Get real NBA events
+        result = await self.get("/events/basketball_nba?pre_match_only=true")
+        if not result["success"] or not result["data"]:
+            self.record_test("Pre-Game Analysis", False, "No real events available")
+            return
+        
+        events = result["data"][:3]  # Test first 3 events
+        analyses_completed = 0
+        
+        for event in events:
+            event_id = event.get("id")
+            home_team = event.get("home_team")
+            away_team = event.get("away_team")
+            
+            print(f"\n   {Colors.BOLD}Analyzing: {home_team} vs {away_team}{Colors.END}")
+            print(f"   Event ID: {event_id}")
+            
+            # Test V5 Analysis (Line Movement)
+            print(f"\n   {Colors.CYAN}--- V5 Analysis (Line Movement) ---{Colors.END}")
+            v5_result = await self.post(f"/analyze-v5/{event_id}?sport_key=basketball_nba")
+            if v5_result["success"]:
+                v5_data = v5_result["data"]
+                has_pick = v5_data.get("has_pick", False)
+                confidence = v5_data.get("confidence", 0)
+                factors = v5_data.get("factor_count", 0)
+                reasoning = v5_data.get("reasoning", "No reasoning")
+                
+                market_analysis = v5_data.get("market_analysis", {})
+                
+                print(f"   Has Pick: {'YES' if has_pick else 'NO'}")
+                print(f"   Confidence: {confidence}%")
+                print(f"   Factors Aligned: {factors}")
+                
+                if has_pick:
+                    print(f"   {Colors.MAGENTA}Pick: {v5_data.get('pick_display', 'N/A')}{Colors.END}")
+                    print(f"   Pick Type: {v5_data.get('pick_type', 'N/A')}")
+                
+                # Show market analysis
+                if market_analysis:
+                    print(f"   Market Analysis:")
+                    for market, details in market_analysis.items():
+                        if isinstance(details, dict):
+                            direction = details.get("direction", "N/A")
+                            sharp = details.get("sharp_side", "N/A")
+                            print(f"      - {market}: Direction={direction}, Sharp={sharp}")
+                
+                # Show reasoning (truncated)
+                if reasoning:
+                    print(f"   Reasoning: {reasoning[:200]}...")
+            else:
+                print(f"   {Colors.RED}V5 Analysis Failed: {v5_result.get('error', 'Unknown')}{Colors.END}")
+            
+            # Test V6 Analysis (ML Ensemble)
+            print(f"\n   {Colors.CYAN}--- V6 Analysis (ML Ensemble) ---{Colors.END}")
+            v6_result = await self.post(f"/analyze-v6/{event_id}?sport_key=basketball_nba")
+            if v6_result["success"]:
+                v6_data = v6_result["data"]
+                has_pick = v6_data.get("has_pick", False)
+                confidence = v6_data.get("confidence", 0)
+                edge = v6_data.get("edge", 0)
+                
+                ensemble = v6_data.get("ensemble_details", {})
+                simulation = v6_data.get("simulation_data", {})
+                matchup = v6_data.get("matchup_summary", {})
+                
+                print(f"   Has Pick: {'YES' if has_pick else 'NO'}")
+                print(f"   Confidence: {confidence}%")
+                print(f"   Edge: {edge}%")
+                
+                if has_pick:
+                    print(f"   {Colors.MAGENTA}Pick: {v6_data.get('pick_display', 'N/A')}{Colors.END}")
+                    print(f"   Pick Type: {v6_data.get('pick_type', 'N/A')}")
+                
+                # Show model breakdown
+                if ensemble:
+                    print(f"   5-Model Ensemble:")
+                    models_agree = 0
+                    for model_name, model_data in ensemble.items():
+                        if isinstance(model_data, dict):
+                            pred = model_data.get("prediction", "N/A")
+                            conf = model_data.get("confidence", 0)
+                            if pred and pred != "N/A":
+                                models_agree += 1
+                            print(f"      - {model_name}: {pred} ({conf}%)")
+                    print(f"   Models Agreeing: {models_agree}/5")
+                
+                # Show simulation data
+                if simulation:
+                    monte_carlo = simulation.get("monte_carlo", {})
+                    if monte_carlo:
+                        home_win_prob = monte_carlo.get("home_win_probability", 0)
+                        print(f"   Monte Carlo Simulation:")
+                        print(f"      - Home Win Probability: {home_win_prob}%")
+                
+                # Show matchup summary
+                if matchup:
+                    elo_diff = matchup.get("elo_diff", 0)
+                    context_adv = matchup.get("context_advantage", 0)
+                    print(f"   Matchup Summary:")
+                    print(f"      - ELO Difference: {elo_diff}")
+                    print(f"      - Context Advantage: {context_adv}")
+                
+                analyses_completed += 1
+            else:
+                print(f"   {Colors.RED}V6 Analysis Failed: {v6_result.get('error', 'Unknown')}{Colors.END}")
+            
+            # Test Unified Analysis
+            print(f"\n   {Colors.CYAN}--- Unified Analysis (V5 + V6 Combined) ---{Colors.END}")
+            unified_result = await self.post(f"/analyze-unified/{event_id}?sport_key=basketball_nba")
+            if unified_result["success"]:
+                unified_data = unified_result["data"]
+                has_pick = unified_data.get("has_pick", False)
+                confidence = unified_data.get("confidence", 0)
+                v5_weight = unified_data.get("v5_weight", 30)
+                v6_weight = unified_data.get("v6_weight", 70)
+                
+                print(f"   Has Pick: {'YES' if has_pick else 'NO'}")
+                print(f"   Combined Confidence: {confidence}%")
+                print(f"   Weights: V5={v5_weight}%, V6={v6_weight}%")
+                
+                if has_pick:
+                    print(f"   {Colors.MAGENTA}Pick: {unified_data.get('pick_display', 'N/A')}{Colors.END}")
+                    print(f"   Pick Type: {unified_data.get('pick_type', 'N/A')}")
+                
+                # Show reasoning
+                reasoning = unified_data.get("reasoning", "")
+                if reasoning:
+                    print(f"   Combined Reasoning: {reasoning[:300]}...")
+            else:
+                print(f"   {Colors.RED}Unified Analysis Failed: {unified_result.get('error', 'Unknown')}{Colors.END}")
+            
+            print(f"\n   {'='*60}")
+        
+        self.record_test("Pre-Game Analysis", analyses_completed > 0, 
+            f"{analyses_completed} events fully analyzed with V5/V6/Unified")
+    
+    async def test_upcoming_predictions_window(self):
+        """Test 17: Upcoming Predictions Window"""
+        print_header("TEST 17: Upcoming Predictions Window")
+        
+        result = await self.get("/upcoming-predictions-window")
+        if result["success"]:
+            data = result["data"]
+            in_window = data.get("total_in_window", 0)
+            games_in_window = data.get("games_in_window", [])
+            upcoming = data.get("upcoming_games", [])
+            message = data.get("message", "")
+            
+            self.record_test("Predictions Window", True, 
+                f"{in_window} games in 1-hour window, {len(upcoming)} upcoming")
+            
+            print_info(f"   Message: {message}")
+            
+            if games_in_window:
+                print_info("   Games ready for prediction (in 45-75 min window):")
+                for game in games_in_window[:5]:
+                    home = game.get("home_team", "Home")
+                    away = game.get("away_team", "Away")
+                    mins = game.get("minutes_to_start", 0)
+                    has_pred = game.get("has_prediction", False)
+                    print(f"      {home} vs {away} - starts in {mins} min {'[HAS PICK]' if has_pred else ''}")
+            
+            if upcoming:
+                print_info("   Upcoming games (before window):")
+                for game in upcoming[:5]:
+                    home = game.get("home_team", "Home")
+                    away = game.get("away_team", "Away")
+                    mins = game.get("minutes_to_start", 0)
+                    print(f"      {home} vs {away} - starts in {mins} min")
+        else:
+            self.record_test("Predictions Window", False, result.get("error", "Failed"))
+    
+    async def test_analyze_endpoint_with_custom_data(self):
+        """Test 18: Analyze Endpoint with Custom Data"""
+        print_header("TEST 18: ML Analysis Endpoint (/api/analyze)")
+        
+        # Test the /api/analyze endpoint with custom data
+        test_data = {
+            "event_id": "custom_test_001",
+            "sport_key": "basketball_nba",
+            "home_team": "Boston Celtics",
+            "away_team": "Los Angeles Lakers",
+            "odds_data": {
+                "home_ml": 1.55,
+                "away_ml": 2.45,
+                "spread": -6.5,
+                "total": 224.5
+            },
+            "line_movement": [
+                {"timestamp": "2026-01-29T10:00:00Z", "home_ml": 1.60, "away_ml": 2.35},
+                {"timestamp": "2026-01-29T11:00:00Z", "home_ml": 1.55, "away_ml": 2.45}
+            ]
+        }
+        
+        result = await self.post("/analyze", data=test_data)
+        if result["success"]:
+            data = result["data"]
+            
+            v5_analysis = data.get("v5_analysis", {})
+            v6_analysis = data.get("v6_analysis", {})
+            analysis_type = data.get("analysis_type", "")
+            
+            print_info(f"Analysis Type: {analysis_type}")
+            
+            # Show V5 result
+            print(f"\n   {Colors.CYAN}V5 Analysis Result:{Colors.END}")
+            v5_pick = v5_analysis.get("has_pick", False)
+            print(f"      Has Pick: {'YES' if v5_pick else 'NO'}")
+            if v5_pick:
+                print(f"      Pick: {v5_analysis.get('pick_display', 'N/A')}")
+                print(f"      Confidence: {v5_analysis.get('confidence', 0)}%")
+            
+            # Show V6 result
+            print(f"\n   {Colors.CYAN}V6 Analysis Result:{Colors.END}")
+            v6_pick = v6_analysis.get("has_pick", False)
+            print(f"      Has Pick: {'YES' if v6_pick else 'NO'}")
+            if v6_pick:
+                print(f"      Pick: {v6_analysis.get('pick_display', 'N/A')}")
+                print(f"      Confidence: {v6_analysis.get('confidence', 0)}%")
+                print(f"      Edge: {v6_analysis.get('edge', 0)}%")
+            
+            self.record_test("ML Analysis Endpoint", True, 
+                f"V5: {'PICK' if v5_pick else 'NO PICK'}, V6: {'PICK' if v6_pick else 'NO PICK'}")
+        else:
+            self.record_test("ML Analysis Endpoint", False, result.get("error", "Failed"))
+    
     async def run_all_tests(self):
         """Run all tests"""
         print(f"\n{Colors.BOLD}{Colors.CYAN}")
