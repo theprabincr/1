@@ -3518,12 +3518,17 @@ async def scheduled_unified_predictor():
                                 lineup_data = await fetch_starting_lineup(event_id, sport_key)
                                 lineup_status = lineup_data.get("lineup_status", "not_available")
                                 
-                                if lineup_status == "confirmed":
-                                    logger.info(f"✅ CONFIRMED LINEUPS available for {home_team} vs {away_team}")
-                                elif lineup_status == "projected":
-                                    logger.info(f"📋 Projected lineups available for {home_team} vs {away_team}")
-                                else:
-                                    logger.info(f"⏳ Lineups not yet released for {home_team} vs {away_team}")
+                                # ONLY make predictions when lineups are CONFIRMED
+                                if lineup_status != "confirmed":
+                                    if lineup_status == "projected":
+                                        logger.info(f"⏳ WAITING: {away_team} @ {home_team} - "
+                                                  f"Projected lineup available but not confirmed. Skipping prediction.")
+                                    else:
+                                        logger.info(f"⏳ WAITING: {away_team} @ {home_team} - "
+                                                  f"Lineups not yet released. Skipping prediction.")
+                                    continue
+                                
+                                logger.info(f"✅ CONFIRMED LINEUPS available for {home_team} vs {away_team} - Making prediction!")
                                 
                                 # 3. Get squad data (injuries and rosters) with starters
                                 squad_data = {
