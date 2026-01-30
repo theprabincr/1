@@ -788,21 +788,35 @@ const LineMovement = () => {
                 Spread
               </h3>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-text-muted">Opening</span>
-                  <span className="font-mono text-text-primary">
-                    {lineData?.opening_odds?.spread !== null && lineData?.opening_odds?.spread !== undefined 
-                      ? (lineData.opening_odds.spread > 0 ? '+' : '') + lineData.opening_odds.spread 
-                      : '—'}
-                  </span>
+                  <div className="text-right">
+                    {lineData?.opening_odds?.spread !== null && lineData?.opening_odds?.spread !== undefined ? (
+                      <>
+                        <span className="font-mono text-text-primary text-xs mr-2">
+                          {selectedEvent?.away_team?.split(' ').pop()} {lineData.opening_odds.spread > 0 ? `+${lineData.opening_odds.spread}` : lineData.opening_odds.spread}
+                        </span>
+                        <span className="font-mono text-text-muted text-xs">
+                          {selectedEvent?.home_team?.split(' ').pop()} {lineData.opening_odds.spread < 0 ? `+${Math.abs(lineData.opening_odds.spread)}` : `-${lineData.opening_odds.spread}`}
+                        </span>
+                      </>
+                    ) : '—'}
+                  </div>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-text-muted">Current</span>
-                  <span className="font-mono text-brand-primary">
-                    {lineData?.current_odds?.spread !== null && lineData?.current_odds?.spread !== undefined 
-                      ? (lineData.current_odds.spread > 0 ? '+' : '') + lineData.current_odds.spread 
-                      : '—'}
-                  </span>
+                  <div className="text-right">
+                    {lineData?.current_odds?.spread !== null && lineData?.current_odds?.spread !== undefined ? (
+                      <>
+                        <span className="font-mono text-brand-primary text-xs mr-2">
+                          {selectedEvent?.away_team?.split(' ').pop()} {lineData.current_odds.spread > 0 ? `+${lineData.current_odds.spread}` : lineData.current_odds.spread}
+                        </span>
+                        <span className="font-mono text-text-muted text-xs">
+                          {selectedEvent?.home_team?.split(' ').pop()} {lineData.current_odds.spread < 0 ? `+${Math.abs(lineData.current_odds.spread)}` : `-${lineData.current_odds.spread}`}
+                        </span>
+                      </>
+                    ) : '—'}
+                  </div>
                 </div>
               </div>
             </div>
