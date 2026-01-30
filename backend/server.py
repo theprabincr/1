@@ -3578,7 +3578,39 @@ async def scheduled_unified_predictor():
                                 except Exception as e:
                                     logger.warning(f"Could not fetch roster data: {e}")
                                 
-                                # 3. Get line movement history
+                                # 3a. Fetch and compare player stats for both teams
+                                player_stats_comparison = None
+                                try:
+                                    home_team_id = get_team_id(home_team, sport_key)
+                                    away_team_id = get_team_id(away_team, sport_key)
+                                    
+                                    if home_team_id and away_team_id:
+                                        # Try to get from DB first, fetch fresh if stale
+                                        home_player_stats = await get_team_player_stats_from_db(home_team_id, sport_key, db)
+                                        away_player_stats = await get_team_player_stats_from_db(away_team_id, sport_key, db)
+                                        
+                                        # Fetch fresh if not in DB
+                                        if not home_player_stats:
+                                            home_player_stats = await update_team_player_stats(home_team_id, home_team, sport_key, db)
+                                        if not away_player_stats:
+                                            away_player_stats = await update_team_player_stats(away_team_id, away_team, sport_key, db)
+                                        
+                                        # Compare team stats
+                                        if home_player_stats and away_player_stats:
+                                            home_starters_list = squad_data["home_team"]["starters"]
+                                            away_starters_list = squad_data["away_team"]["starters"]
+                                            
+                                            player_stats_comparison = await compare_team_stats(
+                                                home_player_stats, away_player_stats,
+                                                home_starters_list, away_starters_list,
+                                                sport_key
+                                            )
+                                            
+                                            logger.info(f"📈 Player Stats Comparison: {player_stats_comparison.get('impact_advantage', 'even').upper()} advantage")
+                                except Exception as e:
+                                    logger.warning(f"Could not fetch player stats: {e}")
+                                
+                                # 3b. Get line movement history
                                 line_history = await db.odds_history.find(
                                     {"event_id": event_id}, {"_id": 0}
                                 ).sort("timestamp", 1).to_list(500)
@@ -3591,7 +3623,7 @@ async def scheduled_unified_predictor():
                                 # 5. Get current odds
                                 current_odds = event.get("odds", {})
                                 
-                                # 6. Run UNIFIED prediction (combines V5 + V6)
+                                # 6. Run UNIFIED prediction (combines V5 + V6 + Player Stats)
                                 unified_prediction = await generate_unified_prediction(
                                     event=event,
                                     sport_key=sport_key,
@@ -3599,7 +3631,8 @@ async def scheduled_unified_predictor():
                                     matchup_data=matchup_data,
                                     line_movement_history=line_history,
                                     opening_odds=opening_odds,
-                                    current_odds=current_odds
+                                    current_odds=current_odds,
+                                    player_stats_comparison=player_stats_comparison  # NEW: Pass player stats
                                 )
                                 
                                 if unified_prediction and unified_prediction.get("has_pick"):
