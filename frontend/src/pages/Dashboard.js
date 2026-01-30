@@ -684,12 +684,6 @@ const Dashboard = () => {
               Live Games
               <span className="text-xs text-text-muted ml-2 font-normal">Auto-updates every 10s</span>
             </h2>
-            <button
-              onClick={() => setShowLiveScoresModal(true)}
-              className="text-brand-primary text-sm flex items-center gap-1 hover:underline"
-            >
-              View All <ChevronRight className="w-4 h-4" />
-            </button>
           </div>
           
           {/* Sport Filter Tabs */}
