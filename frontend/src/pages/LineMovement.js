@@ -793,11 +793,13 @@ const LineMovement = () => {
                   <div className="text-right">
                     {lineData?.opening_odds?.spread !== null && lineData?.opening_odds?.spread !== undefined ? (
                       <>
+                        {/* Away team spread is opposite of home spread */}
                         <span className="font-mono text-text-primary text-xs mr-2">
-                          {selectedEvent?.away_team?.split(' ').pop()} {lineData.opening_odds.spread > 0 ? `+${lineData.opening_odds.spread}` : lineData.opening_odds.spread}
+                          {selectedEvent?.away_team?.split(' ').pop()} {lineData.opening_odds.spread > 0 ? `-${lineData.opening_odds.spread}` : `+${Math.abs(lineData.opening_odds.spread)}`}
                         </span>
+                        {/* Home team spread is the spread value */}
                         <span className="font-mono text-text-muted text-xs">
-                          {selectedEvent?.home_team?.split(' ').pop()} {lineData.opening_odds.spread < 0 ? `+${Math.abs(lineData.opening_odds.spread)}` : `-${lineData.opening_odds.spread}`}
+                          {selectedEvent?.home_team?.split(' ').pop()} {lineData.opening_odds.spread > 0 ? `+${lineData.opening_odds.spread}` : lineData.opening_odds.spread}
                         </span>
                       </>
                     ) : '—'}
@@ -808,11 +810,13 @@ const LineMovement = () => {
                   <div className="text-right">
                     {lineData?.current_odds?.spread !== null && lineData?.current_odds?.spread !== undefined ? (
                       <>
+                        {/* Away team spread is opposite of home spread */}
                         <span className="font-mono text-brand-primary text-xs mr-2">
-                          {selectedEvent?.away_team?.split(' ').pop()} {lineData.current_odds.spread > 0 ? `+${lineData.current_odds.spread}` : lineData.current_odds.spread}
+                          {selectedEvent?.away_team?.split(' ').pop()} {lineData.current_odds.spread > 0 ? `-${lineData.current_odds.spread}` : `+${Math.abs(lineData.current_odds.spread)}`}
                         </span>
+                        {/* Home team spread is the spread value */}
                         <span className="font-mono text-text-muted text-xs">
-                          {selectedEvent?.home_team?.split(' ').pop()} {lineData.current_odds.spread < 0 ? `+${Math.abs(lineData.current_odds.spread)}` : `-${lineData.current_odds.spread}`}
+                          {selectedEvent?.home_team?.split(' ').pop()} {lineData.current_odds.spread > 0 ? `+${lineData.current_odds.spread}` : lineData.current_odds.spread}
                         </span>
                       </>
                     ) : '—'}
