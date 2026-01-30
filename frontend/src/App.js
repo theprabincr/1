@@ -105,33 +105,6 @@ const Sidebar = () => {
             </NavLink>
           ))}
         </nav>
-
-        {/* Live Games Section */}
-        {liveGames.length > 0 && (
-          <div className="mt-6 pt-4 border-t border-zinc-800">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-2 h-2 rounded-full bg-semantic-success animate-pulse"></div>
-              <span className="text-xs font-mono text-text-muted uppercase">Live Games ({liveGames.length})</span>
-            </div>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {liveGames.slice(0, 5).map((game, i) => (
-                <div key={game.espn_id || i} className="p-2 bg-zinc-800/50 rounded-lg">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-text-muted truncate max-w-[80px]">{game.away_team?.split(' ').pop()}</span>
-                    <span className="font-mono font-bold text-brand-primary">{game.away_score}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-text-muted truncate max-w-[80px]">{game.home_team?.split(' ').pop()}</span>
-                    <span className="font-mono font-bold text-brand-primary">{game.home_score}</span>
-                  </div>
-                  <div className="text-[10px] text-text-muted text-center mt-1">
-                    {game.clock || 'LIVE'} {game.period ? `Q${game.period}` : ''}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
       
       <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-zinc-800 space-y-2">
