@@ -581,10 +581,14 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
                   <div className="mb-4">
                     <p className="text-xs text-text-muted mb-2 flex items-center gap-1">
                       <Users className="w-3 h-3" />
-                      {homeData.startersConfirmed ? (
+                      {event.is_live || event.status === 'live' ? (
+                        <span className="text-semantic-success">CONFIRMED LINEUP</span>
+                      ) : homeData.startersConfirmed ? (
                         <span className="text-semantic-success">CONFIRMED LINEUP</span>
                       ) : (
-                        <span className="text-semantic-warning">PROJECTED LINEUP</span>
+                        <span className="text-semantic-warning" title="Confirmed lineup available at tipoff">
+                          PROJECTED LINEUP
+                        </span>
                       )}
                     </p>
                     {homeData.starters.length > 0 ? (
