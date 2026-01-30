@@ -1,6 +1,7 @@
 """
 Unified BetPredictor - Combines V5 and V6 into Single Prediction System
 Leverages both line movement analysis (V5) and ML ensemble (V6) with V6 weighted heavier
+Now includes player stats analysis for improved accuracy
 """
 import logging
 from datetime import datetime, timezone
@@ -19,10 +20,12 @@ class UnifiedBetPredictor:
     Weighting:
     - V6 (ML Ensemble): 70% weight - Primary decision maker
     - V5 (Line Movement): 30% weight - Validation signal
+    - Player Stats: Additional factor in V6 analysis
     
     Philosophy:
     - Use V6's comprehensive analysis as foundation
     - Use V5's sharp money signals for confirmation
+    - Factor in player stats (PPG, RPG, APG, impact scores)
     - Only recommend when both algorithms align or V6 has strong conviction
     """
     
@@ -46,10 +49,14 @@ class UnifiedBetPredictor:
         matchup_data: Dict,
         line_movement_history: List[Dict],
         opening_odds: Dict,
-        current_odds: Dict
+        current_odds: Dict,
+        player_stats_comparison: Dict = None  # NEW: Player stats analysis
     ) -> Dict:
         """
         Generate unified prediction combining V5 and V6 analysis.
+        
+        Args:
+            player_stats_comparison: Dict with home/away lineup impact and advantages
         
         Returns single pick with combined reasoning from both algorithms.
         """
@@ -58,13 +65,22 @@ class UnifiedBetPredictor:
         
         logger.info(f"🔄 UNIFIED PREDICTOR: {home_team} vs {away_team}")
         
+        # Log player stats if available
+        if player_stats_comparison:
+            impact_adv = player_stats_comparison.get("impact_advantage", "even")
+            impact_diff = player_stats_comparison.get("impact_diff", 0)
+            logger.info(f"  📊 Player Stats: {impact_adv.upper()} advantage (impact diff: {impact_diff})")
+            for adv in player_stats_comparison.get("key_advantages", [])[:2]:
+                logger.info(f"     - {adv}")
+        
         # Run both predictors in parallel
         try:
             # V6 Analysis (ML Ensemble - Primary)
             logger.info("  📊 Running V6 (ML Ensemble)...")
             v6_result = await generate_v6_prediction(
                 event, sport_key, squad_data, matchup_data,
-                line_movement_history, opening_odds, current_odds
+                line_movement_history, opening_odds, current_odds,
+                player_stats=player_stats_comparison  # Pass player stats to V6
             )
             
             # V5 Analysis (Line Movement - Secondary)
