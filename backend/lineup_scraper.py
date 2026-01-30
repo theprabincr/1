@@ -100,6 +100,66 @@ def get_team_id(team_name: str, sport_key: str) -> Optional[str]:
     return None
 
 
+async def fetch_projected_starters(team_id: str, sport_key: str) -> List[Dict]:
+    """
+    Fetch projected starters from ESPN depth chart.
+    Returns list of projected starting 5 players (for basketball).
+    """
+    if sport_key not in ESPN_DEPTH_CHART:
+        return []
+    
+    url = ESPN_DEPTH_CHART[sport_key].format(team_id=team_id)
+    
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        try:
+            response = await client.get(url)
+            if response.status_code != 200:
+                return []
+            
+            data = response.json()
+            depthchart = data.get("depthchart", [])
+            
+            if not depthchart:
+                return []
+            
+            # Get positions from first depth chart
+            positions = depthchart[0].get("positions", {})
+            
+            starters = []
+            
+            # Basketball positions: PG, SG, SF, PF, C
+            if "nba" in sport_key or "basketball" in sport_key:
+                position_order = ["pg", "sg", "sf", "pf", "c"]
+            # Hockey positions: C, LW, RW, D, G
+            elif "nhl" in sport_key or "hockey" in sport_key:
+                position_order = ["c", "lw", "rw", "ld", "rd", "g"]
+            # Football starting positions
+            elif "nfl" in sport_key or "football" in sport_key:
+                position_order = ["qb", "rb", "wr1", "wr2", "te"]
+            else:
+                position_order = list(positions.keys())[:5]
+            
+            for pos_key in position_order:
+                pos_data = positions.get(pos_key, {})
+                athletes = pos_data.get("athletes", [])
+                
+                if athletes:
+                    # First athlete at each position is the starter
+                    starter = athletes[0]
+                    position_info = pos_data.get("position", {})
+                    starters.append({
+                        "name": starter.get("displayName", ""),
+                        "position": position_info.get("abbreviation", pos_key.upper())
+                    })
+            
+            return starters[:5]  # Return top 5 starters
+            
+        except Exception as e:
+            logger.error(f"Error fetching depth chart for team {team_id}: {e}")
+    
+    return []
+
+
 async def fetch_team_roster(team_name: str, sport_key: str) -> Dict:
     """Fetch team roster from ESPN with top performers based on recent game stats"""
     team_id = get_team_id(team_name, sport_key)
