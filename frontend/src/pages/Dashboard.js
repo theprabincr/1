@@ -736,21 +736,25 @@ const Dashboard = () => {
                     </div>
                     
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between">
+                      <div className={`flex items-center justify-between p-1 rounded transition-all duration-500 ${
+                        awayChanged ? 'bg-semantic-success/30' : ''
+                      }`}>
                         <span className="text-sm text-text-primary font-medium">{game.away_team}</span>
-                        <span className={`font-mono text-xl font-bold transition-all duration-300 ${
+                        <span className={`font-mono text-xl font-bold transition-all duration-500 ${
                           awayChanged 
-                            ? 'text-semantic-success scale-125 animate-pulse' 
+                            ? 'text-semantic-success scale-110' 
                             : 'text-brand-primary'
                         }`}>
                           {game.away_score}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between">
+                      <div className={`flex items-center justify-between p-1 rounded transition-all duration-500 ${
+                        homeChanged ? 'bg-semantic-success/30' : ''
+                      }`}>
                         <span className="text-sm text-text-primary font-medium">{game.home_team}</span>
-                        <span className={`font-mono text-xl font-bold transition-all duration-300 ${
+                        <span className={`font-mono text-xl font-bold transition-all duration-500 ${
                           homeChanged 
-                            ? 'text-semantic-success scale-125 animate-pulse' 
+                            ? 'text-semantic-success scale-110' 
                             : 'text-brand-primary'
                         }`}>
                           {game.home_score}
