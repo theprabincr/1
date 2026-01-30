@@ -51,6 +51,7 @@ const EventCard = ({ event, onCompare }) => {
   const spread = eventOdds.spread ?? bestOdds.spread;
   const total = eventOdds.total ?? bestOdds.total;
   const isFavorite = eventOdds.home_favorite ?? (spread && spread < 0);
+  const isLive = event.is_live || event.status === 'live';
 
   return (
     <div className="event-card" data-testid={`event-card-${event.id}`}>
@@ -60,16 +61,19 @@ const EventCard = ({ event, onCompare }) => {
           <span className="text-xs font-mono text-text-muted uppercase">
             {event.sport_title || event.sport_key?.replace(/_/g, ' ')}
           </span>
-          <span className="text-xs px-2 py-0.5 bg-zinc-800 rounded text-brand-primary">
-            Live
-          </span>
+          {isLive && (
+            <span className="status-badge live">
+              <span className="w-1.5 h-1.5 bg-red-500 rounded-full mr-1.5 animate-pulse"></span>
+              LIVE
+            </span>
+          )}
         </div>
         <div className="flex flex-col items-end">
           <div className="flex items-center gap-1 text-text-muted text-sm">
             <Calendar className="w-3 h-3" />
             <span className="text-xs">{eventDate}</span>
           </div>
-          <div className="flex items-center gap-1 text-brand-primary text-sm font-mono">
+          <div className="flex items-center gap-1 text-text-secondary text-sm font-mono">
             <Clock className="w-3 h-3" />
             {eventTime}
           </div>
@@ -86,7 +90,7 @@ const EventCard = ({ event, onCompare }) => {
           </div>
           <div className="flex items-center gap-4 font-mono">
             <span className="text-text-muted text-xs w-12 text-right">ML</span>
-            <span className={`font-bold ${awayML < homeML ? 'text-semantic-success' : 'text-text-primary'}`}>
+            <span className={`font-bold w-14 text-right ${awayML && homeML && awayML < homeML ? 'text-semantic-success' : 'text-text-primary'}`}>
               {awayML?.toFixed(2) || '-'}
             </span>
           </div>
@@ -100,7 +104,7 @@ const EventCard = ({ event, onCompare }) => {
           </div>
           <div className="flex items-center gap-4 font-mono">
             <span className="text-text-muted text-xs w-12 text-right">ML</span>
-            <span className={`font-bold ${homeML < awayML ? 'text-semantic-success' : 'text-text-primary'}`}>
+            <span className={`font-bold w-14 text-right ${homeML && awayML && homeML < awayML ? 'text-semantic-success' : 'text-text-primary'}`}>
               {homeML?.toFixed(2) || '-'}
             </span>
           </div>
