@@ -615,6 +615,27 @@ async def fetch_starting_lineup(espn_event_id: str, sport_key: str) -> Dict:
                     
                     break  # Only process first stat category
             
+            # Get injuries from game summary to filter out of projected lineup
+            injuries_data = data.get("injuries", [])
+            team_injuries = {"home": [], "away": []}
+            
+            for team_injury in injuries_data:
+                team_name_inj = team_injury.get("team", {}).get("displayName", "")
+                injured_out = []
+                for inj in team_injury.get("injuries", []):
+                    status = inj.get("status", "").lower()
+                    # Only filter "Out" players, not "Day-To-Day" or "Questionable"
+                    if status == "out":
+                        player_name = inj.get("athlete", {}).get("displayName", "")
+                        if player_name:
+                            injured_out.append(player_name)
+                
+                # Determine if home or away based on team name match
+                # We'll set both and let the competitor loop figure it out
+                if injured_out:
+                    # Store by team name for now
+                    team_injuries[team_name_inj] = injured_out
+            
             # If no starters from boxscore, get projected starters from depth chart
             if not result["home"]["starters"] or not result["away"]["starters"]:
                 # Get team IDs from header
@@ -625,18 +646,24 @@ async def fetch_starting_lineup(espn_event_id: str, sport_key: str) -> Dict:
                     for comp in competitors:
                         team_data = comp.get("team", {})
                         team_id = team_data.get("id", "")
+                        team_name_comp = team_data.get("displayName", "")
                         home_away = comp.get("homeAway", "")
                         team_key = "home" if home_away == "home" else "away"
                         
+                        # Get injured players for this team
+                        injured_players = team_injuries.get(team_name_comp, [])
+                        
                         # Only fetch if we don't have starters for this team
                         if team_id and not result[team_key]["starters"]:
-                            projected = await fetch_projected_starters(team_id, sport_key)
+                            projected = await fetch_projected_starters(team_id, sport_key, injured_players)
                             if projected:
                                 result[team_key]["starters"] = projected
                                 result[team_key]["confirmed"] = False
                                 result["lineup_status"] = "projected"
-                                result["message"] = "Projected starting lineup (based on depth chart)"
-                                logger.info(f"✅ Got projected starters for {team_key}: {[p['name'] for p in projected[:3]]}")
+                                result["message"] = "Projected starting lineup (based on depth chart, filtered for injuries)"
+                                logger.info(f"✅ Got projected starters for {team_key} ({team_name_comp}): {[p['name'] for p in projected[:3]]}")
+                                if injured_players:
+                                    logger.info(f"   Filtered out injured (Out): {injured_players[:3]}")
             
         except Exception as e:
             logger.error(f"Error fetching starting lineup for {espn_event_id}: {e}")
