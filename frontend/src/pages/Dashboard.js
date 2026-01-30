@@ -572,22 +572,25 @@ const Dashboard = () => {
     fetchData();
   }, []); // Remove selectedSport dependency - fetch all sports on mount
 
-  // Auto-refresh live scores every 10 seconds
+  // Auto-refresh live scores every 10 seconds with score change detection
   useEffect(() => {
-    const fetchLiveScores = async () => {
+    const fetchLiveScoresWithAnimation = async () => {
       try {
         const res = await axios.get(`${API}/live-scores`);
-        setLiveScores(res.data.games || []);
+        const newScores = res.data.games || [];
+        
+        // Detect score changes and trigger animations
+        detectScoreChanges(newScores);
+        
+        // Update the live scores state
+        setLiveScores(newScores);
       } catch (error) {
         console.error("Error fetching live scores:", error);
       }
     };
 
-    // Initial fetch
-    fetchLiveScores();
-
-    // Set up interval for auto-refresh
-    const interval = setInterval(fetchLiveScores, 10000); // Every 10 seconds
+    // Set up interval for auto-refresh (don't fetch immediately - fetchData already does that)
+    const interval = setInterval(fetchLiveScoresWithAnimation, 10000); // Every 10 seconds
 
     // Cleanup on unmount
     return () => clearInterval(interval);
