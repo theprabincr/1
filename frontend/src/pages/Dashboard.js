@@ -446,9 +446,56 @@ const Dashboard = () => {
   const [showAllPicksModal, setShowAllPicksModal] = useState(false);
   const [liveScores, setLiveScores] = useState([]);
   const [showLiveScoresModal, setShowLiveScoresModal] = useState(false);
+  const [selectedLiveSport, setSelectedLiveSport] = useState('all');
+  const [previousScores, setPreviousScores] = useState({});
+  const [scoreChanges, setScoreChanges] = useState({});
 
   // All supported sports for fetching events
   const sportKeys = ["basketball_nba", "americanfootball_nfl", "baseball_mlb", "icehockey_nhl", "soccer_epl"];
+
+  // Sport display names
+  const sportNames = {
+    'basketball_nba': 'NBA',
+    'americanfootball_nfl': 'NFL',
+    'baseball_mlb': 'MLB',
+    'icehockey_nhl': 'NHL',
+    'soccer_epl': 'EPL'
+  };
+
+  // Detect score changes and trigger animations
+  const detectScoreChanges = (newScores) => {
+    const changes = {};
+    newScores.forEach(game => {
+      const gameId = game.espn_id || `${game.home_team}-${game.away_team}`;
+      const prev = previousScores[gameId];
+      
+      if (prev) {
+        if (game.home_score !== prev.home_score) {
+          changes[`${gameId}-home`] = true;
+        }
+        if (game.away_score !== prev.away_score) {
+          changes[`${gameId}-away`] = true;
+        }
+      }
+    });
+    
+    if (Object.keys(changes).length > 0) {
+      setScoreChanges(changes);
+      // Clear the animation after 1.5 seconds
+      setTimeout(() => setScoreChanges({}), 1500);
+    }
+    
+    // Update previous scores
+    const newPrevScores = {};
+    newScores.forEach(game => {
+      const gameId = game.espn_id || `${game.home_team}-${game.away_team}`;
+      newPrevScores[gameId] = {
+        home_score: game.home_score,
+        away_score: game.away_score
+      };
+    });
+    setPreviousScores(newPrevScores);
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -468,7 +515,24 @@ const Dashboard = () => {
       
       setPerformance(perfRes.data);
       setRecommendations(recsRes.data);
-      setLiveScores(liveRes.data.games || []);
+      
+      // Detect score changes before updating
+      const newLiveScores = liveRes.data.games || [];
+      if (liveScores.length > 0) {
+        detectScoreChanges(newLiveScores);
+      } else {
+        // Initialize previous scores on first load
+        const initial = {};
+        newLiveScores.forEach(game => {
+          const gameId = game.espn_id || `${game.home_team}-${game.away_team}`;
+          initial[gameId] = {
+            home_score: game.home_score,
+            away_score: game.away_score
+          };
+        });
+        setPreviousScores(initial);
+      }
+      setLiveScores(newLiveScores);
       
       // Combine events from all sports and sort by commence time
       const allEvents = eventsResponses
