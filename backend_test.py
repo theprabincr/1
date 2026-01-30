@@ -199,6 +199,11 @@ class APITester:
         print("\n🧠 TESTING PREDICTION ALGORITHM (CRITICAL)")
         print("-" * 50)
         
+        # Test recommendations with validation
+        self.test_endpoint("GET", "/recommendations", 
+                         description="Get AI recommendations", 
+                         validate_prediction=True)
+        
         # First get an event to test with
         try:
             response = requests.get(f"{BASE_URL}/events/basketball_nba", timeout=30)
@@ -209,13 +214,17 @@ class APITester:
                     event_id = test_event.get('id')
                     
                     if event_id:
-                        # Test unified analysis endpoint
-                        self.test_endpoint("POST", f"/analyze-unified/{event_id}", 
-                                         description="Full AI analysis for specific event")
+                        print(f"   🎯 Using test event: {test_event.get('home_team', 'Unknown')} vs {test_event.get('away_team', 'Unknown')}")
                         
-                        # Test line movement for the event
+                        # Test unified analysis endpoint with validation
+                        self.test_endpoint("POST", f"/analyze-unified/{event_id}", 
+                                         description="Full AI analysis for specific event",
+                                         validate_prediction=True)
+                        
+                        # Test line movement for the event with validation
                         self.test_endpoint("GET", f"/line-movement/{event_id}",
-                                         description="Line movement analysis")
+                                         description="Line movement analysis",
+                                         validate_prediction=True)
                         
                         # Test matchup data
                         self.test_endpoint("GET", f"/matchup/{event_id}",
