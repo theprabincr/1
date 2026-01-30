@@ -4090,7 +4090,7 @@ async def scheduled_player_stats_updater():
             for sport_key in sports:
                 try:
                     # Get all unique team IDs from recent events
-                    events = await fetch_events_internal(sport_key)
+                    events = await fetch_espn_events_with_odds(sport_key)
                     team_ids_updated = set()
                     
                     for event in events[:20]:  # Limit to 20 events
