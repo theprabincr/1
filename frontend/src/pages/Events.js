@@ -431,16 +431,18 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
                     <p className="text-xs text-text-muted mb-2">SPREAD</p>
                     {spread !== null ? (
                       <div className="space-y-1">
+                        {/* Away team spread is opposite of home spread */}
                         <p className="font-mono">
                           <span className="text-text-muted text-sm">{event.away_team.split(' ').pop()}</span>
                           <span className={`ml-2 font-bold ${spread > 0 ? 'text-semantic-success' : 'text-text-primary'}`}>
-                            {spread > 0 ? `+${spread}` : spread}
+                            {spread > 0 ? `-${spread}` : `+${Math.abs(spread)}`}
                           </span>
                         </p>
+                        {/* Home team spread is the spread value */}
                         <p className="font-mono">
                           <span className="text-text-muted text-sm">{event.home_team.split(' ').pop()}</span>
                           <span className={`ml-2 font-bold ${spread < 0 ? 'text-semantic-success' : 'text-text-primary'}`}>
-                            {spread < 0 ? `+${Math.abs(spread)}` : `-${spread}`}
+                            {spread > 0 ? `+${spread}` : spread}
                           </span>
                         </p>
                       </div>
