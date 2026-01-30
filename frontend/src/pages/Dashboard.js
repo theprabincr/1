@@ -445,7 +445,6 @@ const Dashboard = () => {
   const [showActivePicksModal, setShowActivePicksModal] = useState(false);
   const [showAllPicksModal, setShowAllPicksModal] = useState(false);
   const [liveScores, setLiveScores] = useState([]);
-  const [showLiveScoresModal, setShowLiveScoresModal] = useState(false);
   const [selectedLiveSport, setSelectedLiveSport] = useState('all');
   const [scoreChanges, setScoreChanges] = useState({});
   
