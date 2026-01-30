@@ -772,7 +772,7 @@ const Dashboard = () => {
             <div className="flex items-center justify-between p-4 border-b border-zinc-800">
               <h2 className="font-mono font-bold text-lg text-text-primary flex items-center gap-2">
                 <Activity className="w-5 h-5 text-semantic-success animate-pulse" />
-                Live Games ({liveScores.length})
+                Live Games ({liveScores.filter(g => selectedLiveSport === 'all' || g.sport_key === selectedLiveSport).length})
                 <span className="text-xs text-text-muted ml-2">Auto-updates every 10s</span>
               </h2>
               <button 
@@ -782,36 +782,81 @@ const Dashboard = () => {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-4 overflow-y-auto max-h-[60vh] space-y-3">
-              {liveScores.length === 0 ? (
-                <p className="text-text-muted text-center py-8">No live games at the moment.</p>
+            
+            {/* Sport Filter Tabs in Modal */}
+            <div className="flex gap-2 p-4 border-b border-zinc-800 overflow-x-auto">
+              <button
+                onClick={() => setSelectedLiveSport('all')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                  selectedLiveSport === 'all'
+                    ? 'bg-brand-primary text-zinc-900'
+                    : 'bg-zinc-800 text-text-muted hover:bg-zinc-700'
+                }`}
+              >
+                All ({liveScores.length})
+              </button>
+              {[...new Set(liveScores.map(g => g.sport_key))].map(sport => {
+                const count = liveScores.filter(g => g.sport_key === sport).length;
+                return (
+                  <button
+                    key={sport}
+                    onClick={() => setSelectedLiveSport(sport)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                      selectedLiveSport === sport
+                        ? 'bg-brand-primary text-zinc-900'
+                        : 'bg-zinc-800 text-text-muted hover:bg-zinc-700'
+                    }`}
+                  >
+                    {sportNames[sport] || sport?.replace(/_/g, ' ').toUpperCase()} ({count})
+                  </button>
+                );
+              })}
+            </div>
+            
+            <div className="p-4 overflow-y-auto max-h-[50vh] space-y-3">
+              {liveScores.filter(g => selectedLiveSport === 'all' || g.sport_key === selectedLiveSport).length === 0 ? (
+                <p className="text-text-muted text-center py-8">No live games for this sport.</p>
               ) : (
-                liveScores.map((game, i) => (
-                  <div key={game.espn_id || i} className="bg-zinc-800 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-mono text-brand-primary uppercase flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-semantic-success animate-pulse"></span>
-                        {game.sport_key?.replace(/_/g, ' ')}
-                      </span>
-                      <span className="text-xs text-text-muted">
-                        {game.clock} - {game.period ? `Q${game.period}` : 'Live'}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-3 items-center gap-4">
-                      <div className="text-left">
-                        <p className="text-text-primary font-semibold text-sm">{game.away_team}</p>
+                liveScores
+                  .filter(g => selectedLiveSport === 'all' || g.sport_key === selectedLiveSport)
+                  .map((game, i) => {
+                    const gameId = game.espn_id || `${game.home_team}-${game.away_team}`;
+                    const homeChanged = scoreChanges[`${gameId}-home`];
+                    const awayChanged = scoreChanges[`${gameId}-away`];
+                    
+                    return (
+                      <div key={gameId} className="bg-zinc-800 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-mono text-brand-primary uppercase flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-semantic-success animate-pulse"></span>
+                            {sportNames[game.sport_key] || game.sport_key?.replace(/_/g, ' ')}
+                          </span>
+                          <span className="text-xs text-text-muted">
+                            {game.clock} - {game.period ? `Q${game.period}` : 'Live'}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-3 items-center gap-4">
+                          <div className="text-left">
+                            <p className="text-text-primary font-semibold text-sm">{game.away_team}</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="font-mono text-2xl font-bold">
+                              <span className={`transition-all duration-300 ${awayChanged ? 'text-semantic-success scale-110' : 'text-brand-primary'}`}>
+                                {game.away_score}
+                              </span>
+                              <span className="text-text-muted mx-1">-</span>
+                              <span className={`transition-all duration-300 ${homeChanged ? 'text-semantic-success scale-110' : 'text-brand-primary'}`}>
+                                {game.home_score}
+                              </span>
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-text-primary font-semibold text-sm">{game.home_team}</p>
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-center">
-                        <p className="font-mono text-2xl font-bold text-brand-primary">
-                          {game.away_score} - {game.home_score}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-text-primary font-semibold text-sm">{game.home_team}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))
+                    );
+                  })
               )}
             </div>
             <div className="p-4 border-t border-zinc-800 text-center">
