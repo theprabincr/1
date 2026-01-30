@@ -599,6 +599,16 @@ async def get_events_endpoint(
     """Get events for a sport (includes live games by default)"""
     events = await get_events(sport_key, markets, pre_match_only=not include_live)
     return events
+
+async def get_events(sport_key: str, markets: str = "h2h,spreads,totals", force_refresh: bool = False, pre_match_only: bool = True):
+    """Get events with REAL odds from ESPN API
+    
+    Args:
+        sport_key: Sport identifier
+        markets: Comma-separated market types
+        force_refresh: Force refresh from ESPN
+        pre_match_only: Only return events that haven't started yet (default True)
+    """
     global events_cache, last_scrape_time
     
     cache_key = f"{sport_key}_{markets}"
