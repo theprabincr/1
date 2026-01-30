@@ -4066,6 +4066,60 @@ async def startup_event():
     # Start daily summary scheduler
     asyncio.create_task(scheduled_daily_summary())
     logger.info("📊 Started daily summary scheduler - sends daily performance recap")
+    
+    # Start player stats updater
+    asyncio.create_task(scheduled_player_stats_updater())
+    logger.info("📈 Started player stats updater - updates player stats every 6 hours")
+
+
+async def scheduled_player_stats_updater():
+    """
+    Periodically update player stats from recent games.
+    Runs every 6 hours to keep stats fresh.
+    """
+    # Wait 30 seconds on startup
+    await asyncio.sleep(30)
+    
+    while True:
+        try:
+            logger.info("📈 Running scheduled player stats update...")
+            
+            sports = ["basketball_nba", "icehockey_nhl"]
+            total_updated = 0
+            
+            for sport_key in sports:
+                try:
+                    # Get all unique team IDs from recent events
+                    events = await fetch_events_internal(sport_key)
+                    team_ids_updated = set()
+                    
+                    for event in events[:20]:  # Limit to 20 events
+                        home_team = event.get("home_team", "")
+                        away_team = event.get("away_team", "")
+                        
+                        home_id = get_team_id(home_team, sport_key)
+                        away_id = get_team_id(away_team, sport_key)
+                        
+                        for team_id, team_name in [(home_id, home_team), (away_id, away_team)]:
+                            if team_id and team_id not in team_ids_updated:
+                                try:
+                                    await update_team_player_stats(team_id, team_name, sport_key, db)
+                                    team_ids_updated.add(team_id)
+                                    total_updated += 1
+                                    await asyncio.sleep(1)  # Rate limit
+                                except Exception as e:
+                                    logger.debug(f"Could not update stats for {team_name}: {e}")
+                    
+                except Exception as e:
+                    logger.error(f"Error updating stats for {sport_key}: {e}")
+            
+            logger.info(f"📈 Player stats update complete: {total_updated} teams updated")
+            
+        except Exception as e:
+            logger.error(f"Player stats updater error: {e}")
+        
+        # Run every 6 hours
+        await asyncio.sleep(6 * 60 * 60)
 
 
 async def startup_cleanup_completed_events():
