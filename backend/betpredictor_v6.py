@@ -150,14 +150,22 @@ class BetPredictorV6:
         spread = self._extract_spread(event)
         total = self._extract_total(event)
         
-        # Adjust probability based on all factors
+        # Adjust probability based on all factors including player stats
         adjusted_home_prob = self._calculate_adjusted_probability(
             elo_home_prob,
             matchup_metrics,
             context_analysis,
             injury_analysis,
-            line_analysis
+            line_analysis,
+            player_stats  # NEW: Include player stats in probability adjustment
         )
+        
+        # Log player stats impact if available
+        if player_stats:
+            home_lineup = player_stats.get("home_lineup", {})
+            away_lineup = player_stats.get("away_lineup", {})
+            logger.info(f"   Player Impact: Home={home_lineup.get('total_impact', 0):.1f}, Away={away_lineup.get('total_impact', 0):.1f}")
+            logger.info(f"   Projected PPG: Home={home_lineup.get('projected_pts', 0):.1f}, Away={away_lineup.get('projected_pts', 0):.1f}")
         
         simulation_results = run_game_simulation(sport_key, adjusted_home_prob, spread, total)
         
