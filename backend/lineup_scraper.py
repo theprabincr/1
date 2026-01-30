@@ -175,6 +175,120 @@ def parse_roster_response(data: dict, team_name: str) -> Dict:
     return result
 
 
+async def fetch_top_performers(team_id: str, sport_key: str, num_games: int = 5) -> List[Dict]:
+    """
+    Fetch top performing players from recent completed games.
+    Returns players sorted by average points/goals scored.
+    """
+    if sport_key not in ESPN_TEAM_SCHEDULE or sport_key not in ESPN_GAME_SUMMARY:
+        return []
+    
+    try:
+        # Get team schedule to find recent completed games
+        schedule_url = ESPN_TEAM_SCHEDULE[sport_key].format(team_id=team_id)
+        
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.get(schedule_url)
+            if response.status_code != 200:
+                return []
+            
+            schedule_data = response.json()
+            events = schedule_data.get("events", [])
+            
+            # Find completed games (most recent first)
+            completed_game_ids = []
+            for event in reversed(events):  # Reverse to get most recent first
+                status = event.get("competitions", [{}])[0].get("status", {}).get("type", {}).get("name", "")
+                if status in ["STATUS_FINAL", "STATUS_FINAL_OT"]:
+                    completed_game_ids.append(event.get("id"))
+                    if len(completed_game_ids) >= num_games:
+                        break
+            
+            if not completed_game_ids:
+                return []
+            
+            # Fetch boxscores for these games
+            player_stats = defaultdict(lambda: {"name": "", "position": "", "games": 0, "total_pts": 0, "total_mins": 0})
+            
+            for game_id in completed_game_ids:
+                summary_url = ESPN_GAME_SUMMARY[sport_key].format(event_id=game_id)
+                try:
+                    summary_response = await client.get(summary_url)
+                    if summary_response.status_code == 200:
+                        summary_data = summary_response.json()
+                        boxscore = summary_data.get("boxscore", {})
+                        players_sections = boxscore.get("players", [])
+                        
+                        for team_section in players_sections:
+                            section_team_id = team_section.get("team", {}).get("id", "")
+                            if section_team_id != team_id:
+                                continue
+                            
+                            stats = team_section.get("statistics", [])
+                            if not stats:
+                                continue
+                            
+                            labels = stats[0].get("labels", [])
+                            pts_idx = labels.index("PTS") if "PTS" in labels else -1
+                            min_idx = labels.index("MIN") if "MIN" in labels else -1
+                            
+                            for athlete_data in stats[0].get("athletes", []):
+                                athlete = athlete_data.get("athlete", {})
+                                player_name = athlete.get("displayName", "")
+                                player_id = athlete.get("id", player_name)
+                                position = athlete.get("position", {}).get("abbreviation", "") if isinstance(athlete.get("position"), dict) else ""
+                                stat_values = athlete_data.get("stats", [])
+                                
+                                if not player_name or not stat_values:
+                                    continue
+                                
+                                pts = 0
+                                mins = 0
+                                try:
+                                    if pts_idx >= 0 and len(stat_values) > pts_idx:
+                                        pts = int(stat_values[pts_idx]) if stat_values[pts_idx] != "--" else 0
+                                    if min_idx >= 0 and len(stat_values) > min_idx:
+                                        min_str = stat_values[min_idx]
+                                        if min_str and min_str != "--":
+                                            mins = int(min_str.split(":")[0]) if ":" in str(min_str) else int(float(min_str))
+                                except (ValueError, IndexError):
+                                    pass
+                                
+                                player_stats[player_id]["name"] = player_name
+                                player_stats[player_id]["position"] = position
+                                player_stats[player_id]["games"] += 1
+                                player_stats[player_id]["total_pts"] += pts
+                                player_stats[player_id]["total_mins"] += mins
+                                
+                except Exception as e:
+                    logger.debug(f"Error fetching game {game_id}: {e}")
+                    continue
+            
+            # Calculate averages and sort by avg points
+            top_performers = []
+            for player_id, stats in player_stats.items():
+                if stats["games"] > 0 and stats["total_mins"] > 0:  # Must have played
+                    avg_pts = stats["total_pts"] / stats["games"]
+                    avg_mins = stats["total_mins"] / stats["games"]
+                    top_performers.append({
+                        "name": stats["name"],
+                        "position": stats["position"],
+                        "avg_pts": round(avg_pts, 1),
+                        "avg_mins": round(avg_mins, 1),
+                        "games": stats["games"]
+                    })
+            
+            # Sort by average points (descending)
+            top_performers.sort(key=lambda x: x["avg_pts"], reverse=True)
+            
+            return top_performers[:10]  # Return top 10
+            
+    except Exception as e:
+        logger.error(f"Error fetching top performers for team {team_id}: {e}")
+    
+    return []
+
+
 async def fetch_game_lineup(espn_event_id: str, sport_key: str) -> Dict:
     """Fetch lineup/boxscore data for a specific game"""
     if sport_key not in ESPN_GAME_SUMMARY:
