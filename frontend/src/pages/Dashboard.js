@@ -667,10 +667,9 @@ const Dashboard = () => {
         <StatCard
           title="Live Games"
           value={liveScores.length}
-          subtitle="Click for scores"
+          subtitle="In progress"
           icon={Activity}
           color={liveScores.length > 0 ? "green" : "blue"}
-          onClick={() => setShowLiveScoresModal(true)}
         />
       </div>
 
