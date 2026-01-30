@@ -528,22 +528,9 @@ const Dashboard = () => {
       setPerformance(perfRes.data);
       setRecommendations(recsRes.data);
       
-      // Detect score changes before updating
+      // Detect score changes (works on every refresh after first load)
       const newLiveScores = liveRes.data.games || [];
-      if (liveScores.length > 0) {
-        detectScoreChanges(newLiveScores);
-      } else {
-        // Initialize previous scores on first load
-        const initial = {};
-        newLiveScores.forEach(game => {
-          const gameId = game.espn_id || `${game.home_team}-${game.away_team}`;
-          initial[gameId] = {
-            home_score: game.home_score,
-            away_score: game.away_score
-          };
-        });
-        setPreviousScores(initial);
-      }
+      detectScoreChanges(newLiveScores);
       setLiveScores(newLiveScores);
       
       // Combine events from all sports and sort by commence time
