@@ -115,32 +115,96 @@ class APITester:
                 'error': f"Unexpected Error: {str(e)}"
             })
     
+    def test_prediction_algorithm(self):
+        """Test the AI prediction algorithm endpoints"""
+        print("\n🧠 TESTING PREDICTION ALGORITHM (CRITICAL)")
+        print("-" * 50)
+        
+        # First get an event to test with
+        try:
+            response = requests.get(f"{BASE_URL}/events/basketball_nba", timeout=30)
+            if response.status_code == 200:
+                events = response.json()
+                if events and len(events) > 0:
+                    test_event = events[0]
+                    event_id = test_event.get('id')
+                    
+                    if event_id:
+                        # Test unified analysis endpoint
+                        self.test_endpoint("POST", f"/analyze-unified/{event_id}", 
+                                         description="Full AI analysis for specific event")
+                        
+                        # Test line movement for the event
+                        self.test_endpoint("GET", f"/line-movement/{event_id}",
+                                         description="Line movement analysis")
+                        
+                        # Test matchup data
+                        self.test_endpoint("GET", f"/matchup/{event_id}",
+                                         description="Comprehensive matchup data")
+                    else:
+                        print("   ⚠️  No event ID found for prediction testing")
+                else:
+                    print("   ⚠️  No events available for prediction testing")
+            else:
+                print("   ⚠️  Could not fetch events for prediction testing")
+        except Exception as e:
+            print(f"   ❌ Error in prediction algorithm testing: {e}")
+    
+    def test_multiple_sports(self):
+        """Test events endpoint for multiple sports"""
+        print("\n🏈 TESTING MULTIPLE SPORTS DATA")
+        print("-" * 50)
+        
+        sports = ["basketball_nba", "americanfootball_nfl", "icehockey_nhl"]
+        for sport in sports:
+            self.test_endpoint("GET", f"/events/{sport}", 
+                             description=f"Get {sport.upper()} events with odds")
+    
+    def test_odds_snapshots(self):
+        """Test odds snapshots endpoint"""
+        print("\n📊 TESTING ODDS SNAPSHOTS")
+        print("-" * 50)
+        
+        # Test odds snapshots endpoint (if it exists)
+        self.test_endpoint("GET", "/odds-snapshots", 
+                         description="Historical odds snapshots", expected_status=404)
+        
+        # Test manual odds refresh
+        self.test_endpoint("POST", "/refresh-odds", 
+                         description="Manual odds refresh")
+
     def run_all_tests(self):
-        """Run all API endpoint tests"""
+        """Run comprehensive API endpoint tests"""
         print("=" * 60)
-        print("🚀 BetPredictor Backend API Test Suite")
+        print("🚀 BetPredictor Backend API Test Suite - COMPREHENSIVE")
         print("=" * 60)
         
-        # Test 1: Health check
+        # CORE API HEALTH
+        print("\n🏥 CORE API HEALTH TESTS")
+        print("-" * 50)
         self.test_endpoint("GET", "/", description="Health check endpoint")
-        
-        # Test 2: Sports list
         self.test_endpoint("GET", "/sports", description="List available sports")
+        self.test_endpoint("GET", "/data-source-status", description="ESPN data source status")
         
-        # Test 3: NBA events
-        self.test_endpoint("GET", "/events/basketball_nba", description="Get NBA events with odds")
+        # EVENTS & DATA FETCHING
+        print("\n📅 EVENTS & DATA FETCHING TESTS")
+        print("-" * 50)
+        self.test_multiple_sports()
         
-        # Test 4: AI recommendations
+        # PREDICTION ALGORITHM (MOST IMPORTANT)
+        self.test_prediction_algorithm()
+        
+        # PERFORMANCE & RESULTS TRACKING
+        print("\n📈 PERFORMANCE & RESULTS TRACKING")
+        print("-" * 50)
         self.test_endpoint("GET", "/recommendations", description="Get AI recommendations")
-        
-        # Test 5: Performance stats
         self.test_endpoint("GET", "/performance", description="Get performance statistics")
-        
-        # Test 6: Notifications
         self.test_endpoint("GET", "/notifications", description="Get notifications list")
         
-        # Test 7: Data source status
-        self.test_endpoint("GET", "/data-source-status", description="Get ESPN data source status")
+        # LINE MOVEMENT ANALYSIS
+        print("\n📊 LINE MOVEMENT ANALYSIS")
+        print("-" * 50)
+        self.test_odds_snapshots()
         
         # Print summary
         self.print_summary()
