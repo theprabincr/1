@@ -31,7 +31,7 @@ class APITester:
         self.failed = 0
         self.results = []
         
-    def test_endpoint(self, method, endpoint, expected_status=200, description=""):
+    def test_endpoint(self, method, endpoint, expected_status=200, description="", validate_prediction=False):
         """Test a single API endpoint"""
         url = f"{BASE_URL}{endpoint}"
         print(f"\n🧪 Testing {method} {endpoint}")
@@ -59,16 +59,28 @@ class APITester:
             except:
                 json_ok = False
             
+            # Validate prediction quality if requested
+            prediction_quality_ok = True
+            prediction_details = ""
+            
+            if validate_prediction and json_data:
+                prediction_quality_ok, prediction_details = self.validate_prediction_quality(json_data, endpoint)
+            
             # Print results
-            if status_ok and json_ok:
+            if status_ok and json_ok and prediction_quality_ok:
                 print(f"   ✅ PASS - Status: {response.status_code}, JSON: Valid")
                 if isinstance(json_data, dict):
                     if 'message' in json_data:
                         print(f"   📝 Message: {json_data['message']}")
                     if 'status' in json_data:
                         print(f"   📊 Status: {json_data['status']}")
+                    if 'source' in json_data:
+                        print(f"   🔗 Source: {json_data['source']}")
                 elif isinstance(json_data, list):
                     print(f"   📊 Array length: {len(json_data)}")
+                
+                if prediction_details:
+                    print(f"   🧠 Prediction Quality: {prediction_details}")
                 
                 self.passed += 1
                 self.results.append({
@@ -76,7 +88,8 @@ class APITester:
                     'status': 'PASS',
                     'status_code': response.status_code,
                     'json_valid': True,
-                    'response_size': len(str(json_data)) if json_data else 0
+                    'response_size': len(str(json_data)) if json_data else 0,
+                    'prediction_quality': prediction_details if prediction_details else None
                 })
             else:
                 error_msg = []
@@ -84,6 +97,8 @@ class APITester:
                     error_msg.append(f"Expected status {expected_status}, got {response.status_code}")
                 if not json_ok:
                     error_msg.append("Invalid JSON response")
+                if not prediction_quality_ok:
+                    error_msg.append(f"Prediction quality issue: {prediction_details}")
                 
                 print(f"   ❌ FAIL - {', '.join(error_msg)}")
                 print(f"   📄 Response: {response.text[:200]}...")
@@ -114,6 +129,70 @@ class APITester:
                 'status': 'FAIL',
                 'error': f"Unexpected Error: {str(e)}"
             })
+    
+    def validate_prediction_quality(self, data, endpoint):
+        """Validate the quality of prediction algorithm output"""
+        try:
+            if "/recommendations" in endpoint:
+                if isinstance(data, list):
+                    if len(data) == 0:
+                        return True, "No recommendations (normal if no high-confidence picks)"
+                    
+                    # Check first recommendation for required fields
+                    rec = data[0]
+                    required_fields = ['predicted_outcome', 'confidence', 'analysis', 'odds_at_prediction']
+                    missing_fields = [f for f in required_fields if f not in rec or not rec[f]]
+                    
+                    if missing_fields:
+                        return False, f"Missing required fields: {missing_fields}"
+                    
+                    # Check confidence is reasonable
+                    confidence = rec.get('confidence', 0)
+                    if confidence < 0.5 or confidence > 1.0:
+                        return False, f"Invalid confidence: {confidence}"
+                    
+                    # Check analysis has reasoning
+                    analysis = rec.get('analysis', '')
+                    if len(analysis) < 50:
+                        return False, "Analysis too short (lacks reasoning)"
+                    
+                    return True, f"Valid prediction: {confidence*100:.0f}% confidence, detailed analysis"
+                
+            elif "/analyze-unified/" in endpoint:
+                # Check for unified analysis structure
+                required_keys = ['v5_analysis', 'v6_analysis', 'analysis_type']
+                missing_keys = [k for k in required_keys if k not in data]
+                
+                if missing_keys:
+                    return False, f"Missing analysis components: {missing_keys}"
+                
+                # Check if at least one analysis has a pick
+                v5_has_pick = data.get('v5_analysis', {}).get('has_pick', False)
+                v6_has_pick = data.get('v6_analysis', {}).get('has_pick', False)
+                
+                if not v5_has_pick and not v6_has_pick:
+                    return True, "No picks generated (normal for low-confidence scenarios)"
+                
+                return True, f"Unified analysis complete (V5: {v5_has_pick}, V6: {v6_has_pick})"
+            
+            elif "/line-movement/" in endpoint:
+                # Check line movement data structure
+                required_keys = ['event_id', 'chart_data']
+                missing_keys = [k for k in required_keys if k not in data]
+                
+                if missing_keys:
+                    return False, f"Missing line movement data: {missing_keys}"
+                
+                chart_data = data.get('chart_data', {})
+                markets = ['moneyline', 'spread', 'totals']
+                available_markets = [m for m in markets if m in chart_data and len(chart_data[m]) > 0]
+                
+                return True, f"Line movement tracked for: {', '.join(available_markets) if available_markets else 'no markets'}"
+            
+            return True, ""
+            
+        except Exception as e:
+            return False, f"Validation error: {str(e)}"
     
     def test_prediction_algorithm(self):
         """Test the AI prediction algorithm endpoints"""
