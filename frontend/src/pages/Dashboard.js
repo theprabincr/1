@@ -464,10 +464,15 @@ const Dashboard = () => {
     'soccer_epl': 'EPL'
   };
 
-  // Detect score changes and trigger animations
-  const detectScoreChanges = (newScores) => {
+  // Detect score changes and trigger animations - memoized to prevent recreation
+  const detectScoreChanges = useCallback((newScores) => {
     const changes = {};
     const prevScores = previousScoresRef.current;
+    
+    // Only detect changes if we have previous scores
+    if (Object.keys(prevScores).length === 0) {
+      console.log('[SCORE] First load - initializing previous scores');
+    }
     
     newScores.forEach(game => {
       const gameId = game.espn_id || `${game.home_team}-${game.away_team}`;
@@ -477,27 +482,31 @@ const Dashboard = () => {
         // Check if home score changed
         if (game.home_score !== prev.home_score) {
           changes[`${gameId}-home`] = true;
-          console.log(`Score change detected: ${game.home_team} ${prev.home_score} → ${game.home_score}`);
+          console.log(`[SCORE CHANGE] ${game.home_team}: ${prev.home_score} → ${game.home_score}`);
         }
         // Check if away score changed
         if (game.away_score !== prev.away_score) {
           changes[`${gameId}-away`] = true;
-          console.log(`Score change detected: ${game.away_team} ${prev.away_score} → ${game.away_score}`);
+          console.log(`[SCORE CHANGE] ${game.away_team}: ${prev.away_score} → ${game.away_score}`);
         }
       }
     });
     
     // If any scores changed, trigger animation
     if (Object.keys(changes).length > 0) {
-      console.log('Triggering score change animation for:', Object.keys(changes));
-      setScoreChanges(changes);
-      // Clear the animation after 2 seconds
-      setTimeout(() => {
-        setScoreChanges({});
-      }, 2000);
+      console.log('[SCORE] Triggering animation for:', Object.keys(changes));
+      setScoreChanges({...changes}); // Spread to ensure new object reference
     }
     
-    // Update previous scores ref
+    // Clear the animation after 2.5 seconds
+    if (Object.keys(changes).length > 0) {
+      setTimeout(() => {
+        console.log('[SCORE] Clearing animation');
+        setScoreChanges({});
+      }, 2500);
+    }
+    
+    // Update previous scores ref for next comparison
     const newPrevScores = {};
     newScores.forEach(game => {
       const gameId = game.espn_id || `${game.home_team}-${game.away_team}`;
@@ -507,7 +516,7 @@ const Dashboard = () => {
       };
     });
     previousScoresRef.current = newPrevScores;
-  };
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
