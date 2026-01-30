@@ -89,6 +89,22 @@
   background-color: #B3E600;
 }
 
+.btn-secondary {
+  background-color: #27272A;
+  color: #FAFAFA;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 1px solid #3F3F46;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-secondary:hover {
+  background-color: #3F3F46;
+  border-color: #52525B;
+}
+
 .btn-outline {
   background-color: transparent;
   color: #A1A1AA;
@@ -105,6 +121,38 @@
   color: #FAFAFA;
 }
 
+/* Consistent Color System */
+/* Primary Brand Color - Lime/Neon Green for key metrics and CTAs */
+.text-brand { color: #CCFF00; }
+.bg-brand { background-color: #CCFF00; }
+.border-brand { border-color: #CCFF00; }
+
+/* Success/Win - Green */
+.text-win { color: #22C55E; }
+.bg-win { background-color: rgba(34, 197, 94, 0.15); }
+.border-win { border-color: rgba(34, 197, 94, 0.3); }
+
+/* Danger/Loss - Red */
+.text-loss { color: #EF4444; }
+.bg-loss { background-color: rgba(239, 68, 68, 0.15); }
+.border-loss { border-color: rgba(239, 68, 68, 0.3); }
+
+/* Warning/Pending - Yellow/Amber */
+.text-pending { color: #F59E0B; }
+.bg-pending { background-color: rgba(245, 158, 11, 0.15); }
+.border-pending { border-color: rgba(245, 158, 11, 0.3); }
+
+/* Info/Neutral - Blue */
+.text-info { color: #3B82F6; }
+.bg-info { background-color: rgba(59, 130, 246, 0.15); }
+.border-info { border-color: rgba(59, 130, 246, 0.3); }
+
+/* Favorite (in betting) - Green highlight */
+.text-favorite { color: #22C55E; }
+
+/* Underdog - Default/White */
+.text-underdog { color: #FAFAFA; }
+
 /* Odds display */
 .odds-value {
   font-family: 'JetBrains Mono', monospace;
@@ -117,6 +165,91 @@
 
 .odds-value.negative {
   color: #EF4444;
+}
+
+/* Sport Filter Pills */
+.sport-pill {
+  padding: 8px 16px;
+  border-radius: 9999px;
+  font-size: 14px;
+  font-weight: 500;
+  background-color: #27272A;
+  color: #A1A1AA;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.sport-pill:hover {
+  background-color: #3F3F46;
+  color: #FAFAFA;
+}
+
+.sport-pill.active {
+  background-color: rgba(204, 255, 0, 0.15);
+  color: #CCFF00;
+  border-color: rgba(204, 255, 0, 0.3);
+}
+
+/* Status Badges */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.status-badge.live {
+  background-color: rgba(239, 68, 68, 0.2);
+  color: #EF4444;
+  animation: pulse 2s infinite;
+}
+
+.status-badge.upcoming {
+  background-color: rgba(59, 130, 246, 0.15);
+  color: #3B82F6;
+}
+
+.status-badge.final {
+  background-color: rgba(161, 161, 170, 0.15);
+  color: #A1A1AA;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Confidence Badges */
+.confidence-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.confidence-badge.high {
+  background-color: rgba(34, 197, 94, 0.15);
+  color: #22C55E;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.confidence-badge.medium {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #F59E0B;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.confidence-badge.low {
+  background-color: rgba(161, 161, 170, 0.15);
+  color: #A1A1AA;
+  border: 1px solid rgba(161, 161, 170, 0.3);
 }
 
 /* Responsive */
