@@ -95,11 +95,11 @@ def get_team_id(team_name: str, sport_key: str) -> Optional[str]:
 
 
 async def fetch_team_roster(team_name: str, sport_key: str) -> Dict:
-    """Fetch team roster from ESPN"""
+    """Fetch team roster from ESPN with top performers based on recent game stats"""
     team_id = get_team_id(team_name, sport_key)
     
     if not team_id or sport_key not in ESPN_ROSTER_ENDPOINTS:
-        return {"team": team_name, "players": [], "injuries": []}
+        return {"team": team_name, "players": [], "injuries": [], "key_players": []}
     
     url = ESPN_ROSTER_ENDPOINTS[sport_key].format(team_id=team_id)
     
@@ -108,11 +108,26 @@ async def fetch_team_roster(team_name: str, sport_key: str) -> Dict:
             response = await client.get(url)
             if response.status_code == 200:
                 data = response.json()
-                return parse_roster_response(data, team_name)
+                result = parse_roster_response(data, team_name)
+                
+                # Fetch top performers based on recent game stats
+                try:
+                    top_performers = await fetch_top_performers(team_id, sport_key, num_games=5)
+                    if top_performers:
+                        # Replace key_players with actual top performers
+                        result["key_players"] = [
+                            f"{p['name']} ({p['avg_pts']} PPG)" for p in top_performers[:5]
+                        ]
+                        result["top_performers"] = top_performers[:5]
+                        logger.info(f"✅ Found top performers for {team_name}: {[p['name'] for p in top_performers[:3]]}")
+                except Exception as e:
+                    logger.debug(f"Could not fetch top performers for {team_name}: {e}")
+                
+                return result
         except Exception as e:
             logger.error(f"Error fetching roster for {team_name}: {e}")
     
-    return {"team": team_name, "players": [], "injuries": []}
+    return {"team": team_name, "players": [], "injuries": [], "key_players": []}
 
 
 def parse_roster_response(data: dict, team_name: str) -> Dict:
