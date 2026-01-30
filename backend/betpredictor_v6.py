@@ -312,10 +312,11 @@ class BetPredictorV6:
         matchup_metrics: Dict,
         context: Dict,
         injury: Dict,
-        line_analysis: Dict
+        line_analysis: Dict,
+        player_stats: Dict = None  # NEW: Player stats
     ) -> float:
         """
-        Adjust base ELO probability with all factors.
+        Adjust base ELO probability with all factors including player stats.
         """
         adjusted = base_prob
         
@@ -335,6 +336,21 @@ class BetPredictorV6:
         elo_diff = matchup_metrics.get("elo_advantage", 0)
         if abs(elo_diff) > 100:
             adjusted += (elo_diff / 400) * 0.1
+        
+        # NEW: Player stats adjustment
+        if player_stats:
+            impact_diff = player_stats.get("impact_diff", 0)
+            pts_diff = player_stats.get("pts_diff", 0)
+            
+            # Impact advantage (significant if > 10 points)
+            if abs(impact_diff) > 10:
+                impact_adj = (impact_diff / 50) * 0.05  # Max 5% adjustment
+                adjusted += impact_adj
+            
+            # Scoring advantage (significant if > 15 PPG difference)
+            if abs(pts_diff) > 15:
+                pts_adj = (pts_diff / 100) * 0.03  # Max 3% adjustment
+                adjusted += pts_adj
         
         # Clamp to reasonable range
         return max(0.20, min(0.80, adjusted))
