@@ -100,13 +100,18 @@ def get_team_id(team_name: str, sport_key: str) -> Optional[str]:
     return None
 
 
-async def fetch_projected_starters(team_id: str, sport_key: str) -> List[Dict]:
+async def fetch_projected_starters(team_id: str, sport_key: str, injured_players: List[str] = None) -> List[Dict]:
     """
     Fetch projected starters from ESPN depth chart.
+    Filters out injured players (status: Out) and picks next available from depth chart.
     Returns list of projected starting 5 players (for basketball).
     """
     if sport_key not in ESPN_DEPTH_CHART:
         return []
+    
+    injured_players = injured_players or []
+    # Normalize injured player names for comparison
+    injured_names_lower = [name.lower().strip() for name in injured_players]
     
     url = ESPN_DEPTH_CHART[sport_key].format(team_id=team_id)
     
@@ -142,15 +147,27 @@ async def fetch_projected_starters(team_id: str, sport_key: str) -> List[Dict]:
             for pos_key in position_order:
                 pos_data = positions.get(pos_key, {})
                 athletes = pos_data.get("athletes", [])
+                position_info = pos_data.get("position", {})
                 
-                if athletes:
-                    # First athlete at each position is the starter
-                    starter = athletes[0]
-                    position_info = pos_data.get("position", {})
-                    starters.append({
-                        "name": starter.get("displayName", ""),
-                        "position": position_info.get("abbreviation", pos_key.upper())
-                    })
+                # Find first available (non-injured) player at this position
+                for athlete in athletes:
+                    player_name = athlete.get("displayName", "")
+                    if player_name.lower().strip() not in injured_names_lower:
+                        starters.append({
+                            "name": player_name,
+                            "position": position_info.get("abbreviation", pos_key.upper())
+                        })
+                        break  # Found starter for this position
+                else:
+                    # All players at this position are injured, skip or use first anyway
+                    if athletes:
+                        starters.append({
+                            "name": athletes[0].get("displayName", "") + " (INJ?)",
+                            "position": position_info.get("abbreviation", pos_key.upper())
+                        })
+            
+            if injured_players:
+                logger.info(f"📋 Filtered out injured players from lineup: {injured_players[:3]}")
             
             return starters[:5]  # Return top 5 starters
             
