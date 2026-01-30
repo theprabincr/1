@@ -1035,7 +1035,8 @@ async def generate_v6_prediction(
     matchup_data: Dict,
     line_movement_history: List[Dict],
     opening_odds: Dict,
-    current_odds: Dict
+    current_odds: Dict,
+    player_stats: Dict = None  # NEW: Player stats comparison
 ) -> Dict:
     """Generate a prediction using BetPredictor V6."""
     engine = BetPredictorV6()
@@ -1046,5 +1047,6 @@ async def generate_v6_prediction(
         matchup_data,
         line_movement_history,
         opening_odds,
-        current_odds
+        current_odds,
+        player_stats
     )
