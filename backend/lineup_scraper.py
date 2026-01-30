@@ -36,6 +36,12 @@ ESPN_GAME_SUMMARY = {
     "soccer_epl": "https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/summary?event={event_id}",
 }
 
+ESPN_DEPTH_CHART = {
+    "basketball_nba": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/{team_id}/depthcharts",
+    "americanfootball_nfl": "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/{team_id}/depthcharts",
+    "icehockey_nhl": "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/{team_id}/depthcharts",
+}
+
 # Team name to ESPN ID mappings (subset - can be expanded)
 NBA_TEAM_IDS = {
     "atlanta hawks": "1", "boston celtics": "2", "brooklyn nets": "17", 
