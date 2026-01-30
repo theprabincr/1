@@ -598,30 +598,28 @@ async def fetch_starting_lineup(espn_event_id: str, sport_key: str) -> Dict:
                     
                     break  # Only process first stat category
             
-            # If no starters from boxscore, try to get projected starters
-            if not result["home"]["starters"] and not result["away"]["starters"]:
-                # Check for roster data with depth chart info
-                rosters = data.get("rosters", [])
-                for roster in rosters:
-                    home_away = roster.get("homeAway", "")
-                    team_key = "home" if home_away == "home" else "away"
-                    
-                    entries = roster.get("roster", [])
-                    starters = []
-                    
-                    for entry in entries:
-                        if entry.get("starter", False) or entry.get("position", {}).get("name", "").lower() == "starter":
-                            player = entry.get("athlete", {})
-                            starters.append({
-                                "name": player.get("displayName", ""),
-                                "position": entry.get("position", {}).get("abbreviation", "")
-                            })
-                    
-                    if starters:
-                        result[team_key]["starters"] = starters[:5]
-                        result[team_key]["confirmed"] = False  # Projected, not confirmed
-                        result["lineup_status"] = "projected"
-                        result["message"] = "Projected starting lineup (not yet confirmed)"
+            # If no starters from boxscore, get projected starters from depth chart
+            if not result["home"]["starters"] or not result["away"]["starters"]:
+                # Get team IDs from header
+                header = data.get("header", {})
+                competitions = header.get("competitions", [{}])
+                if competitions:
+                    competitors = competitions[0].get("competitors", [])
+                    for comp in competitors:
+                        team_data = comp.get("team", {})
+                        team_id = team_data.get("id", "")
+                        home_away = comp.get("homeAway", "")
+                        team_key = "home" if home_away == "home" else "away"
+                        
+                        # Only fetch if we don't have starters for this team
+                        if team_id and not result[team_key]["starters"]:
+                            projected = await fetch_projected_starters(team_id, sport_key)
+                            if projected:
+                                result[team_key]["starters"] = projected
+                                result[team_key]["confirmed"] = False
+                                result["lineup_status"] = "projected"
+                                result["message"] = "Projected starting lineup (based on depth chart)"
+                                logger.info(f"✅ Got projected starters for {team_key}: {[p['name'] for p in projected[:3]]}")
             
         except Exception as e:
             logger.error(f"Error fetching starting lineup for {espn_event_id}: {e}")
