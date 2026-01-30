@@ -447,8 +447,10 @@ const Dashboard = () => {
   const [liveScores, setLiveScores] = useState([]);
   const [showLiveScoresModal, setShowLiveScoresModal] = useState(false);
   const [selectedLiveSport, setSelectedLiveSport] = useState('all');
-  const [previousScores, setPreviousScores] = useState({});
   const [scoreChanges, setScoreChanges] = useState({});
+  
+  // Use ref to track previous scores (persists across renders without causing re-renders)
+  const previousScoresRef = useRef({});
 
   // All supported sports for fetching events
   const sportKeys = ["basketball_nba", "americanfootball_nfl", "baseball_mlb", "icehockey_nhl", "soccer_epl"];
@@ -465,27 +467,37 @@ const Dashboard = () => {
   // Detect score changes and trigger animations
   const detectScoreChanges = (newScores) => {
     const changes = {};
+    const prevScores = previousScoresRef.current;
+    
     newScores.forEach(game => {
       const gameId = game.espn_id || `${game.home_team}-${game.away_team}`;
-      const prev = previousScores[gameId];
+      const prev = prevScores[gameId];
       
       if (prev) {
+        // Check if home score changed
         if (game.home_score !== prev.home_score) {
           changes[`${gameId}-home`] = true;
+          console.log(`Score change detected: ${game.home_team} ${prev.home_score} → ${game.home_score}`);
         }
+        // Check if away score changed
         if (game.away_score !== prev.away_score) {
           changes[`${gameId}-away`] = true;
+          console.log(`Score change detected: ${game.away_team} ${prev.away_score} → ${game.away_score}`);
         }
       }
     });
     
+    // If any scores changed, trigger animation
     if (Object.keys(changes).length > 0) {
+      console.log('Triggering score change animation for:', Object.keys(changes));
       setScoreChanges(changes);
-      // Clear the animation after 1.5 seconds
-      setTimeout(() => setScoreChanges({}), 1500);
+      // Clear the animation after 2 seconds
+      setTimeout(() => {
+        setScoreChanges({});
+      }, 2000);
     }
     
-    // Update previous scores
+    // Update previous scores ref
     const newPrevScores = {};
     newScores.forEach(game => {
       const gameId = game.espn_id || `${game.home_team}-${game.away_team}`;
@@ -494,7 +506,7 @@ const Dashboard = () => {
         away_score: game.away_score
       };
     });
-    setPreviousScores(newPrevScores);
+    previousScoresRef.current = newPrevScores;
   };
 
   const fetchData = async () => {
