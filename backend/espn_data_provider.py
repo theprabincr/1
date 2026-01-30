@@ -391,7 +391,7 @@ async def fetch_team_recent_games(team_id: str, sport_key: str, num_games: int =
 
 
 def parse_recent_games(data: dict, team_id: str, num_games: int) -> List[Dict]:
-    """Parse recent game results"""
+    """Parse recent game results - returns most recent games first"""
     games = []
     
     events = data.get("events", [])
@@ -449,15 +449,14 @@ def parse_recent_games(data: dict, team_id: str, num_games: int) -> List[Dict]:
                 "won": won,
                 "margin": our_score - opp_score
             })
-            
-            if len(games) >= num_games:
-                break
                 
         except Exception as e:
             logger.error(f"Error parsing game: {e}")
             continue
     
-    return games
+    # Sort by date descending (most recent first) and take num_games
+    games.sort(key=lambda g: g.get("date", ""), reverse=True)
+    return games[:num_games]
 
 
 async def get_comprehensive_matchup_data(event: Dict, sport_key: str) -> Dict:
