@@ -545,15 +545,13 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
                       <Users className="w-3 h-3" />
                       {homeData.startersConfirmed ? (
                         <span className="text-semantic-success">CONFIRMED LINEUP</span>
-                      ) : homeData.starters.length > 0 ? (
-                        <span className="text-semantic-warning">PROJECTED LINEUP</span>
                       ) : (
-                        <span>KEY PLAYERS</span>
+                        <span className="text-semantic-warning">PROJECTED LINEUP</span>
                       )}
                     </p>
-                    {(homeData.starters.length > 0 || homeData.keyPlayers.length > 0) ? (
+                    {homeData.starters.length > 0 ? (
                       <div className="space-y-1">
-                        {(homeData.starters.length > 0 ? homeData.starters : homeData.keyPlayers.map(p => ({ name: p, position: '' }))).slice(0, 5).map((player, i) => (
+                        {homeData.starters.slice(0, 5).map((player, i) => (
                           <div key={i} className="flex items-center justify-between text-sm p-2 bg-zinc-900 rounded">
                             <span className="text-text-primary">{typeof player === 'string' ? player : player.name}</span>
                             {player.position && (
@@ -566,9 +564,7 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
                       </div>
                     ) : (
                       <p className="text-text-muted text-sm">
-                        {lineupStatus?.status === 'not_available' 
-                          ? 'Lineup announced ~1hr before game' 
-                          : 'No lineup data available'}
+                        Loading lineup data...
                       </p>
                     )}
                   </div>
