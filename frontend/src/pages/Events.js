@@ -427,12 +427,24 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
                   </div>
                   <div className="text-center p-3 bg-zinc-900 rounded-lg">
                     <p className="text-xs text-text-muted mb-2">SPREAD</p>
-                    <p className="text-2xl font-mono font-bold text-brand-primary">
-                      {spread !== null ? (spread > 0 ? `+${spread}` : spread) : '-'}
-                    </p>
-                    <p className="text-xs text-text-muted mt-1">
-                      {spread && (spread < 0 ? event.home_team.split(' ').pop() : event.away_team.split(' ').pop())} favored
-                    </p>
+                    {spread !== null ? (
+                      <div className="space-y-1">
+                        <p className="font-mono">
+                          <span className="text-text-muted text-sm">{event.away_team.split(' ').pop()}</span>
+                          <span className={`ml-2 font-bold ${spread > 0 ? 'text-semantic-success' : 'text-text-primary'}`}>
+                            {spread > 0 ? `+${spread}` : spread}
+                          </span>
+                        </p>
+                        <p className="font-mono">
+                          <span className="text-text-muted text-sm">{event.home_team.split(' ').pop()}</span>
+                          <span className={`ml-2 font-bold ${spread < 0 ? 'text-semantic-success' : 'text-text-primary'}`}>
+                            {spread < 0 ? `+${Math.abs(spread)}` : `-${spread}`}
+                          </span>
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-2xl font-mono font-bold text-text-muted">-</p>
+                    )}
                   </div>
                   <div className="text-center p-3 bg-zinc-900 rounded-lg">
                     <p className="text-xs text-text-muted mb-2">TOTAL</p>
