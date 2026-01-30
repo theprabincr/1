@@ -828,7 +828,9 @@ const Dashboard = () => {
                     const awayChanged = scoreChanges[`${gameId}-away`];
                     
                     return (
-                      <div key={gameId} className="bg-zinc-800 rounded-lg p-4">
+                      <div key={gameId} className={`bg-zinc-800 rounded-lg p-4 transition-all duration-500 ${
+                        (homeChanged || awayChanged) ? 'ring-2 ring-semantic-success' : ''
+                      }`}>
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs font-mono text-brand-primary uppercase flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-semantic-success animate-pulse"></span>
@@ -839,21 +841,21 @@ const Dashboard = () => {
                           </span>
                         </div>
                         <div className="grid grid-cols-3 items-center gap-4">
-                          <div className="text-left">
+                          <div className={`text-left p-1 rounded transition-all duration-500 ${awayChanged ? 'bg-semantic-success/20' : ''}`}>
                             <p className="text-text-primary font-semibold text-sm">{game.away_team}</p>
                           </div>
                           <div className="text-center">
                             <p className="font-mono text-2xl font-bold">
-                              <span className={`transition-all duration-300 ${awayChanged ? 'text-semantic-success scale-110' : 'text-brand-primary'}`}>
+                              <span className={`inline-block transition-all duration-500 ${awayChanged ? 'text-semantic-success scale-125' : 'text-brand-primary'}`}>
                                 {game.away_score}
                               </span>
                               <span className="text-text-muted mx-1">-</span>
-                              <span className={`transition-all duration-300 ${homeChanged ? 'text-semantic-success scale-110' : 'text-brand-primary'}`}>
+                              <span className={`inline-block transition-all duration-500 ${homeChanged ? 'text-semantic-success scale-125' : 'text-brand-primary'}`}>
                                 {game.home_score}
                               </span>
                             </p>
                           </div>
-                          <div className="text-right">
+                          <div className={`text-right p-1 rounded transition-all duration-500 ${homeChanged ? 'bg-semantic-success/20' : ''}`}>
                             <p className="text-text-primary font-semibold text-sm">{game.home_team}</p>
                           </div>
                         </div>
