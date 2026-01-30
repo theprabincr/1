@@ -684,33 +684,12 @@ const Dashboard = () => {
               Live Games
               <span className="text-xs text-text-muted ml-2 font-normal">Auto-updates every 10s</span>
             </h2>
-            <div className="flex items-center gap-3">
-              {/* Test Animation Button - Remove after testing */}
-              <button
-                onClick={() => {
-                  // Simulate a score change for the first game
-                  if (liveScores.length > 0) {
-                    const game = liveScores[0];
-                    const gameId = game.espn_id || `${game.home_team}-${game.away_team}`;
-                    console.log('[TEST] Triggering test animation for:', gameId);
-                    setScoreChanges({
-                      [`${gameId}-home`]: true,
-                      [`${gameId}-away`]: true
-                    });
-                    setTimeout(() => setScoreChanges({}), 2500);
-                  }
-                }}
-                className="text-xs px-2 py-1 bg-semantic-warning/20 text-semantic-warning rounded hover:bg-semantic-warning/30"
-              >
-                Test Animation
-              </button>
-              <button
-                onClick={() => setShowLiveScoresModal(true)}
-                className="text-brand-primary text-sm flex items-center gap-1 hover:underline"
-              >
-                View All <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+            <button
+              onClick={() => setShowLiveScoresModal(true)}
+              className="text-brand-primary text-sm flex items-center gap-1 hover:underline"
+            >
+              View All <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
           
           {/* Sport Filter Tabs */}
