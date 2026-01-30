@@ -728,8 +728,7 @@ const Dashboard = () => {
                 return (
                   <div 
                     key={gameId} 
-                    className="bg-zinc-800/50 rounded-lg p-4 border border-zinc-700 hover:border-brand-primary/50 transition-all cursor-pointer"
-                    onClick={() => setShowLiveScoresModal(true)}
+                    className="bg-zinc-800/50 rounded-lg p-4 border border-zinc-700 hover:border-brand-primary/50 transition-all"
                   >
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-mono text-brand-primary uppercase flex items-center gap-2">
@@ -773,11 +772,6 @@ const Dashboard = () => {
           </div>
         </div>
       )}
-
-      {/* Live Scores Modal */}
-      {showLiveScoresModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-zinc-900 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b border-zinc-800">
               <h2 className="font-mono font-bold text-lg text-text-primary flex items-center gap-2">
                 <Activity className="w-5 h-5 text-semantic-success animate-pulse" />
