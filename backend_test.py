@@ -160,20 +160,36 @@ class APITester:
                 
             elif "/analyze-unified/" in endpoint:
                 # Check for unified analysis structure
-                required_keys = ['v5_analysis', 'v6_analysis', 'analysis_type']
-                missing_keys = [k for k in required_keys if k not in data]
-                
-                if missing_keys:
-                    return False, f"Missing analysis components: {missing_keys}"
-                
-                # Check if at least one analysis has a pick
-                v5_has_pick = data.get('v5_analysis', {}).get('has_pick', False)
-                v6_has_pick = data.get('v6_analysis', {}).get('has_pick', False)
-                
-                if not v5_has_pick and not v6_has_pick:
-                    return True, "No picks generated (normal for low-confidence scenarios)"
-                
-                return True, f"Unified analysis complete (V5: {v5_has_pick}, V6: {v6_has_pick})"
+                if 'prediction' in data:
+                    prediction = data['prediction']
+                    # Check if it has v5 and v6 analysis
+                    has_v5 = 'v5_analysis' in prediction
+                    has_v6 = 'v6_analysis' in prediction
+                    
+                    if not has_v5 or not has_v6:
+                        return False, f"Missing analysis components in prediction object"
+                    
+                    # Check if at least one analysis has a pick
+                    v5_has_pick = prediction.get('v5_analysis', {}).get('has_pick', False)
+                    v6_has_pick = prediction.get('v6_analysis', {}).get('has_pick', False)
+                    
+                    # Check overall prediction quality
+                    has_pick = prediction.get('has_pick', False)
+                    confidence = prediction.get('confidence', 0)
+                    reasoning = prediction.get('reasoning', '')
+                    
+                    if has_pick:
+                        if confidence < 50 or confidence > 100:
+                            return False, f"Invalid confidence: {confidence}%"
+                        
+                        if len(reasoning) < 100:
+                            return False, "Reasoning too short (lacks detailed analysis)"
+                        
+                        return True, f"Unified prediction: {confidence}% confidence, V5: {v5_has_pick}, V6: {v6_has_pick}"
+                    else:
+                        return True, f"No unified pick (V5: {v5_has_pick}, V6: {v6_has_pick}) - normal for low-confidence scenarios"
+                else:
+                    return False, "Missing prediction object in unified analysis"
             
             elif "/line-movement/" in endpoint:
                 # Check line movement data structure
