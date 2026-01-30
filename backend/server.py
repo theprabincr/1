@@ -1128,21 +1128,21 @@ async def analyze_game(request: AnalysisRequest):
 async def get_recommendations(
     sport_key: Optional[str] = None, 
     limit: int = 10, 
-    min_odds: float = 1.0,
-    min_confidence: float = 0.60,
+    min_odds: float = 1.5,
+    min_confidence: float = 0.70,
     include_all: bool = False
 ):
-    """Get ML-generated bet recommendations - filtered by 60%+ confidence and time window"""
+    """Get ML-generated bet recommendations - filtered by 70%+ confidence and time window"""
     now = datetime.now(timezone.utc)
     
     # Calculate time window: later today through 3 days from now
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     three_days_later = today_start + timedelta(days=4)  # End of day 3
     
-    # Base query - pending predictions (odds filter is lenient to capture all valid picks)
+    # Base query - pending predictions with valid odds
     query = {
         "result": "pending",
-        "odds_at_prediction": {"$gte": min_odds, "$lte": 100}
+        "odds_at_prediction": {"$gte": min_odds, "$lte": 20}
     }
     
     # Apply 70%+ confidence filter unless include_all is True
