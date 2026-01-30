@@ -7,6 +7,7 @@ import logging
 import httpx
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,14 @@ ESPN_ROSTER_ENDPOINTS = {
     "baseball_mlb": "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/{team_id}/roster",
     "icehockey_nhl": "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/{team_id}/roster",
     "soccer_epl": "https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/teams/{team_id}/roster",
+}
+
+ESPN_TEAM_SCHEDULE = {
+    "basketball_nba": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/{team_id}/schedule",
+    "americanfootball_nfl": "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/{team_id}/schedule",
+    "baseball_mlb": "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/{team_id}/schedule",
+    "icehockey_nhl": "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/{team_id}/schedule",
+    "soccer_epl": "https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/teams/{team_id}/schedule",
 }
 
 ESPN_GAME_SUMMARY = {
