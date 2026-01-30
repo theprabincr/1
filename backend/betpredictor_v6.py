@@ -76,10 +76,14 @@ class BetPredictorV6:
         matchup_data: Dict,
         line_movement_history: List[Dict],
         opening_odds: Dict,
-        current_odds: Dict
+        current_odds: Dict,
+        player_stats: Dict = None  # NEW: Player stats comparison
     ) -> Dict:
         """
         Comprehensive analysis using all V6 features.
+        
+        Args:
+            player_stats: Dict with lineup impact analysis from player_stats.py
         
         Returns:
             Complete prediction with multi-model consensus and detailed analysis
