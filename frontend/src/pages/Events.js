@@ -256,7 +256,6 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
       starters: teamData?.starters || [],
       startersConfirmed: teamData?.starters_confirmed || false,
       injuries: teamData?.injuries || [],
-      keyPlayers: teamData?.roster?.key_players || [],
       // Season record (full season)
       seasonRecord: { wins: seasonWins, losses: seasonLosses },
       // Recent form (last 10 games)
