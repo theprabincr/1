@@ -29,30 +29,27 @@ const navItems = [
   { path: "/settings", icon: Settings, label: "Settings" },
 ];
 
-// Sidebar Component with Live Events
+// Sidebar Component
 const Sidebar = () => {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [dataStatus, setDataStatus] = useState({ source: 'live', lastUpdate: null });
-  const [liveGames, setLiveGames] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [notifRes, statusRes, liveRes] = await Promise.all([
+        const [notifRes, statusRes] = await Promise.all([
           axios.get(`${API}/notifications?unread_only=true&limit=1`),
-          axios.get(`${API}/data-source-status`),
-          axios.get(`${API}/live-scores`)
+          axios.get(`${API}/data-source-status`)
         ]);
         setUnreadNotifications(notifRes.data.unread_count);
         setDataStatus(statusRes.data);
-        setLiveGames(liveRes.data.games || []);
       } catch (error) {
         console.error("Error fetching sidebar data:", error);
       }
     };
     
     fetchData();
-    const interval = setInterval(fetchData, 10000); // Refresh every 10 seconds
+    const interval = setInterval(fetchData, 30000); // Refresh every 30 seconds
     return () => clearInterval(interval);
   }, []);
 
