@@ -111,9 +111,24 @@ const EventCard = ({ event, onCompare }) => {
       <div className="grid grid-cols-2 gap-4 py-3 border-t border-zinc-800">
         <div className="text-center">
           <p className="text-xs text-text-muted mb-1">SPREAD</p>
-          <p className="font-mono font-bold text-brand-primary">
-            {spread !== null ? `${isFavorite ? event.home_team.split(' ').pop() : event.away_team.split(' ').pop()} ${spread > 0 ? '+' : ''}${spread}` : '-'}
-          </p>
+          {spread !== null ? (
+            <div className="space-y-1">
+              <p className="font-mono text-sm">
+                <span className="text-text-muted">{event.away_team.split(' ').pop()}</span>
+                <span className={`ml-2 font-bold ${spread > 0 ? 'text-semantic-success' : 'text-text-primary'}`}>
+                  {spread > 0 ? `+${spread}` : spread}
+                </span>
+              </p>
+              <p className="font-mono text-sm">
+                <span className="text-text-muted">{event.home_team.split(' ').pop()}</span>
+                <span className={`ml-2 font-bold ${spread < 0 ? 'text-semantic-success' : 'text-text-primary'}`}>
+                  {spread < 0 ? `+${Math.abs(spread)}` : `-${spread}`}
+                </span>
+              </p>
+            </div>
+          ) : (
+            <p className="font-mono font-bold text-text-muted">-</p>
+          )}
         </div>
         <div className="text-center">
           <p className="text-xs text-text-muted mb-1">TOTAL</p>
