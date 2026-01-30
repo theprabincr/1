@@ -444,9 +444,9 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
                   <div className="mb-4 p-3 bg-zinc-900 rounded-lg">
                     <p className="text-xs text-text-muted mb-1">SEASON RECORD</p>
                     <p className="text-lg font-mono">
-                      <span className="text-semantic-success">{awayData.form.wins || event.away_record?.split('-')[0] || '0'}</span>
+                      <span className="text-semantic-success">{awayData.seasonRecord.wins}</span>
                       <span className="text-text-muted"> - </span>
-                      <span className="text-semantic-danger">{awayData.form.losses || event.away_record?.split('-')[1] || '0'}</span>
+                      <span className="text-semantic-danger">{awayData.seasonRecord.losses}</span>
                     </p>
                     {awayData.form.streak !== 0 && (
                       <p className={`text-xs mt-1 ${awayData.form.streak > 0 ? 'text-semantic-success' : 'text-semantic-danger'}`}>
