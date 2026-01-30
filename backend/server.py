@@ -48,7 +48,18 @@ from lineup_scraper import (
     get_matchup_context, 
     fetch_team_roster, 
     fetch_starting_lineup,
-    get_full_roster_with_starters
+    get_full_roster_with_starters,
+    get_team_id
+)
+
+# Import player stats module for detailed player analytics
+from player_stats import (
+    fetch_team_player_averages,
+    get_team_player_stats_from_db,
+    update_team_player_stats,
+    calculate_player_impact_score,
+    get_starting_lineup_impact,
+    compare_team_stats
 )
 
 # Import Adaptive Learning System for self-improving ML
