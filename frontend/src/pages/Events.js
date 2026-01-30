@@ -246,14 +246,23 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
   // Get team data from matchup API (real data from ESPN)
   const getTeamData = (isHome) => {
     const teamData = isHome ? matchupData?.home_team : matchupData?.away_team;
+    const eventRecord = isHome ? event.home_record : event.away_record;
+    
+    // Parse season record from stats or event
+    const seasonRecord = teamData?.stats?.record || eventRecord || '0-0';
+    const [seasonWins, seasonLosses] = seasonRecord.split('-').map(n => parseInt(n) || 0);
     
     return {
       starters: teamData?.starters || [],
       startersConfirmed: teamData?.starters_confirmed || false,
       injuries: teamData?.injuries || [],
       keyPlayers: teamData?.roster?.key_players || [],
+      // Season record (full season)
+      seasonRecord: { wins: seasonWins, losses: seasonLosses },
+      // Recent form (last 10 games)
       form: teamData?.form || { wins: 0, losses: 0, streak: 0 },
-      recentGames: teamData?.recent_games || []
+      recentGames: teamData?.recent_games || [],
+      stats: teamData?.stats || {}
     };
   };
 
