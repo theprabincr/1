@@ -514,10 +514,92 @@ async def fetch_starting_lineup(espn_event_id: str, sport_key: str) -> Dict:
     if sport_key not in ESPN_GAME_SUMMARY:
         return result
     
-    url = ESPN_GAME_SUMMARY[sport_key].format(event_id=espn_event_id)
+    # Map sport_key to ESPN league format
+    sport_league_map = {
+        "basketball_nba": "basketball/leagues/nba",
+        "americanfootball_nfl": "football/leagues/nfl",
+        "icehockey_nhl": "hockey/leagues/nhl",
+        "baseball_mlb": "baseball/leagues/mlb"
+    }
+    
+    league_path = sport_league_map.get(sport_key, "basketball/leagues/nba")
     
     async with httpx.AsyncClient(timeout=15.0) as client:
         try:
+            # First try ESPN Core API for pre-game confirmed lineups
+            competitors_url = f"https://sports.core.api.espn.com/v2/sports/{league_path}/events/{espn_event_id}/competitions/{espn_event_id}/competitors"
+            
+            comp_response = await client.get(competitors_url)
+            if comp_response.status_code == 200:
+                comp_data = comp_response.json()
+                items = comp_data.get("items", [])
+                
+                for item in items:
+                    item_ref = item.get("$ref", "")
+                    if not item_ref:
+                        continue
+                    
+                    # Get team details
+                    team_response = await client.get(item_ref)
+                    if team_response.status_code != 200:
+                        continue
+                    
+                    team_data = team_response.json()
+                    home_away = team_data.get("homeAway", "")
+                    team_key = "home" if home_away == "home" else "away"
+                    
+                    # Get team name
+                    team_ref = team_data.get("team", {}).get("$ref", "")
+                    if team_ref:
+                        team_info_resp = await client.get(team_ref)
+                        if team_info_resp.status_code == 200:
+                            team_info = team_info_resp.json()
+                            result[team_key]["team"] = team_info.get("displayName", "")
+                    
+                    # Get roster with starters
+                    roster_ref = team_data.get("roster", {}).get("$ref", "")
+                    if roster_ref:
+                        roster_response = await client.get(roster_ref)
+                        if roster_response.status_code == 200:
+                            roster_data = roster_response.json()
+                            entries = roster_data.get("entries", [])
+                            
+                            starters = []
+                            for entry in entries:
+                                if entry.get("starter", False):
+                                    name = entry.get("displayName", "")
+                                    position = entry.get("position", {})
+                                    pos_abbr = position.get("abbreviation", "") if isinstance(position, dict) else ""
+                                    
+                                    # Get full name from athlete ref if display name is short
+                                    athlete_ref = entry.get("athlete", {}).get("$ref", "")
+                                    if athlete_ref and len(name) < 10:
+                                        try:
+                                            athlete_resp = await client.get(athlete_ref)
+                                            if athlete_resp.status_code == 200:
+                                                athlete_data = athlete_resp.json()
+                                                name = athlete_data.get("displayName", name)
+                                        except:
+                                            pass
+                                    
+                                    starters.append({
+                                        "name": name,
+                                        "position": pos_abbr
+                                    })
+                            
+                            if starters:
+                                result[team_key]["starters"] = starters[:5]
+                                result[team_key]["confirmed"] = True
+                                result["lineup_status"] = "confirmed"
+                                result["message"] = "Starting lineup confirmed (pre-game)"
+                                logger.info(f"✅ Got CONFIRMED starters for {team_key}: {[s['name'] for s in starters[:3]]}")
+                
+                # If we got confirmed lineups, return early
+                if result["home"]["confirmed"] or result["away"]["confirmed"]:
+                    return result
+            
+            # Fall back to regular game summary API
+            url = ESPN_GAME_SUMMARY[sport_key].format(event_id=espn_event_id)
             response = await client.get(url)
             if response.status_code != 200:
                 return result
