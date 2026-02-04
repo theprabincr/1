@@ -28,7 +28,8 @@ const AnalysisSection = ({ analysisText, defaultExpanded = false }) => {
       'PREDICTION OVERVIEW', 'MODEL AGREEMENT', 'TEAM STRENGTH',
       'RECENT FORM & RECORDS', 'SITUATIONAL FACTORS', 'INJURY IMPACT',
       'LINE MOVEMENT', 'SIMULATION RESULTS', 'WHY THIS BET TYPE',
-      'KEY FACTORS', 'V5 LINE MOVEMENT'
+      'KEY FACTORS', 'V5 LINE MOVEMENT', 'XGBOOST ML PREDICTION',
+      'MODERATE CONSENSUS', 'XGB ONLY'
     ];
     
     lines.forEach((line) => {
