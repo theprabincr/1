@@ -2757,6 +2757,330 @@ async def get_upcoming_predictions_window(sport_key: str = "basketball_nba"):
         return {"games": [], "count": 0}
 
 
+# ==================== XGBOOST ML ENDPOINTS ====================
+# Real machine learning with XGBoost for enhanced predictions
+
+@api_router.get("/ml/status")
+async def get_ml_status():
+    """Get status of ML models for all sports"""
+    status = {}
+    
+    for sport_key in ["basketball_nba", "americanfootball_nfl", "icehockey_nhl"]:
+        predictor = get_predictor(sport_key)
+        
+        status[sport_key] = {
+            "model_loaded": predictor.is_loaded,
+            "accuracy": predictor.training_accuracy if predictor.is_loaded else None,
+            "last_trained": predictor.last_trained,
+            "model_type": "XGBoost" if predictor.is_loaded else None
+        }
+    
+    # Get historical data counts
+    historical_counts = {}
+    for sport_key in ["basketball_nba", "americanfootball_nfl", "icehockey_nhl"]:
+        count = await db.historical_games.count_documents({"sport_key": sport_key})
+        historical_counts[sport_key] = count
+    
+    return {
+        "models": status,
+        "historical_data": historical_counts,
+        "features_used": 32,  # Number of features in the model
+        "model_type": "XGBoostClassifier"
+    }
+
+
+@api_router.post("/ml/collect-historical")
+async def collect_historical_data(sport_key: str = "basketball_nba", season: str = "2024"):
+    """
+    Collect 1 season of historical data from ESPN for model training.
+    
+    Args:
+        sport_key: Sport to collect data for
+        season: Season year (e.g., "2024" for 2024-25 season)
+    
+    This may take a few minutes as it fetches data from ESPN.
+    """
+    logger.info(f"📊 Starting historical data collection for {sport_key} season {season}...")
+    
+    try:
+        collector = HistoricalDataCollector(db)
+        
+        # Check if we already have cached data
+        cached = await collector.get_cached_historical_data(sport_key, season)
+        if cached and len(cached) > 100:
+            return {
+                "message": f"Historical data already cached",
+                "sport_key": sport_key,
+                "season": season,
+                "games_cached": len(cached),
+                "note": "Use force=true to re-fetch from ESPN"
+            }
+        
+        # Fetch from ESPN
+        games = await collector.fetch_season_data(sport_key, season)
+        
+        return {
+            "message": f"Historical data collection complete",
+            "sport_key": sport_key,
+            "season": season,
+            "games_collected": len(games),
+            "next_step": "Use POST /api/ml/train to train the model"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error collecting historical data: {e}")
+        raise HTTPException(status_code=500, detail=f"Data collection failed: {str(e)}")
+
+
+@api_router.post("/ml/train")
+async def train_ml_model(sport_key: str = "basketball_nba", rebuild_elo: bool = True):
+    """
+    Train XGBoost model on collected historical data.
+    
+    Args:
+        sport_key: Sport to train model for
+        rebuild_elo: Whether to rebuild ELO ratings from historical data
+    
+    Requires historical data to be collected first via /api/ml/collect-historical
+    """
+    logger.info(f"🚀 Starting ML training for {sport_key}...")
+    
+    try:
+        # Get historical data
+        collector = HistoricalDataCollector(db)
+        games = await collector.get_cached_historical_data(sport_key)
+        
+        if len(games) < 50:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient training data: {len(games)} games (need 50+). Run /api/ml/collect-historical first."
+            )
+        
+        # Optionally rebuild ELO from historical games
+        if rebuild_elo:
+            logger.info("🔄 Rebuilding ELO ratings from historical data...")
+            elo_system = await get_elo_system(db, sport_key)
+            await elo_system.rebuild_elos_from_history(games)
+        
+        # Train XGBoost model
+        predictor = get_predictor(sport_key)
+        metrics = predictor.train(games)
+        
+        if metrics.get("success"):
+            xgboost_predictors[sport_key] = predictor
+            
+            return {
+                "message": "Model training complete",
+                "sport_key": sport_key,
+                "metrics": metrics
+            }
+        else:
+            raise HTTPException(status_code=500, detail=metrics.get("error", "Training failed"))
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error training model: {e}")
+        raise HTTPException(status_code=500, detail=f"Training failed: {str(e)}")
+
+
+@api_router.post("/ml/predict/{event_id}")
+async def ml_predict_game(event_id: str, sport_key: str = "basketball_nba"):
+    """
+    Get XGBoost ML prediction for a specific game.
+    
+    Returns probability of home team winning with confidence score.
+    """
+    try:
+        # Get event data
+        events = await fetch_espn_events_with_odds(sport_key, days_ahead=7)
+        event = next((e for e in events if e.get("id") == event_id), None)
+        
+        if not event:
+            raise HTTPException(status_code=404, detail=f"Event {event_id} not found")
+        
+        # Get matchup data
+        matchup_data = await get_comprehensive_matchup_data(event, sport_key)
+        
+        # Get predictor
+        predictor = get_predictor(sport_key)
+        
+        if not predictor.is_loaded:
+            return {
+                "event_id": event_id,
+                "home_team": event.get("home_team"),
+                "away_team": event.get("away_team"),
+                "prediction": None,
+                "error": "Model not trained. Run /api/ml/train first."
+            }
+        
+        # Build team data for prediction
+        home_team_data = {
+            "elo_rating": matchup_data.get("home_team", {}).get("elo_rating", 1500),
+            "form": matchup_data.get("home_team", {}).get("form", {}),
+            "stats": matchup_data.get("home_team", {}).get("stats", {})
+        }
+        
+        away_team_data = {
+            "elo_rating": matchup_data.get("away_team", {}).get("elo_rating", 1500),
+            "form": matchup_data.get("away_team", {}).get("form", {}),
+            "stats": matchup_data.get("away_team", {}).get("stats", {})
+        }
+        
+        odds_data = event.get("odds", {})
+        
+        # Get prediction
+        prediction = predictor.predict(home_team_data, away_team_data, odds_data)
+        
+        # Determine pick
+        home_prob = prediction.get("home_win_prob", 0.5)
+        pick = None
+        pick_confidence = 0
+        
+        if home_prob >= 0.55:
+            pick = event.get("home_team")
+            pick_confidence = home_prob
+        elif home_prob <= 0.45:
+            pick = event.get("away_team")
+            pick_confidence = 1 - home_prob
+        
+        return {
+            "event_id": event_id,
+            "home_team": event.get("home_team"),
+            "away_team": event.get("away_team"),
+            "commence_time": event.get("commence_time"),
+            "prediction": prediction,
+            "pick": pick,
+            "pick_confidence": round(pick_confidence * 100, 1) if pick else None,
+            "model_accuracy": predictor.training_accuracy
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in ML prediction: {e}")
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
+
+
+@api_router.post("/ml/backtest")
+async def run_backtest(sport_key: str = "basketball_nba", threshold: float = 0.55):
+    """
+    Run backtest on historical data to validate model performance.
+    
+    Args:
+        sport_key: Sport to backtest
+        threshold: Probability threshold for making picks (default 0.55)
+    
+    Returns ROI, accuracy, and other metrics on historical data.
+    """
+    try:
+        # Get historical data
+        collector = HistoricalDataCollector(db)
+        games = await collector.get_cached_historical_data(sport_key)
+        
+        if len(games) < 50:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient data for backtest: {len(games)} games"
+            )
+        
+        # Get predictor
+        predictor = get_predictor(sport_key)
+        
+        if not predictor.is_loaded:
+            raise HTTPException(
+                status_code=400,
+                detail="Model not trained. Run /api/ml/train first."
+            )
+        
+        # Split data - use last 20% for backtest (out-of-sample)
+        sorted_games = sorted(games, key=lambda x: x.get("date", ""))
+        split_idx = int(len(sorted_games) * 0.8)
+        test_data = sorted_games[split_idx:]
+        
+        # Run backtest
+        backtester = Backtester(predictor)
+        results = backtester.backtest(test_data, threshold)
+        
+        return {
+            "message": "Backtest complete",
+            "sport_key": sport_key,
+            "threshold": threshold,
+            "test_period": {
+                "games": len(test_data),
+                "start_date": test_data[0].get("date") if test_data else None,
+                "end_date": test_data[-1].get("date") if test_data else None
+            },
+            "results": results
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in backtest: {e}")
+        raise HTTPException(status_code=500, detail=f"Backtest failed: {str(e)}")
+
+
+@api_router.get("/ml/elo-ratings")
+async def get_elo_ratings(sport_key: str = "basketball_nba"):
+    """Get current ELO ratings for all teams in a sport"""
+    try:
+        elo_system = await get_elo_system(db, sport_key)
+        ratings = await elo_system.get_all_elos()
+        
+        # Sort by rating descending
+        sorted_ratings = sorted(ratings.items(), key=lambda x: x[1], reverse=True)
+        
+        return {
+            "sport_key": sport_key,
+            "teams": [{"team": team, "elo": round(elo, 0)} for team, elo in sorted_ratings],
+            "count": len(sorted_ratings)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting ELO ratings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/ml/update-elo-from-result")
+async def update_elo_from_result(
+    sport_key: str,
+    home_team: str,
+    away_team: str,
+    home_score: int,
+    away_score: int,
+    game_date: str = None
+):
+    """
+    Manually update ELO ratings from a game result.
+    This is usually done automatically when results are synced.
+    """
+    try:
+        elo_system = await get_elo_system(db, sport_key)
+        
+        if game_date is None:
+            game_date = datetime.now(timezone.utc).isoformat()
+        
+        await elo_system.update_from_game_result(
+            home_team, away_team, home_score, away_score, game_date
+        )
+        
+        # Get updated ratings
+        home_elo = await elo_system.get_team_elo(home_team)
+        away_elo = await elo_system.get_team_elo(away_team)
+        
+        return {
+            "message": "ELO ratings updated",
+            "home_team": {"name": home_team, "elo": round(home_elo, 0)},
+            "away_team": {"name": away_team, "elo": round(away_elo, 0)},
+            "result": f"{home_team} {home_score} - {away_score} {away_team}"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error updating ELO: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ==================== MY BETS TRACKING ====================
 # User's actual bet performance tracking
 
