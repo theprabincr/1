@@ -422,7 +422,7 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
               {/* Betting Lines */}
               <div className="bg-zinc-800 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-4">
-                  <TrendingUp className="w-5 h-5 text-semantic-success" />
+                  <BarChart3 className="w-5 h-5 text-semantic-success" />
                   <span className="font-semibold text-text-primary">Betting Lines</span>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
