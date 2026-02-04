@@ -2661,7 +2661,7 @@ async def analyze_event_unified(event_id: str, sport_key: str = "basketball_nba"
             current_odds
         )
         
-        # Save prediction if it has a pick
+        # Save prediction if it has a pick - USE UPSERT TO PREVENT DUPLICATES
         if prediction.get("has_pick"):
             prediction_doc = {
                 "id": str(uuid.uuid4()),
@@ -2684,8 +2684,34 @@ async def analyze_event_unified(event_id: str, sport_key: str = "basketball_nba"
                 "predicted_outcome": prediction.get("pick", "")  # For result tracking
             }
             
-            await db.predictions.insert_one(prediction_doc)
-            logger.info(f"✅ Unified prediction saved: {prediction.get('pick')} at {prediction.get('confidence')}% confidence")
+            # UPSERT: Update if exists, insert if not (prevents duplicates)
+            existing = await db.predictions.find_one({
+                "event_id": event_id,
+                "ai_model": "unified"
+            })
+            
+            if existing:
+                # Update existing prediction
+                await db.predictions.update_one(
+                    {"event_id": event_id, "ai_model": "unified"},
+                    {"$set": {
+                        "prediction": prediction_doc["prediction"],
+                        "confidence": prediction_doc["confidence"],
+                        "odds": prediction_doc["odds"],
+                        "odds_at_prediction": prediction_doc["odds_at_prediction"],
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                        "prediction_type": prediction_doc["prediction_type"],
+                        "reasoning": prediction_doc["reasoning"],
+                        "edge": prediction_doc["edge"],
+                        "consensus_level": prediction_doc["consensus_level"],
+                        "predicted_outcome": prediction_doc["predicted_outcome"]
+                    }}
+                )
+                logger.info(f"📝 Updated unified prediction for {event_id}: {prediction.get('pick')}")
+            else:
+                # Insert new prediction
+                await db.predictions.insert_one(prediction_doc)
+                logger.info(f"✅ Unified prediction saved: {prediction.get('pick')} at {prediction.get('confidence')}% confidence")
             
             # 🧠 ADAPTIVE LEARNING: Store individual model predictions
             if adaptive_learning:
