@@ -37,10 +37,13 @@ STATUS_MAP = {
 }
 
 
-async def fetch_espn_events_with_odds(sport_key: str, days_ahead: int = 3) -> List[Dict]:
+async def fetch_espn_events_with_odds(sport_key: str, days_ahead: int = 7) -> List[Dict]:
     """
     Fetch upcoming events with REAL odds from ESPN API
     Returns events with commence_time, odds (spread, ML, total), teams, venue
+    
+    Note: days_ahead defaults to 7 to capture events like Super Bowl which can be
+    several days away during NFL playoffs/post-season
     """
     if sport_key not in SPORT_CONFIG:
         logger.warning(f"Sport {sport_key} not configured for ESPN")
