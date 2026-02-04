@@ -406,6 +406,9 @@ class APITester:
         print("-" * 50)
         self.test_multiple_sports()
         
+        # ML ENDPOINTS (NEW XGBoost Integration)
+        self.test_ml_endpoints()
+        
         # PREDICTION ALGORITHM (MOST IMPORTANT)
         self.test_prediction_algorithm()
         
