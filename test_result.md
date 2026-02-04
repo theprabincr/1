@@ -350,8 +350,50 @@ Events.js line 258 should call `/analyze-unified/` endpoint instead of `/analyze
 
 ---
 
+## Dashboard and Events Modal Fixes Testing Results (February 4, 2026)
+
+### ✅ DASHBOARD TEST: XGBoost ML Models Header - PASSED
+
+**COMPACT ML STATUS WIDGET VERIFICATION:**
+- ✅ **XGBoost ML Models info NOW in header area**: Compact, inline widget found with purple border
+- ✅ **Small indicators with percentages**: NBA 65%, NFL 78%, NHL 65% displayed correctly
+- ✅ **Green status dots**: Multiple green status indicators showing model loaded status
+- ✅ **Compact design**: Widget height < 100px, properly inline with Dashboard title
+- ✅ **NO large separate section**: Old large ML widget implementation successfully removed
+
+### ✅ EVENTS MODAL TEST: Toronto Raptors vs Minnesota Timberwolves - PARTIALLY PASSED
+
+**GAME MODAL VERIFICATION:**
+- ✅ **Toronto Raptors vs Minnesota Timberwolves game**: Successfully found and opened
+- ✅ **Modal opens correctly**: Game details, betting lines, venue info displayed
+- ✅ **Team comparison sections**: Season records (31-20 vs 30-21), projected lineups, injury reports
+- ✅ **Comprehensive game data**: Moneyline, spread, totals, venue (Scotiabank Arena), indoor status
+
+**V6 DETAILED ANALYSIS SECTIONS STATUS:**
+- ❌ **TEAM STRENGTH**: Not found in current modal
+- ❌ **RECENT FORM & RECORDS**: Not found in current modal  
+- ❌ **SITUATIONAL FACTORS**: Not found in current modal
+- ❌ **INJURY IMPACT**: Not found in current modal
+- ❌ **SIMULATION RESULTS**: Not found in current modal
+- ❌ **KEY FACTORS**: Not found in current modal
+- ❌ **ML ENHANCED badge**: Not displayed in current modal
+- ❌ **XGBoost ML Prediction section**: Not displayed in current modal
+
+**ROOT CAUSE ANALYSIS:**
+The modal shows comprehensive game information (teams, records, lineups, injuries, betting lines) but the V6 DETAILED ANALYSIS sections with ML predictions are not loading. This suggests:
+1. Analysis may not be generated yet (games are 40+ minutes away)
+2. API endpoint may not be returning analysis data
+3. Frontend may not be calling the correct analysis endpoint
+
+### Testing Agent Communication
+**Testing Agent Report (February 4, 2026):**
+- ✅ **DASHBOARD FIXES VERIFIED**: XGBoost ML Models successfully moved to compact header widget
+- ✅ **EVENTS MODAL BASIC FUNCTIONALITY**: Toronto Raptors vs Minnesota Timberwolves modal opens correctly
+- ❌ **V6 DETAILED ANALYSIS MISSING**: Analysis sections not displaying in events modal
+- 🔧 **INVESTIGATION NEEDED**: Check if analysis API is being called and returning data for events modal
+
 ## Deployment Status
-✅ **DEPLOYMENT READY** - Consolidated Reasoning Text Verified
+✅ **DEPLOYMENT READY** - Dashboard Fixes Verified, Events Modal Needs Analysis Investigation
 - All services running
 - Database connected  
 - ESPN data source active
@@ -360,4 +402,5 @@ Events.js line 258 should call `/analyze-unified/` endpoint instead of `/analyze
 - **✅ XGBoost Favored Outcomes Feature Working Correctly**
 - **✅ V6 Predictor Reasoning Text Fixes Working Correctly**
 - **✅ Consolidated Reasoning Text in Events Modal Working Correctly**
-- **PREVIOUS BLOCKER RESOLVED**: ML enhancement UI issue (separate from V6 predictor fixes)
+- **✅ Dashboard XGBoost ML Header Compact Widget Working Correctly**
+- **⚠️ INVESTIGATION NEEDED**: Events modal V6 detailed analysis sections not displaying
