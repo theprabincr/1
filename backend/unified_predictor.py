@@ -340,6 +340,7 @@ class UnifiedBetPredictor:
         """
         Combine predictions when XGBoost ML is available.
         Now supports all three markets: Moneyline, Spread, Totals.
+        Returns FAVORED OUTCOMES for display (not just home team perspective).
         """
         xgb_pick = xgb_result.get("pick")
         xgb_pick_type = xgb_result.get("pick_type", "moneyline")
@@ -347,11 +348,28 @@ class UnifiedBetPredictor:
         xgb_conf = xgb_result.get("confidence", 50) / 100
         xgb_best_market = xgb_result.get("best_market", "moneyline")
         
-        # All market probabilities
+        # ===== FAVORED OUTCOMES (NEW - FOR DISPLAY) =====
+        # Moneyline - favored team to win
+        ml_favored_team = xgb_result.get("ml_favored_team", home_team)
+        ml_favored_prob = xgb_result.get("ml_favored_prob", 0.5)
+        ml_underdog_team = xgb_result.get("ml_underdog_team", away_team)
+        ml_underdog_prob = xgb_result.get("ml_underdog_prob", 0.5)
+        
+        # Spread - favored team to cover
+        spread_favored_team = xgb_result.get("spread_favored_team", home_team)
+        spread_favored_prob = xgb_result.get("spread_favored_prob", 0.5)
+        spread_favored_line = xgb_result.get("spread_favored_line", 0)
+        
+        # Totals - favored direction
+        totals_favored = xgb_result.get("totals_favored", "OVER")
+        totals_favored_prob = xgb_result.get("totals_favored_prob", 0.5)
+        totals_line = xgb_result.get("totals_line", 220)
+        predicted_total = xgb_result.get("predicted_total", 220)
+        
+        # Raw probabilities (backward compat)
         ml_prob = xgb_result.get("ml_probability", 0.5)
         spread_prob = xgb_result.get("spread_probability", 0.5)
         over_prob = xgb_result.get("over_probability", 0.5)
-        predicted_total = xgb_result.get("predicted_total", 220)
         
         # Market accuracies
         ml_accuracy = xgb_result.get("ml_accuracy", 0)
@@ -400,28 +418,23 @@ class UnifiedBetPredictor:
             consensus_level = "xgb_only"
             logger.info(f"  ⚠️ XGB ONLY: Only XGBoost picks {xgb_pick_display}")
         
-        # Calculate edge based on market type
+        # Calculate edge based on market type (use favored probabilities)
         odds_data = event.get("odds", {})
         
         if xgb_pick_type == "moneyline":
+            # Edge is based on favored team's probability vs implied odds
             if xgb_pick == home_team:
                 pick_odds = odds_data.get("home_ml_decimal", 1.91)
-                edge = ml_prob - (1 / pick_odds if pick_odds > 1 else 0.5)
             else:
                 pick_odds = odds_data.get("away_ml_decimal", 1.91)
-                edge = (1 - ml_prob) - (1 / pick_odds if pick_odds > 1 else 0.5)
+            implied_prob = 1 / pick_odds if pick_odds > 1 else 0.5
+            edge = ml_favored_prob - implied_prob
         elif xgb_pick_type == "spread":
             pick_odds = 1.91  # Standard -110
-            if xgb_pick == home_team:
-                edge = spread_prob - 0.524  # Break-even at -110
-            else:
-                edge = (1 - spread_prob) - 0.524
+            edge = spread_favored_prob - 0.524  # Break-even at -110
         elif xgb_pick_type == "totals":
             pick_odds = 1.91
-            if xgb_pick == "OVER":
-                edge = over_prob - 0.524
-            else:
-                edge = (1 - over_prob) - 0.524
+            edge = totals_favored_prob - 0.524
         else:
             pick_odds = 1.91
             edge = 0
@@ -446,17 +459,37 @@ class UnifiedBetPredictor:
                 "xgb_agrees": True,
                 "v5_agrees": v5_pick == xgb_pick if v5_pick else False,
                 "v6_agrees": v6_pick == xgb_pick if v6_pick else False,
-                # All market probabilities
+                
+                # ===== FAVORED OUTCOMES (NEW - DISPLAY THESE) =====
+                # Moneyline
+                "ml_favored_team": ml_favored_team,
+                "ml_favored_prob": round(ml_favored_prob, 4),
+                "ml_underdog_team": ml_underdog_team,
+                "ml_underdog_prob": round(ml_underdog_prob, 4),
+                
+                # Spread
+                "spread_favored_team": spread_favored_team,
+                "spread_favored_prob": round(spread_favored_prob, 4),
+                "spread_favored_line": spread_favored_line,
+                
+                # Totals
+                "totals_favored": totals_favored,
+                "totals_favored_prob": round(totals_favored_prob, 4),
+                "totals_line": totals_line,
+                
+                # Raw probabilities (backward compat)
                 "xgb_probability": round(ml_prob, 3),
                 "xgb_spread_probability": round(spread_prob, 3),
                 "xgb_over_probability": round(over_prob, 3),
                 "xgb_predicted_total": predicted_total,
                 "xgb_best_market": xgb_best_market,
+                
                 # Accuracies
                 "xgb_ml_accuracy": ml_accuracy,
                 "xgb_spread_accuracy": spread_accuracy,
                 "xgb_totals_accuracy": totals_accuracy,
                 "xgb_model_accuracy": ml_accuracy,  # Backward compat
+                
                 # Lines
                 "spread_line": spread_line,
                 "total_line": total_line,
@@ -481,7 +514,25 @@ class UnifiedBetPredictor:
                 "reasoning": f"XGBoost picked {xgb_pick} but: {'; '.join(reason)}",
                 "algorithm": "unified_xgboost",
                 "xgb_pick": xgb_pick,
-                "xgb_probability": xgb_prob,
+                
+                # ===== FAVORED OUTCOMES (NEW - DISPLAY THESE EVEN WITHOUT PICK) =====
+                # Moneyline
+                "ml_favored_team": ml_favored_team,
+                "ml_favored_prob": round(ml_favored_prob, 4),
+                "ml_underdog_team": ml_underdog_team,
+                "ml_underdog_prob": round(ml_underdog_prob, 4),
+                
+                # Spread
+                "spread_favored_team": spread_favored_team,
+                "spread_favored_prob": round(spread_favored_prob, 4),
+                "spread_favored_line": spread_favored_line,
+                
+                # Totals
+                "totals_favored": totals_favored,
+                "totals_favored_prob": round(totals_favored_prob, 4),
+                "totals_line": totals_line,
+                
+                "xgb_probability": round(ml_prob, 3),
                 "weighted_confidence": round(weighted_conf * 100, 1),
                 "edge": round(edge * 100, 1),
                 "v5_analysis": v5_result,
