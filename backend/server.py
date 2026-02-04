@@ -4053,12 +4053,27 @@ async def scheduled_espn_odds_refresh():
 @app.on_event("startup")
 async def startup_event():
     """Start background tasks on app startup"""
-    global adaptive_learning
+    global adaptive_learning, xgboost_predictors, historical_collector
     
     # Initialize Adaptive Learning System
     logger.info("🧠 Initializing Adaptive Learning System...")
     adaptive_learning = await create_adaptive_learning_system(db)
     logger.info("✅ Adaptive Learning System ready - models will now learn from results!")
+    
+    # Initialize XGBoost ML System
+    logger.info("🤖 Initializing XGBoost ML System...")
+    historical_collector = HistoricalDataCollector(db)
+    
+    # Load pre-trained models for each sport
+    for sport_key in ["basketball_nba", "americanfootball_nfl", "icehockey_nhl"]:
+        predictor = get_predictor(sport_key)
+        if predictor.is_loaded:
+            logger.info(f"  ✅ Loaded XGBoost model for {sport_key} (accuracy: {predictor.training_accuracy:.1%})")
+        else:
+            logger.info(f"  ⚠️ No trained model for {sport_key} - use /api/ml/train to train")
+        xgboost_predictors[sport_key] = predictor
+    
+    logger.info("✅ XGBoost ML System initialized")
     
     # Run immediate cleanup for completed/started events on startup
     logger.info("🧹 Running startup cleanup for completed events...")
