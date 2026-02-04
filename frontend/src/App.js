@@ -12,18 +12,23 @@ import {
 // Ballzy Logo Component - Premium sports betting aesthetic
 const BallzyLogo = ({ className = "w-10 h-10" }) => (
   <svg className={className} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-    {/* Background circle with gradient */}
-    <circle cx="20" cy="20" r="20" fill="url(#bgGrad)"/>
-    {/* Dynamic swoosh/motion lines */}
-    <path d="M8 20 Q14 14, 20 14 Q26 14, 32 20" stroke="#CCFF00" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-    <path d="M8 20 Q14 26, 20 26 Q26 26, 32 20" stroke="#CCFF00" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-    {/* Center ball/dot */}
-    <circle cx="20" cy="20" r="5" fill="#CCFF00"/>
-    <circle cx="20" cy="20" r="2" fill="#18181B"/>
+    {/* Background with subtle gradient */}
+    <rect width="40" height="40" rx="10" fill="url(#bgGrad)"/>
+    {/* Stylized "B" with ball integration */}
+    <path 
+      d="M12 8 L12 32 M12 8 L22 8 C28 8 30 12 30 15 C30 18 28 20 22 20 L12 20 M12 20 L24 20 C30 20 32 24 32 27 C32 31 29 32 24 32 L12 32" 
+      stroke="#CCFF00" 
+      strokeWidth="3.5" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+      fill="none"
+    />
+    {/* Ball accent */}
+    <circle cx="32" cy="8" r="5" fill="#CCFF00"/>
     <defs>
       <linearGradient id="bgGrad" x1="0" y1="0" x2="40" y2="40">
-        <stop offset="0%" stopColor="#27272A"/>
-        <stop offset="100%" stopColor="#18181B"/>
+        <stop offset="0%" stopColor="#1F1F23"/>
+        <stop offset="100%" stopColor="#09090B"/>
       </linearGradient>
     </defs>
   </svg>
