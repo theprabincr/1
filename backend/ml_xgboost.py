@@ -313,25 +313,27 @@ class XGBoostPredictor:
         # Cross-validation
         cv_scores = cross_val_score(self.model, X_scaled, y, cv=5, scoring='accuracy')
         
-        # Feature importance
-        feature_importance = dict(zip(FEATURE_NAMES, self.model.feature_importances_))
+        # Feature importance - convert numpy to Python types
+        feature_importance = dict(zip(FEATURE_NAMES, [float(x) for x in self.model.feature_importances_]))
         top_features = sorted(feature_importance.items(), key=lambda x: x[1], reverse=True)[:10]
+        # Convert tuples to lists for JSON serialization
+        top_features = [[name, round(float(importance), 4)] for name, importance in top_features]
         
         # Save model
-        self.save_model(accuracy)
+        self.save_model(float(accuracy))
         self.is_loaded = True
         
         metrics = {
             "success": True,
-            "training_samples": len(X_train),
-            "test_samples": len(X_test),
-            "accuracy": round(accuracy, 4),
-            "precision": round(precision, 4),
-            "recall": round(recall, 4),
-            "f1_score": round(f1, 4),
-            "auc_roc": round(auc, 4),
-            "cv_mean": round(cv_scores.mean(), 4),
-            "cv_std": round(cv_scores.std(), 4),
+            "training_samples": int(len(X_train)),
+            "test_samples": int(len(X_test)),
+            "accuracy": round(float(accuracy), 4),
+            "precision": round(float(precision), 4),
+            "recall": round(float(recall), 4),
+            "f1_score": round(float(f1), 4),
+            "auc_roc": round(float(auc), 4),
+            "cv_mean": round(float(cv_scores.mean()), 4),
+            "cv_std": round(float(cv_scores.std()), 4),
             "top_features": top_features,
             "trained_at": datetime.now(timezone.utc).isoformat()
         }
