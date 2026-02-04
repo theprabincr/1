@@ -202,8 +202,8 @@ class APITester:
                 if not model_available:
                     return False, "Model not available for prediction"
                 
-                if method != 'xgboost':
-                    return False, f"Expected method 'xgboost', got '{method}'"
+                if method not in ['xgboost', 'xgboost_multi_market']:
+                    return False, f"Expected method 'xgboost' or 'xgboost_multi_market', got '{method}'"
                 
                 if home_win_prob < 0.7 or home_win_prob > 0.85:
                     return False, f"Expected home_win_prob around 0.78, got {home_win_prob}"
