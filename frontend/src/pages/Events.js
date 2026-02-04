@@ -680,55 +680,6 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
                 </div>
               )}
 
-              {/* Key Factors / Context */}
-              {(contextFactors.length > 0 || analysis?.prediction) && (
-                <div className="bg-zinc-800 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Zap className="w-5 h-5 text-brand-primary" />
-                    <span className="font-semibold text-text-primary">Key Factors</span>
-                  </div>
-                  <div className="grid md:grid-cols-2 gap-3">
-                    {/* Home Court Advantage */}
-                    <div className="flex items-center gap-3 p-3 bg-zinc-900 rounded-lg">
-                      <Home className="w-5 h-5 text-blue-400" />
-                      <div>
-                        <p className="text-text-primary text-sm font-semibold">Home Court Advantage</p>
-                        <p className="text-text-muted text-xs">{event.home_team} playing at home</p>
-                      </div>
-                    </div>
-                    
-                    {/* Rest Days */}
-                    <div className="flex items-center gap-3 p-3 bg-zinc-900 rounded-lg">
-                      <Clock className="w-5 h-5 text-green-400" />
-                      <div>
-                        <p className="text-text-primary text-sm font-semibold">Rest Factor</p>
-                        <p className="text-text-muted text-xs">Both teams on regular rest</p>
-                      </div>
-                    </div>
-                    
-                    {/* Head to Head */}
-                    <div className="flex items-center gap-3 p-3 bg-zinc-900 rounded-lg">
-                      <Users className="w-5 h-5 text-purple-400" />
-                      <div>
-                        <p className="text-text-primary text-sm font-semibold">Head-to-Head</p>
-                        <p className="text-text-muted text-xs">Season series data</p>
-                      </div>
-                    </div>
-                    
-                    {/* Line Movement */}
-                    <div className="flex items-center gap-3 p-3 bg-zinc-900 rounded-lg">
-                      <TrendingUp className="w-5 h-5 text-semantic-success" />
-                      <div>
-                        <p className="text-text-primary text-sm font-semibold">Line Movement</p>
-                        <p className="text-text-muted text-xs">
-                          {lineMovement?.movement_direction === 'favorable' ? '📈 Sharp money detected' : 'Stable odds'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Analysis Preview */}
               {analysis?.prediction?.has_pick ? (
                 <div className="bg-gradient-to-r from-brand-primary/10 to-brand-secondary/10 rounded-lg p-4 border border-brand-primary/30">
