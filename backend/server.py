@@ -380,7 +380,7 @@ async def create_test_notification():
     """Create a test notification to verify the system works"""
     await create_notification(
         "recommendation",
-        "Welcome to BetPredictor!",
+        "Welcome to Ballzy!",
         "Notifications are working correctly. You'll receive alerts for line movements and bet results.",
         {"test": True}
     )
@@ -594,7 +594,7 @@ async def export_performance_report():
 # Routes
 @api_router.get("/")
 async def root():
-    return {"message": "BetPredictor API v1.0", "status": "running"}
+    return {"message": "Ballzy API v1.0", "status": "running"}
 
 @api_router.get("/sports", response_model=List[Sport])
 async def list_sports():
