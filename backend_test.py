@@ -277,6 +277,36 @@ class APITester:
         self.test_endpoint("POST", "/refresh-odds", 
                          description="Manual odds refresh")
 
+    def test_ml_endpoints(self):
+        """Test ML (Machine Learning) endpoints"""
+        print("\n🤖 TESTING ML ENDPOINTS (XGBoost Integration)")
+        print("-" * 50)
+        
+        # Test ML status endpoint
+        self.test_endpoint("GET", "/ml/status", 
+                         description="ML model status - should show basketball_nba model loaded with ~65% accuracy",
+                         validate_prediction=True)
+        
+        # Test ML predict endpoint with specific event ID
+        self.test_endpoint("POST", "/ml/predict/401810581?sport_key=basketball_nba", 
+                         description="XGBoost prediction for specific event - should return home_win_prob ~0.78",
+                         validate_prediction=True)
+        
+        # Test ML backtest endpoint
+        self.test_endpoint("POST", "/ml/backtest?sport_key=basketball_nba&threshold=0.55", 
+                         description="ML backtest results - should show accuracy > 0.5, picks_made > 0, ROI value",
+                         validate_prediction=True)
+        
+        # Test ELO ratings endpoint
+        self.test_endpoint("GET", "/ml/elo-ratings?sport_key=basketball_nba", 
+                         description="ELO ratings for NBA teams",
+                         validate_prediction=True)
+        
+        # Test unified analysis with XGBoost integration
+        self.test_endpoint("POST", "/analyze-unified/401810581?sport_key=basketball_nba", 
+                         description="Unified analysis with XGBoost - should show algorithm: unified_xgboost, xgb_probability, consensus_level",
+                         validate_prediction=True)
+
     def run_all_tests(self):
         """Run comprehensive API endpoint tests"""
         print("=" * 60)
