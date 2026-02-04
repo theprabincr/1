@@ -4542,6 +4542,10 @@ async def startup_event():
     # Start player stats updater
     asyncio.create_task(scheduled_player_stats_updater())
     logger.info("📈 Started player stats updater - updates player stats every 6 hours")
+    
+    # Start weekly ML retraining scheduler
+    asyncio.create_task(scheduled_ml_retraining())
+    logger.info("🤖 Started weekly ML retraining scheduler - retrains models every Sunday 3 AM UTC")
 
 
 async def scheduled_player_stats_updater():
