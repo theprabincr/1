@@ -2934,20 +2934,29 @@ async def ml_predict_game(event_id: str, sport_key: str = "basketball_nba"):
         
         odds_data = event.get("odds", {})
         
-        # Get prediction
-        prediction = predictor.predict(home_team_data, away_team_data, odds_data)
+        # Get team names for display
+        home_team_name = event.get("home_team")
+        away_team_name = event.get("away_team")
         
-        # Determine pick
-        home_prob = prediction.get("home_win_prob", 0.5)
+        # Get prediction - NOW WITH TEAM NAMES
+        prediction = predictor.predict(
+            home_team_data, 
+            away_team_data, 
+            odds_data,
+            home_team_name=home_team_name,
+            away_team_name=away_team_name
+        )
+        
+        # Determine pick using FAVORED outcome
+        ml_favored_team = prediction.get("ml_favored_team", home_team_name)
+        ml_favored_prob = prediction.get("ml_favored_prob", 0.5)
+        
         pick = None
         pick_confidence = 0
         
-        if home_prob >= 0.55:
-            pick = event.get("home_team")
-            pick_confidence = home_prob
-        elif home_prob <= 0.45:
-            pick = event.get("away_team")
-            pick_confidence = 1 - home_prob
+        if ml_favored_prob >= 0.55:
+            pick = ml_favored_team
+            pick_confidence = ml_favored_prob
         
         return {
             "event_id": event_id,
