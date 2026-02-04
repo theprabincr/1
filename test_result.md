@@ -211,6 +211,39 @@ Events.js line 258 should call `/analyze-unified/` endpoint instead of `/analyze
 
 ---
 
+## XGBoost Favored Outcomes Testing Results (February 5, 2026)
+
+### ✅ COMPREHENSIVE FAVORED OUTCOMES TESTING COMPLETED
+
+**XGBOOST FAVORED OUTCOMES VERIFICATION:**
+| Endpoint | Status | Validation Results |
+|----------|--------|-------------------|
+| `POST /api/ml/predict/401810581?sport_key=basketball_nba` | ✅ PASS | **NBA**: ML: New York Knicks (0.885) vs Denver Nuggets (0.115); Spread: New York Knicks -5.5 (0.664); Totals: OVER (0.772) |
+| `POST /api/ml/predict/401803244?sport_key=icehockey_nhl` | ✅ PASS | **NHL**: ML: Florida Panthers (0.594) vs Boston Bruins (0.406); Spread: Florida Panthers -1.5 (0.620); Totals: UNDER (0.999) |
+| `POST /api/analyze-unified/401810581?sport_key=basketball_nba` | ✅ PASS | **Unified Analysis**: Includes favored outcome reasoning (2768 chars) and all prediction fields |
+
+**KEY VALIDATION POINTS VERIFIED:**
+- ✅ **New Fields Present**: All required favored outcome fields exist
+  - `ml_favored_team`, `ml_favored_prob`, `ml_underdog_team`, `ml_underdog_prob`
+  - `spread_favored_team`, `spread_favored_prob`, `spread_favored_line`
+  - `totals_favored`, `totals_favored_prob`
+- ✅ **Actual Team Names**: Shows real team names (New York Knicks, Denver Nuggets, Florida Panthers, Boston Bruins) - NOT "Home"/"Away"
+- ✅ **Away Team Favored**: When away team predicted to win, correctly shows away team as favored (verified in NHL example)
+- ✅ **Multi-Sport Support**: Works correctly for both NBA and NHL
+- ✅ **Unified Analysis Integration**: Favored outcomes properly integrated in reasoning text and prediction object
+- ✅ **Method Updated**: Now uses "xgboost_multi_market" method indicating enhanced multi-market predictions
+
+**TESTING AGENT VERIFICATION (February 5, 2026):**
+- ✅ **ALL 3 FAVORED OUTCOMES ENDPOINTS TESTED AND PASSED**
+- ✅ XGBoost ML predictions now show FAVORED OUTCOMES instead of just home team probabilities
+- ✅ Team names are actual team names, not generic "Home"/"Away" labels
+- ✅ Away team correctly identified as favored when predicted to win
+- ✅ All required fields present and validated across NBA and NHL sports
+- ✅ Unified analysis properly integrates favored outcomes in reasoning text
+- ✅ No critical issues found - XGBoost favored outcomes feature fully operational
+
+---
+
 ## Deployment Status
 ⚠️ **DEPLOYMENT BLOCKED** - Critical ML Enhancement Bug Found
 - All services running
@@ -218,4 +251,5 @@ Events.js line 258 should call `/analyze-unified/` endpoint instead of `/analyze
 - ESPN data source active
 - Predictions generating correctly
 - Algorithm quality verified
+- **✅ XGBoost Favored Outcomes Feature Working Correctly**
 - **BLOCKER**: ML enhancement UI not working on Events page
