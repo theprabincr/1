@@ -3976,8 +3976,8 @@ async def scheduled_espn_odds_refresh():
                         commence_str = event.get("commence_time", "")
                         if commence_str:
                             commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
-                            # Only store for games MORE than 5 minutes away (stop close to game start)
-                            if commence_time > now + timedelta(minutes=5):
+                            # Store odds as soon as they're available (game hasn't started yet)
+                            if commence_time > now:
                                 await store_odds_snapshot(event)
                                 prematch_count += 1
                     except Exception:
