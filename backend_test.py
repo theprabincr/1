@@ -935,6 +935,9 @@ class APITester:
         # XGBOOST FAVORED OUTCOMES (NEW FEATURE TESTING)
         self.test_xgboost_favored_outcomes()
         
+        # CONSOLIDATED REASONING TEXT TESTS (SPECIFIC REVIEW REQUEST)
+        self.test_consolidated_reasoning_text()
+        
         # PREDICTION ALGORITHM (MOST IMPORTANT)
         self.test_prediction_algorithm()
         
