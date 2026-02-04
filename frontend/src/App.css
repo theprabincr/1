@@ -1,15 +1,13 @@
 /* Ballzy App Styles */
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
 
-/* Custom Ballzy Logo Font */
+/* Custom Ballzy Logo Font - Clean, modern, bold */
 .ballzy-logo-text {
-  font-family: 'Bebas Neue', 'Arial Black', sans-serif;
-  font-weight: 400;
-  letter-spacing: 2px;
-  background: linear-gradient(135deg, #FF8C42 0%, #FF6B35 50%, #CCFF00 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #CCFF00;
+  text-shadow: 0 0 20px rgba(204, 255, 0, 0.3);
 }
 
 /* Remove default centering */
