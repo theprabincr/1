@@ -617,7 +617,7 @@ const Dashboard = () => {
       const allEvents = eventsResponses
         .flatMap((res, idx) => (res.data || []).map(e => ({ ...e, sport_key: sportKeys[idx] })))
         .sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time))
-        .slice(0, 12); // Show up to 12 upcoming events
+        .slice(0, 50); // Show up to 50 upcoming events for better sport coverage
       
       setEvents(allEvents);
       
