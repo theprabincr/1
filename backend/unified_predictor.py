@@ -352,10 +352,6 @@ class UnifiedBetPredictor:
             v6_conf * self.v6_weight_with_xgb +
             v5_conf * self.v5_weight_with_xgb
         )
-            xgb_conf * self.xgb_weight +
-            v6_conf * self.v6_weight_with_xgb +
-            v5_conf * self.v5_weight_with_xgb
-        )
         
         # Add agreement bonus
         if agrees_with_xgb == 2:
