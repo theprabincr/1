@@ -4133,7 +4133,7 @@ async def scheduled_player_stats_updater():
 
 
 async def startup_cleanup_completed_events():
-    """Clean up line movement data for events that have already started or finished"""
+    """Clean up line movement data for events that have FINISHED (more than 6 hours after start)"""
     try:
         now = datetime.now(timezone.utc)
         deleted_history = 0
@@ -4156,8 +4156,9 @@ async def startup_cleanup_completed_events():
                 try:
                     commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
                     
-                    # If event has already started, delete its line movement data
-                    if commence_time <= now:
+                    # Only delete data for events that finished MORE THAN 6 HOURS AGO
+                    # This preserves line movement data for games that just started or are in progress
+                    if commence_time <= now - timedelta(hours=6):
                         result = await db.odds_history.delete_many({"event_id": event_id})
                         deleted_history += result.deleted_count
                         
@@ -4167,7 +4168,7 @@ async def startup_cleanup_completed_events():
                     pass
         
         if deleted_history > 0 or deleted_opening > 0:
-            logger.info(f"🧹 Startup cleanup: Deleted {deleted_history} snapshots, {deleted_opening} opening odds for started events")
+            logger.info(f"🧹 Startup cleanup: Deleted {deleted_history} snapshots, {deleted_opening} opening odds for finished events (6+ hours old)")
         else:
             logger.info("🧹 Startup cleanup: No stale line movement data to clean")
             
