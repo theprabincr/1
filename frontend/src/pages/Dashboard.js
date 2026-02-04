@@ -393,7 +393,7 @@ const formatSportName = (sportKey) => {
 
 // Live Event Card - Compact version similar to Events page
 const LiveEventCard = ({ event }) => {
-  const bestOdds = getBestOdds(event.bookmakers || []);
+  const bestOdds = getBestOdds(event.bookmakers || [], event.home_team, event.away_team);
   const eventOdds = event.odds || {};
   
   // Use odds directly (decimal format)
