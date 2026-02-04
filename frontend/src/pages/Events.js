@@ -11,6 +11,21 @@ import { format, parseISO } from "date-fns";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+// Sport display names mapping
+const SPORT_DISPLAY_NAMES = {
+  'basketball_nba': 'NBA',
+  'americanfootball_nfl': 'NFL',
+  'baseball_mlb': 'MLB',
+  'icehockey_nhl': 'NHL',
+  'soccer_epl': 'EPL'
+};
+
+// Format sport key to display name
+const formatSportName = (sportKey) => {
+  if (!sportKey) return '';
+  return SPORT_DISPLAY_NAMES[sportKey] || sportKey.split('_').pop().toUpperCase();
+};
+
 // Active sportsbooks only (ones that return data from API)
 const SPORTSBOOK_LOGOS = {
   'draftkings': 'https://logo.clearbit.com/draftkings.com',
