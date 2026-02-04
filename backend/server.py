@@ -1215,13 +1215,38 @@ async def get_recommendations(
 
 @api_router.post("/recommendations")
 async def create_recommendation(prediction: PredictionCreate):
-    """Create a new bet recommendation"""
+    """Create or UPDATE a bet recommendation - uses UPSERT to prevent duplicates"""
     pred_dict = prediction.model_dump()
     pred_obj = Prediction(**pred_dict)
     pred_obj.result = "pending"
     
-    await db.predictions.insert_one(pred_obj.model_dump())
-    return pred_obj
+    # UPSERT: Check if prediction exists for this event, update if so
+    existing = await db.predictions.find_one({
+        "event_id": prediction.event_id,
+        "ai_model": prediction.ai_model,
+        "result": "pending"
+    })
+    
+    if existing:
+        # UPDATE existing prediction with fresh analysis
+        await db.predictions.update_one(
+            {"_id": existing["_id"]},
+            {"$set": {
+                "predicted_outcome": pred_obj.predicted_outcome,
+                "prediction_type": pred_obj.prediction_type,
+                "confidence": pred_obj.confidence,
+                "odds_at_prediction": pred_obj.odds_at_prediction,
+                "analysis": pred_obj.analysis,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        logger.info(f"📝 Updated existing prediction for {prediction.event_id}")
+        return pred_obj
+    else:
+        # INSERT new prediction
+        await db.predictions.insert_one(pred_obj.model_dump())
+        logger.info(f"✅ Created new prediction for {prediction.event_id}")
+        return pred_obj
 
 @api_router.post("/generate-recommendations")
 @api_router.post("/force-generate-picks")
