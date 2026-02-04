@@ -305,12 +305,28 @@ class UnifiedBetPredictor:
     ) -> Dict:
         """
         Combine predictions when XGBoost ML is available.
-        Uses weighted voting with XGBoost as primary signal.
+        Now supports all three markets: Moneyline, Spread, Totals.
         """
         xgb_pick = xgb_result.get("pick")
+        xgb_pick_type = xgb_result.get("pick_type", "moneyline")
+        xgb_pick_display = xgb_result.get("pick_display", xgb_pick)
         xgb_conf = xgb_result.get("confidence", 50) / 100
-        xgb_prob = xgb_result.get("probability", 0.5)
-        xgb_accuracy = xgb_result.get("model_accuracy", 0)
+        xgb_best_market = xgb_result.get("best_market", "moneyline")
+        
+        # All market probabilities
+        ml_prob = xgb_result.get("ml_probability", 0.5)
+        spread_prob = xgb_result.get("spread_probability", 0.5)
+        over_prob = xgb_result.get("over_probability", 0.5)
+        predicted_total = xgb_result.get("predicted_total", 220)
+        
+        # Market accuracies
+        ml_accuracy = xgb_result.get("ml_accuracy", 0)
+        spread_accuracy = xgb_result.get("spread_accuracy", 0)
+        totals_accuracy = xgb_result.get("totals_accuracy", 0)
+        
+        # Lines
+        spread_line = xgb_result.get("spread_line", event.get("odds", {}).get("spread", 0))
+        total_line = xgb_result.get("total_line", event.get("odds", {}).get("total", 220))
         
         v5_pick = v5_result.get("pick", "").replace(" ML", "").replace(" Spread", "").strip() if v5_result.get("has_pick") else None
         v6_pick = v6_result.get("pick", "").replace(" ML", "").replace(" Spread", "").strip() if v6_result.get("has_pick") else None
@@ -318,16 +334,24 @@ class UnifiedBetPredictor:
         v5_conf = v5_result.get("confidence", 0) / 100 if v5_result.get("has_pick") else 0
         v6_conf = v6_result.get("confidence", 0) / 100 if v6_result.get("has_pick") else 0
         
-        # Count agreements with XGBoost
-        agrees_with_xgb = 0
-        if v5_pick and v5_pick == xgb_pick:
-            agrees_with_xgb += 1
-        if v6_pick and v6_pick == xgb_pick:
-            agrees_with_xgb += 1
+        # For totals, check if V5/V6 agree with over/under direction
+        if xgb_pick_type == "totals":
+            # Totals picks don't need team agreement
+            agrees_with_xgb = 1  # XGBoost always agrees with itself
+        else:
+            # Count agreements with XGBoost for team-based picks
+            agrees_with_xgb = 0
+            if v5_pick and v5_pick == xgb_pick:
+                agrees_with_xgb += 1
+            if v6_pick and v6_pick == xgb_pick:
+                agrees_with_xgb += 1
         
         # Calculate weighted confidence
-        # XGBoost: 40%, V6: 35%, V5: 25%
         weighted_conf = (
+            xgb_conf * self.xgb_weight +
+            v6_conf * self.v6_weight_with_xgb +
+            v5_conf * self.v5_weight_with_xgb
+        )
             xgb_conf * self.xgb_weight +
             v6_conf * self.v6_weight_with_xgb +
             v5_conf * self.v5_weight_with_xgb
