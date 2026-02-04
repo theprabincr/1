@@ -82,7 +82,7 @@ const Sidebar = () => {
           <BallzyLogo className="w-10 h-10" />
           <div>
             <h1 className="ballzy-logo-text text-xl text-text-primary">Ballzy</h1>
-            <p className="text-xs text-text-muted font-medium">Smart Betting AI</p>
+            <p className="text-xs text-text-muted font-medium tracking-wide">Algorithm Driven</p>
           </div>
         </div>
 
