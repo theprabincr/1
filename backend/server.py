@@ -70,6 +70,17 @@ from adaptive_learning import (
     create_adaptive_learning_system
 )
 
+# Import XGBoost ML System
+from ml_xgboost import (
+    XGBoostPredictor,
+    HistoricalDataCollector,
+    Backtester,
+    EnhancedELOSystem,
+    FeatureEngineering,
+    get_predictor,
+    get_elo_system
+)
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -80,6 +91,10 @@ db = client[os.environ['DB_NAME']]
 
 # Adaptive Learning System (initialized on startup)
 adaptive_learning: AdaptiveLearningSystem = None
+
+# XGBoost Predictors (initialized on startup)
+xgboost_predictors: Dict[str, XGBoostPredictor] = {}
+historical_collector: HistoricalDataCollector = None
 
 # Events cache to reduce scraping (1 hour cache)
 events_cache = {}
