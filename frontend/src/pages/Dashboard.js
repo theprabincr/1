@@ -376,36 +376,105 @@ const PickCard = ({ pick, showResult = false }) => {
   );
 };
 
-// Live Event Card
+// Sport display names mapping
+const sportDisplayNames = {
+  'basketball_nba': 'NBA',
+  'americanfootball_nfl': 'NFL',
+  'baseball_mlb': 'MLB',
+  'icehockey_nhl': 'NHL',
+  'soccer_epl': 'EPL'
+};
+
+// Format sport key to display name
+const formatSportName = (sportKey) => {
+  if (!sportKey) return '';
+  return sportDisplayNames[sportKey] || sportKey.split('_').pop().toUpperCase();
+};
+
+// Live Event Card - Compact version similar to Events page
 const LiveEventCard = ({ event }) => {
   const bestOdds = getBestOdds(event.bookmakers || []);
+  const eventOdds = event.odds || {};
+  
+  // Use odds directly (decimal format)
+  const homeML = eventOdds.home_ml_decimal || bestOdds.home;
+  const awayML = eventOdds.away_ml_decimal || bestOdds.away;
+  const spread = eventOdds.spread ?? bestOdds.spread;
+  const total = eventOdds.total ?? bestOdds.total;
+  
+  // Format time
+  const formatTime = (datetime) => {
+    if (!datetime) return 'TBD';
+    const date = new Date(datetime);
+    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  };
+  
+  const formatDate = (datetime) => {
+    if (!datetime) return '';
+    const date = new Date(datetime);
+    return date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+  };
   
   return (
     <div className="event-card" data-testid={`event-${event.id}`}>
-      <div className="flex items-center gap-2 mb-3">
-        <span className="w-2 h-2 rounded-full bg-brand-primary"></span>
-        <span className="text-xs font-mono text-brand-primary">UPCOMING</span>
-        <span className="text-xs text-text-muted ml-auto">
-          {event.sport_title || event.sport_key?.replace(/_/g, ' ')}
-        </span>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-brand-primary animate-pulse"></span>
+          <span className="text-xs font-mono font-bold text-brand-primary">UPCOMING</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono text-text-secondary bg-zinc-800 px-2 py-0.5 rounded">
+            {formatSportName(event.sport_key)}
+          </span>
+        </div>
       </div>
       
-      <div className="grid grid-cols-3 gap-2 items-center">
-        <div>
-          <p className="text-text-primary font-semibold text-sm truncate">{event.home_team}</p>
-          <p className="font-mono text-lg font-bold text-brand-primary">
-            {bestOdds.home?.toFixed(2)}
+      {/* Date & Time */}
+      <div className="flex items-center gap-2 mb-3 text-text-muted">
+        <Clock className="w-3 h-3" />
+        <span className="text-xs">{formatDate(event.commence_time)}</span>
+        <span className="text-xs font-mono text-text-secondary">{formatTime(event.commence_time)}</span>
+      </div>
+
+      {/* Teams & Odds - Similar to Events page */}
+      <div className="space-y-2 mb-3">
+        {/* Away Team */}
+        <div className="flex items-center justify-between">
+          <p className="text-text-primary font-semibold text-sm truncate flex-1">{event.away_team}</p>
+          <div className="flex items-center gap-2 font-mono">
+            <span className="text-text-muted text-xs w-8 text-right">ML</span>
+            <span className={`font-bold w-12 text-right text-sm ${awayML && homeML && awayML < homeML ? 'text-semantic-success' : 'text-text-primary'}`}>
+              {awayML?.toFixed(2) || '-'}
+            </span>
+          </div>
+        </div>
+        
+        {/* Home Team */}
+        <div className="flex items-center justify-between">
+          <p className="text-text-primary font-semibold text-sm truncate flex-1">{event.home_team}</p>
+          <div className="flex items-center gap-2 font-mono">
+            <span className="text-text-muted text-xs w-8 text-right">ML</span>
+            <span className={`font-bold w-12 text-right text-sm ${homeML && awayML && homeML < awayML ? 'text-semantic-success' : 'text-text-primary'}`}>
+              {homeML?.toFixed(2) || '-'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Spread & Total - Compact Row */}
+      <div className="flex items-center justify-between pt-2 border-t border-zinc-800">
+        <div className="text-center flex-1">
+          <p className="text-[10px] text-text-muted uppercase mb-0.5">Spread</p>
+          <p className="font-mono font-bold text-sm text-text-primary">
+            {spread !== null ? (spread > 0 ? `+${spread}` : spread) : '-'}
           </p>
         </div>
-        
-        <div className="text-center">
-          <p className="text-text-muted text-xs">VS</p>
-        </div>
-        
-        <div className="text-right">
-          <p className="text-text-primary font-semibold text-sm truncate">{event.away_team}</p>
-          <p className="font-mono text-lg font-bold text-brand-primary">
-            {bestOdds.away?.toFixed(2)}
+        <div className="w-px h-6 bg-zinc-700"></div>
+        <div className="text-center flex-1">
+          <p className="text-[10px] text-text-muted uppercase mb-0.5">Total</p>
+          <p className="font-mono font-bold text-sm text-brand-primary">
+            {total ? `O/U ${total}` : '-'}
           </p>
         </div>
       </div>
