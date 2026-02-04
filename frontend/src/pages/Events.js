@@ -322,9 +322,6 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
     humidity: Math.floor(Math.random() * 40) + 40
   } : null;
 
-  // Context factors
-  const contextFactors = analysis?.prediction?.context_factors || [];
-
   // Check if game is within analysis window (1 hour)
   const gameTime = new Date(event.commence_time);
   const now = new Date();
