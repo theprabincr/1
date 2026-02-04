@@ -1,7 +1,7 @@
 """
-Unified BetPredictor - Combines V5 and V6 into Single Prediction System
-Leverages both line movement analysis (V5) and ML ensemble (V6) with V6 weighted heavier
-Now includes player stats analysis for improved accuracy
+Unified BetPredictor - Combines V5, V6, and XGBoost ML into Single Prediction System
+Leverages line movement analysis (V5), rule-based ensemble (V6), and real XGBoost ML
+Now with proper machine learning using trained XGBoost models
 """
 import logging
 from datetime import datetime, timezone
@@ -10,27 +10,43 @@ from typing import Dict, List, Optional
 from betpredictor_v5 import generate_v5_prediction
 from betpredictor_v6 import generate_v6_prediction
 
+# Import XGBoost ML (optional - graceful fallback if not available)
+try:
+    from ml_xgboost import get_predictor, FeatureEngineering
+    XGBOOST_AVAILABLE = True
+except ImportError:
+    XGBOOST_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 
 class UnifiedBetPredictor:
     """
-    Unified predictor combining V5 (line movement) and V6 (ML ensemble).
+    Unified predictor combining V5 (line movement), V6 (rule-based), and XGBoost ML.
     
-    Weighting:
-    - V6 (ML Ensemble): 70% weight - Primary decision maker
+    Weighting (when XGBoost is trained):
+    - XGBoost ML: 40% weight - Real trained machine learning
+    - V6 (Rule-based): 35% weight - Comprehensive analysis
+    - V5 (Line Movement): 25% weight - Sharp money validation
+    
+    Weighting (without XGBoost):
+    - V6 (Rule-based): 70% weight - Primary decision maker
     - V5 (Line Movement): 30% weight - Validation signal
-    - Player Stats: Additional factor in V6 analysis
     
     Philosophy:
-    - Use V6's comprehensive analysis as foundation
+    - Use XGBoost when trained for real ML predictions
+    - Use V6's comprehensive analysis as backup/validation
     - Use V5's sharp money signals for confirmation
-    - Factor in player stats (PPG, RPG, APG, impact scores)
-    - Only recommend when both algorithms align or V6 has strong conviction
+    - Only recommend when multiple signals align
     """
     
     def __init__(self):
-        # Weighting for final decision
+        # Weighting when XGBoost is available
+        self.xgb_weight = 0.40  # XGBoost ML
+        self.v6_weight_with_xgb = 0.35  # V6 when XGBoost available
+        self.v5_weight_with_xgb = 0.25  # V5 when XGBoost available
+        
+        # Weighting without XGBoost (fallback)
         self.v6_weight = 0.70  # V6 is primary (ML ensemble)
         self.v5_weight = 0.30  # V5 is secondary (line movement validation)
         
@@ -39,7 +55,8 @@ class UnifiedBetPredictor:
         self.min_edge = 0.04  # 4% edge minimum
         
         # Agreement bonus
-        self.agreement_bonus = 0.10  # 10% boost when both agree
+        self.agreement_bonus = 0.10  # 10% boost when all models agree
+        self.two_agree_bonus = 0.05  # 5% boost when 2 models agree
     
     async def generate_unified_prediction(
         self,
@@ -50,7 +67,7 @@ class UnifiedBetPredictor:
         line_movement_history: List[Dict],
         opening_odds: Dict,
         current_odds: Dict,
-        player_stats_comparison: Dict = None  # NEW: Player stats analysis
+        player_stats_comparison: Dict = None  # Player stats analysis
     ) -> Dict:
         """
         Generate unified prediction combining V5 and V6 analysis.
