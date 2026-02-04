@@ -6,8 +6,29 @@ import {
   Home, TrendingUp, Trophy, 
   Settings, ChevronRight, RefreshCw,
   Calendar, Clock, Zap, DollarSign, Wifi,
-  Bell, Activity
+  Bell, Activity, Circle
 } from "lucide-react";
+
+// Ballzy Logo Component - Custom SVG
+const BallzyLogo = ({ className = "w-10 h-10" }) => (
+  <svg className={className} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+    {/* Basketball circle */}
+    <circle cx="24" cy="24" r="20" fill="url(#ballGradient)" stroke="#FF6B35" strokeWidth="2"/>
+    {/* Basketball lines */}
+    <path d="M24 4 L24 44" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round"/>
+    <path d="M4 24 L44 24" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round"/>
+    <path d="M8 12 Q24 20 8 36" stroke="#1a1a1a" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+    <path d="M40 12 Q24 20 40 36" stroke="#1a1a1a" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+    {/* Lightning bolt overlay for "smart" betting */}
+    <path d="M26 14 L22 24 L28 24 L22 34" stroke="#CCFF00" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+    <defs>
+      <linearGradient id="ballGradient" x1="4" y1="4" x2="44" y2="44">
+        <stop offset="0%" stopColor="#FF8C42"/>
+        <stop offset="100%" stopColor="#FF6B35"/>
+      </linearGradient>
+    </defs>
+  </svg>
+);
 
 // Pages
 import Dashboard from "./pages/Dashboard";
