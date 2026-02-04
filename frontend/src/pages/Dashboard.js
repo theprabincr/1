@@ -599,16 +599,18 @@ const Dashboard = () => {
         axios.get(`${API}/events/${key}`).catch(() => ({ data: [] }))
       );
       
-      const [perfRes, recsRes, liveRes, allPicksRes, ...eventsResponses] = await Promise.all([
+      const [perfRes, recsRes, liveRes, allPicksRes, mlStatusRes, ...eventsResponses] = await Promise.all([
         axios.get(`${API}/performance`),
         axios.get(`${API}/recommendations?limit=50&min_confidence=0.60`),
         axios.get(`${API}/live-scores`),
         axios.get(`${API}/recommendations?limit=100&min_confidence=0`),
+        axios.get(`${API}/ml/status`).catch(() => ({ data: null })),
         ...eventsPromises
       ]);
       
       setPerformance(perfRes.data);
       setRecommendations(recsRes.data);
+      setMlStatus(mlStatusRes.data);
       
       // Detect score changes (works on every refresh after first load)
       const newLiveScores = liveRes.data.games || [];
