@@ -550,7 +550,7 @@ class UnifiedBetPredictor:
         consensus_level: str,
         agrees_count: int
     ) -> str:
-        """Build reasoning text when XGBoost is the primary model."""
+        """Build reasoning text when XGBoost is the primary model. Shows FAVORED outcomes."""
         parts = []
         
         parts.append("=" * 60)
@@ -558,11 +558,44 @@ class UnifiedBetPredictor:
         parts.append("=" * 60)
         parts.append("")
         
-        xgb_prob = xgb_result.get("probability", 0.5)
-        xgb_accuracy = xgb_result.get("model_accuracy", 0)
+        # ===== FAVORED OUTCOMES DISPLAY =====
+        # Moneyline
+        ml_favored_team = xgb_result.get("ml_favored_team", "Team")
+        ml_favored_prob = xgb_result.get("ml_favored_prob", 0.5)
+        ml_underdog_team = xgb_result.get("ml_underdog_team", "Team")
+        ml_underdog_prob = xgb_result.get("ml_underdog_prob", 0.5)
         
-        parts.append(f"📊 XGBoost Probability: {xgb_prob*100:.1f}% home win")
-        parts.append(f"📈 Model Training Accuracy: {xgb_accuracy:.1%}")
+        # Spread
+        spread_favored_team = xgb_result.get("spread_favored_team", "Team")
+        spread_favored_prob = xgb_result.get("spread_favored_prob", 0.5)
+        spread_favored_line = xgb_result.get("spread_favored_line", 0)
+        
+        # Totals
+        totals_favored = xgb_result.get("totals_favored", "OVER")
+        totals_favored_prob = xgb_result.get("totals_favored_prob", 0.5)
+        totals_line = xgb_result.get("totals_line", 220)
+        predicted_total = xgb_result.get("predicted_total", 220)
+        
+        xgb_accuracy = xgb_result.get("ml_accuracy", xgb_result.get("model_accuracy", 0))
+        spread_accuracy = xgb_result.get("spread_accuracy", 0)
+        totals_accuracy = xgb_result.get("totals_accuracy", 0)
+        
+        parts.append("📊 XGBOOST MARKET PREDICTIONS")
+        parts.append("")
+        parts.append(f"🏀 MONEYLINE:")
+        parts.append(f"   Favored: {ml_favored_team} @ {ml_favored_prob*100:.1f}%")
+        parts.append(f"   Underdog: {ml_underdog_team} @ {ml_underdog_prob*100:.1f}%")
+        parts.append(f"   Model Accuracy: {xgb_accuracy:.1%}")
+        parts.append("")
+        parts.append(f"📏 SPREAD:")
+        parts.append(f"   Favored: {spread_favored_team} {spread_favored_line:+.1f} @ {spread_favored_prob*100:.1f}%")
+        parts.append(f"   Model Accuracy: {spread_accuracy:.1%}")
+        parts.append("")
+        parts.append(f"📈 TOTALS:")
+        parts.append(f"   Favored: {totals_favored} {totals_line} @ {totals_favored_prob*100:.1f}%")
+        parts.append(f"   Predicted Total: {predicted_total:.1f}")
+        parts.append(f"   Model Accuracy: {totals_accuracy:.1%}")
+        parts.append("")
         parts.append(f"💰 Combined Confidence: {confidence:.1f}%")
         parts.append(f"🎯 Edge: {edge:+.1f}%")
         parts.append("")
