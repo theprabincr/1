@@ -878,7 +878,7 @@ class EnhancedELOSystem:
                 game_date=game.get("date", "")
             )
         
-        logger.info(f"✅ ELO rebuild complete")
+        logger.info("✅ ELO rebuild complete")
 
 
 # Global instances (initialized on startup)
