@@ -1,7 +1,10 @@
 {
   "sport_key": "icehockey_nhl",
-  "accuracy": 0.6383763837638377,
-  "last_trained": "2026-02-04T08:45:28.126208+00:00",
+  "ml_accuracy": 0.6458,
+  "spread_accuracy": 0.5646,
+  "totals_accuracy": 1.0,
+  "totals_mae": 2.09,
+  "last_trained": "2026-02-04T09:44:17.285309+00:00",
   "features": [
     "home_elo",
     "away_elo",
@@ -33,7 +36,12 @@
     "spread",
     "total_line",
     "h2h_home_wins",
-    "h2h_total_games"
+    "h2h_total_games",
+    "combined_avg_pts",
+    "combined_pts_allowed",
+    "pace_factor",
+    "defensive_rating_diff"
   ],
-  "model_type": "XGBClassifier"
+  "model_type": "XGBClassifier_MultiMarket",
+  "accuracy": 0.6458
 }
