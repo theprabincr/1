@@ -114,66 +114,76 @@ class UnifiedBetPredictor:
                     }
                     odds_data = event.get("odds", {})
                     
-                    # Get predictions for ALL markets
-                    xgb_prediction = predictor.predict(home_team_data, away_team_data, odds_data)
+                    # Get predictions for ALL markets - NOW WITH TEAM NAMES
+                    xgb_prediction = predictor.predict(
+                        home_team_data, 
+                        away_team_data, 
+                        odds_data,
+                        home_team_name=home_team,
+                        away_team_name=away_team
+                    )
                     
-                    # Moneyline
-                    ml_prob = xgb_prediction.get("home_win_prob", 0.5)
+                    # ===== FAVORED OUTCOMES (NEW) =====
+                    # Moneyline - show favored team
+                    ml_favored_team = xgb_prediction.get("ml_favored_team", home_team)
+                    ml_favored_prob = xgb_prediction.get("ml_favored_prob", 0.5)
+                    ml_underdog_team = xgb_prediction.get("ml_underdog_team", away_team)
+                    ml_underdog_prob = xgb_prediction.get("ml_underdog_prob", 0.5)
                     ml_conf = xgb_prediction.get("ml_confidence", 50)
                     
-                    # Spread
-                    spread_prob = xgb_prediction.get("home_cover_prob", 0.5)
+                    # Spread - show favored team to cover
+                    spread_favored_team = xgb_prediction.get("spread_favored_team", home_team)
+                    spread_favored_prob = xgb_prediction.get("spread_favored_prob", 0.5)
+                    spread_favored_line = xgb_prediction.get("spread_favored_line", 0)
                     spread_conf = xgb_prediction.get("spread_confidence", 50)
                     
-                    # Totals
-                    over_prob = xgb_prediction.get("over_prob", 0.5)
+                    # Totals - show favored direction
+                    totals_favored = xgb_prediction.get("totals_favored", "OVER")
+                    totals_favored_prob = xgb_prediction.get("totals_favored_prob", 0.5)
+                    totals_line = xgb_prediction.get("totals_line", 220)
                     totals_conf = xgb_prediction.get("totals_confidence", 50)
                     predicted_total = xgb_prediction.get("predicted_total", 220)
+                    
+                    # Raw probabilities (for backward compat)
+                    home_win_prob = xgb_prediction.get("home_win_prob", 0.5)
+                    home_cover_prob = xgb_prediction.get("home_cover_prob", 0.5)
+                    over_prob = xgb_prediction.get("over_prob", 0.5)
                     
                     # Determine best market and pick
                     best_market = xgb_prediction.get("best_market", "moneyline")
                     best_conf = xgb_prediction.get("best_confidence", 50)
+                    best_pick = xgb_prediction.get("best_pick", ml_favored_team)
                     
                     # Get spread and total line from odds
                     spread_line = odds_data.get("spread", 0)
                     total_line = odds_data.get("total", 220)
                     
-                    # Determine pick based on best market
+                    # Determine pick based on best market - USE FAVORED OUTCOMES
                     xgb_pick = None
                     xgb_pick_type = best_market
                     xgb_pick_display = None
                     xgb_conf = best_conf
                     
                     if best_market == "moneyline":
-                        if ml_prob >= 0.55:
-                            xgb_pick = home_team
-                            xgb_pick_display = f"{home_team} ML"
-                            xgb_conf = ml_conf
-                        elif ml_prob <= 0.45:
-                            xgb_pick = away_team
-                            xgb_pick_display = f"{away_team} ML"
+                        # Pick favored team if probability is strong enough
+                        if ml_favored_prob >= 0.55:
+                            xgb_pick = ml_favored_team
+                            xgb_pick_display = f"{ml_favored_team} ML"
                             xgb_conf = ml_conf
                     
                     elif best_market == "spread":
-                        if spread_prob >= 0.55:
-                            xgb_pick = home_team
-                            spread_display = f"{spread_line:+.1f}" if spread_line else ""
-                            xgb_pick_display = f"{home_team} {spread_display}"
-                            xgb_conf = spread_conf
-                        elif spread_prob <= 0.45:
-                            xgb_pick = away_team
-                            spread_display = f"{-spread_line:+.1f}" if spread_line else ""
-                            xgb_pick_display = f"{away_team} {spread_display}"
+                        # Pick favored team to cover if probability is strong enough
+                        if spread_favored_prob >= 0.55:
+                            xgb_pick = spread_favored_team
+                            spread_display = f"{spread_favored_line:+.1f}" if spread_favored_line else ""
+                            xgb_pick_display = f"{spread_favored_team} {spread_display}"
                             xgb_conf = spread_conf
                     
                     elif best_market == "totals":
-                        if over_prob >= 0.55:
-                            xgb_pick = "OVER"
-                            xgb_pick_display = f"OVER {total_line}"
-                            xgb_conf = totals_conf
-                        elif over_prob <= 0.45:
-                            xgb_pick = "UNDER"
-                            xgb_pick_display = f"UNDER {total_line}"
+                        # Pick favored direction if probability is strong enough
+                        if totals_favored_prob >= 0.55:
+                            xgb_pick = totals_favored
+                            xgb_pick_display = f"{totals_favored} {totals_line}"
                             xgb_conf = totals_conf
                     
                     xgb_result = {
@@ -182,27 +192,51 @@ class UnifiedBetPredictor:
                         "pick_type": xgb_pick_type,
                         "pick_display": xgb_pick_display,
                         "confidence": xgb_conf,
-                        # All market probabilities
-                        "ml_probability": ml_prob,
-                        "spread_probability": spread_prob,
-                        "over_probability": over_prob,
+                        
+                        # ===== FAVORED OUTCOMES (NEW - DISPLAY THESE) =====
+                        # Moneyline
+                        "ml_favored_team": ml_favored_team,
+                        "ml_favored_prob": ml_favored_prob,
+                        "ml_underdog_team": ml_underdog_team,
+                        "ml_underdog_prob": ml_underdog_prob,
+                        
+                        # Spread
+                        "spread_favored_team": spread_favored_team,
+                        "spread_favored_prob": spread_favored_prob,
+                        "spread_favored_line": spread_favored_line,
+                        
+                        # Totals
+                        "totals_favored": totals_favored,
+                        "totals_favored_prob": totals_favored_prob,
+                        "totals_line": totals_line,
                         "predicted_total": predicted_total,
+                        
+                        # Raw probabilities (backward compat)
+                        "ml_probability": home_win_prob,
+                        "spread_probability": home_cover_prob,
+                        "over_probability": over_prob,
+                        
                         # Accuracies
                         "ml_accuracy": predictor.ml_accuracy,
                         "spread_accuracy": predictor.spread_accuracy,
                         "totals_accuracy": predictor.totals_accuracy,
+                        
                         # Best market info
                         "best_market": best_market,
+                        "best_pick": best_pick,
                         "spread_line": spread_line,
                         "total_line": total_line,
+                        
                         # Backward compat
-                        "probability": ml_prob,
+                        "probability": home_win_prob,
                         "model_accuracy": predictor.ml_accuracy
                     }
                     xgb_available = True
                     
                     logger.info(f"  🤖 XGBoost Best Market: {best_market.upper()}")
-                    logger.info(f"     ML: {ml_prob*100:.1f}%, Spread: {spread_prob*100:.1f}%, Totals: {over_prob*100:.1f}%")
+                    logger.info(f"     ML: {ml_favored_team} {ml_favored_prob*100:.1f}% (vs {ml_underdog_team} {ml_underdog_prob*100:.1f}%)")
+                    logger.info(f"     Spread: {spread_favored_team} {spread_favored_line:+.1f} @ {spread_favored_prob*100:.1f}%")
+                    logger.info(f"     Totals: {totals_favored} {totals_line} @ {totals_favored_prob*100:.1f}%")
                     logger.info(f"     Pick: {xgb_pick_display} ({xgb_conf:.0f}% conf)")
             except Exception as e:
                 logger.warning(f"XGBoost prediction failed: {e}")
