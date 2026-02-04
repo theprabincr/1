@@ -9,23 +9,21 @@ import {
   Bell, Activity, Circle
 } from "lucide-react";
 
-// Ballzy Logo Component - Modern minimalist design
+// Ballzy Logo Component - Premium sports betting aesthetic
 const BallzyLogo = ({ className = "w-10 h-10" }) => (
-  <svg className={className} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-    {/* Outer ring - represents precision/targeting */}
-    <circle cx="24" cy="24" r="22" stroke="#CCFF00" strokeWidth="2" fill="none" opacity="0.3"/>
-    {/* Main circle with gradient */}
-    <circle cx="24" cy="24" r="18" fill="url(#ballzyGrad)"/>
-    {/* Stylized "B" made of geometric shapes */}
-    <path d="M18 12 L18 36" stroke="#09090B" strokeWidth="3" strokeLinecap="round"/>
-    <path d="M18 12 L26 12 C30 12 32 14 32 17 C32 20 30 22 26 22 L18 22" stroke="#09090B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-    <path d="M18 22 L28 22 C32 22 34 25 34 28 C34 32 32 36 28 36 L18 36" stroke="#09090B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-    {/* Accent dot - represents the ball */}
-    <circle cx="38" cy="10" r="4" fill="#CCFF00"/>
+  <svg className={className} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+    {/* Background circle with gradient */}
+    <circle cx="20" cy="20" r="20" fill="url(#bgGrad)"/>
+    {/* Dynamic swoosh/motion lines */}
+    <path d="M8 20 Q14 14, 20 14 Q26 14, 32 20" stroke="#CCFF00" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+    <path d="M8 20 Q14 26, 20 26 Q26 26, 32 20" stroke="#CCFF00" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+    {/* Center ball/dot */}
+    <circle cx="20" cy="20" r="5" fill="#CCFF00"/>
+    <circle cx="20" cy="20" r="2" fill="#18181B"/>
     <defs>
-      <linearGradient id="ballzyGrad" x1="6" y1="6" x2="42" y2="42">
-        <stop offset="0%" stopColor="#CCFF00"/>
-        <stop offset="100%" stopColor="#99CC00"/>
+      <linearGradient id="bgGrad" x1="0" y1="0" x2="40" y2="40">
+        <stop offset="0%" stopColor="#27272A"/>
+        <stop offset="100%" stopColor="#18181B"/>
       </linearGradient>
     </defs>
   </svg>
