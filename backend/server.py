@@ -2810,19 +2810,19 @@ async def collect_historical_data(sport_key: str = "basketball_nba", season: str
         if not force:
             cached = await collector.get_cached_historical_data(sport_key, season)
             if cached and len(cached) > 100:
-            return {
-                "message": f"Historical data already cached",
-                "sport_key": sport_key,
-                "season": season,
-                "games_cached": len(cached),
-                "note": "Use force=true to re-fetch from ESPN"
-            }
+                return {
+                    "message": "Historical data already cached",
+                    "sport_key": sport_key,
+                    "season": season,
+                    "games_cached": len(cached),
+                    "note": "Use force=true to re-fetch from ESPN"
+                }
         
         # Fetch from ESPN
         games = await collector.fetch_season_data(sport_key, season)
         
         return {
-            "message": f"Historical data collection complete",
+            "message": "Historical data collection complete",
             "sport_key": sport_key,
             "season": season,
             "games_collected": len(games),
