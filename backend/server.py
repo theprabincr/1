@@ -4252,6 +4252,112 @@ async def send_daily_summary_notification():
         logger.error(f"Error creating daily summary: {e}")
         return None
 
+
+# ==================== WEEKLY ML MODEL RETRAINING ====================
+
+async def scheduled_ml_retraining():
+    """
+    Background task that retrains ML models weekly (every Sunday at 3 AM UTC).
+    Collects new game data and retrains XGBoost models for all sports.
+    """
+    # Wait 1 hour on startup to avoid immediate training
+    await asyncio.sleep(3600)
+    
+    while True:
+        try:
+            now = datetime.now(timezone.utc)
+            
+            # Check if it's Sunday (weekday 6) and between 3-4 AM UTC
+            if now.weekday() == 6 and now.hour == 3:
+                logger.info("🤖 Starting weekly ML model retraining...")
+                
+                sports_to_train = ["basketball_nba", "americanfootball_nfl", "icehockey_nhl"]
+                
+                for sport_key in sports_to_train:
+                    try:
+                        logger.info(f"  📊 Retraining {sport_key}...")
+                        
+                        # Collect latest historical data
+                        collector = HistoricalDataCollector(db)
+                        season = str(now.year - 1) if now.month < 7 else str(now.year)
+                        games = await collector.fetch_season_data(sport_key, season)
+                        
+                        if len(games) >= 50:
+                            # Retrain the model
+                            predictor = get_predictor(sport_key)
+                            metrics = predictor.train(games)
+                            
+                            if metrics.get("success"):
+                                logger.info(f"  ✅ {sport_key} retrained: {metrics.get('accuracy', 0):.1%} accuracy")
+                                
+                                # Create notification about retraining
+                                await create_notification(
+                                    "ml_retrain",
+                                    f"🤖 ML Model Retrained: {sport_key}",
+                                    f"Weekly retraining complete. New accuracy: {metrics.get('accuracy', 0):.1%}",
+                                    {"sport_key": sport_key, "accuracy": metrics.get("accuracy", 0)}
+                                )
+                            else:
+                                logger.warning(f"  ⚠️ {sport_key} training failed: {metrics.get('error')}")
+                        else:
+                            logger.warning(f"  ⚠️ {sport_key}: Insufficient data ({len(games)} games)")
+                            
+                    except Exception as e:
+                        logger.error(f"  ❌ Error retraining {sport_key}: {e}")
+                
+                logger.info("🤖 Weekly ML retraining complete")
+                
+                # Sleep for 23 hours to avoid running again in the same window
+                await asyncio.sleep(82800)
+            else:
+                # Check every hour
+                await asyncio.sleep(3600)
+                
+        except Exception as e:
+            logger.error(f"Weekly ML retraining error: {e}")
+            await asyncio.sleep(3600)
+
+
+@api_router.post("/ml/retrain-all")
+async def manual_retrain_all():
+    """
+    Manually trigger retraining of all ML models.
+    Use this to retrain outside the weekly schedule.
+    """
+    results = {}
+    sports_to_train = ["basketball_nba", "americanfootball_nfl", "icehockey_nhl"]
+    
+    for sport_key in sports_to_train:
+        try:
+            # Get cached historical data
+            collector = HistoricalDataCollector(db)
+            games = await collector.get_cached_historical_data(sport_key)
+            
+            if len(games) >= 50:
+                predictor = get_predictor(sport_key)
+                metrics = predictor.train(games)
+                results[sport_key] = {
+                    "success": metrics.get("success", False),
+                    "accuracy": metrics.get("accuracy"),
+                    "games_used": len(games)
+                }
+            else:
+                results[sport_key] = {
+                    "success": False,
+                    "error": f"Insufficient data: {len(games)} games"
+                }
+        except Exception as e:
+            results[sport_key] = {
+                "success": False,
+                "error": str(e)
+            }
+    
+    return {
+        "message": "Manual retraining complete",
+        "results": results
+    }
+
+
 @api_router.post("/notifications/daily-summary")
 async def trigger_daily_summary():
     """Manually trigger a daily summary notification"""
