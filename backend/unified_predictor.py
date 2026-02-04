@@ -611,7 +611,20 @@ class UnifiedBetPredictor:
             parts.append("⚠️ Only XGBoost has a pick")
         
         parts.append("")
-        parts.append(f"  • XGBoost ML: {xgb_result.get('pick')} ({xgb_prob*100:.1f}%)")
+        
+        xgb_pick = xgb_result.get("pick", "N/A")
+        xgb_pick_display = xgb_result.get("pick_display", xgb_pick)
+        best_market = xgb_result.get("best_market", "moneyline")
+        
+        # Show the favored prob for the pick's market
+        if best_market == "moneyline":
+            pick_prob = ml_favored_prob
+        elif best_market == "spread":
+            pick_prob = spread_favored_prob
+        else:
+            pick_prob = totals_favored_prob
+        
+        parts.append(f"  • XGBoost ML: {xgb_pick_display} ({pick_prob*100:.1f}%)")
         
         if v6_result.get("has_pick"):
             v6_pick = v6_result.get("pick", "N/A")
