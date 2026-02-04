@@ -531,11 +531,7 @@ class HistoricalDataCollector:
             away_score = int(away_team.get("score", 0))
             home_win = home_score > away_score
             
-            # Extract team stats from the game
-            home_stats = home_team.get("statistics", [])
-            away_stats = away_team.get("statistics", [])
-            
-            # Get team records at time of game
+            # Get team records at time of game (BEFORE the game result)
             home_record = home_team.get("records", [{}])[0] if home_team.get("records") else {}
             away_record = away_team.get("records", [{}])[0] if away_team.get("records") else {}
             
@@ -543,17 +539,18 @@ class HistoricalDataCollector:
             home_wins, home_losses = self._parse_record(home_record.get("summary", "0-0"))
             away_wins, away_losses = self._parse_record(away_record.get("summary", "0-0"))
             
-            # Calculate win percentages
+            # Calculate win percentages (PRE-GAME features)
             home_total = home_wins + home_losses
             away_total = away_wins + away_losses
             home_win_pct = home_wins / home_total if home_total > 0 else 0.5
             away_win_pct = away_wins / away_total if away_total > 0 else 0.5
             
-            # Estimate ELO from record
+            # Estimate ELO from record (PRE-GAME)
             home_elo = 1200 + (home_win_pct * 600)
             away_elo = 1200 + (away_win_pct * 600)
             
-            # Build features
+            # PRE-GAME features only - no post-game data leakage
+            # Use team records and estimated stats, NOT game results
             features = {
                 "home_elo": home_elo,
                 "away_elo": away_elo,
@@ -563,18 +560,20 @@ class HistoricalDataCollector:
                 "win_pct_diff": home_win_pct - away_win_pct,
                 "home_last10_wins": min(home_wins, 10),
                 "away_last10_wins": min(away_wins, 10),
-                "home_streak": 0,  # Not available from this data
+                "home_streak": 0,  # Would need historical tracking
                 "away_streak": 0,
-                "home_avg_margin": (home_score - away_score) if home_win else (away_score - home_score) * -1,
-                "away_avg_margin": (away_score - home_score) if not home_win else (home_score - away_score) * -1,
-                "margin_diff": home_score - away_score,
-                "home_avg_pts": home_score,
-                "away_avg_pts": away_score,
-                "home_avg_pts_allowed": away_score,
-                "away_avg_pts_allowed": home_score,
-                "home_net_rating": home_score - away_score,
-                "away_net_rating": away_score - home_score,
-                "home_rest_days": 2,  # Default
+                # Estimate average margins from win percentage (no data leakage)
+                "home_avg_margin": (home_win_pct - 0.5) * 20,  # Estimated from win%
+                "away_avg_margin": (away_win_pct - 0.5) * 20,
+                "margin_diff": (home_win_pct - away_win_pct) * 20,  # Estimated difference
+                # Estimate average points from typical NBA scoring
+                "home_avg_pts": 110 + (home_win_pct - 0.5) * 10,
+                "away_avg_pts": 110 + (away_win_pct - 0.5) * 10,
+                "home_avg_pts_allowed": 110 - (home_win_pct - 0.5) * 10,
+                "away_avg_pts_allowed": 110 - (away_win_pct - 0.5) * 10,
+                "home_net_rating": (home_win_pct - 0.5) * 20,
+                "away_net_rating": (away_win_pct - 0.5) * 20,
+                "home_rest_days": 2,  # Default (no tracking)
                 "away_rest_days": 2,
                 "rest_advantage": 0,
                 "is_back_to_back_home": 0,
@@ -582,8 +581,8 @@ class HistoricalDataCollector:
                 "home_ml_odds": 1.91,  # Default
                 "away_ml_odds": 1.91,
                 "implied_home_prob": 0.5,
-                "spread": 0,
-                "total_line": home_score + away_score,
+                "spread": (away_elo - home_elo) / 25,  # Estimated from ELO
+                "total_line": 220,  # Default NBA total
                 "h2h_home_wins": 0,
                 "h2h_total_games": 0,
             }
