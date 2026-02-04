@@ -99,7 +99,7 @@ class UnifiedBetPredictor:
             try:
                 predictor = get_predictor(sport_key)
                 if predictor.is_loaded:
-                    logger.info("  🤖 Running XGBoost ML...")
+                    logger.info("  🤖 Running XGBoost ML (All Markets)...")
                     
                     # Build team data for XGBoost
                     home_team_data = {
@@ -114,32 +114,100 @@ class UnifiedBetPredictor:
                     }
                     odds_data = event.get("odds", {})
                     
+                    # Get predictions for ALL markets
                     xgb_prediction = predictor.predict(home_team_data, away_team_data, odds_data)
-                    xgb_prob = xgb_prediction.get("home_win_prob", 0.5)
                     
-                    # Determine XGBoost pick
-                    if xgb_prob >= 0.55:
-                        xgb_pick = home_team
-                        xgb_conf = xgb_prob * 100
-                    elif xgb_prob <= 0.45:
-                        xgb_pick = away_team
-                        xgb_conf = (1 - xgb_prob) * 100
-                    else:
-                        xgb_pick = None
-                        xgb_conf = 50
+                    # Moneyline
+                    ml_prob = xgb_prediction.get("home_win_prob", 0.5)
+                    ml_conf = xgb_prediction.get("ml_confidence", 50)
+                    
+                    # Spread
+                    spread_prob = xgb_prediction.get("home_cover_prob", 0.5)
+                    spread_conf = xgb_prediction.get("spread_confidence", 50)
+                    
+                    # Totals
+                    over_prob = xgb_prediction.get("over_prob", 0.5)
+                    totals_conf = xgb_prediction.get("totals_confidence", 50)
+                    predicted_total = xgb_prediction.get("predicted_total", 220)
+                    
+                    # Determine best market and pick
+                    best_market = xgb_prediction.get("best_market", "moneyline")
+                    best_conf = xgb_prediction.get("best_confidence", 50)
+                    
+                    # Get spread and total line from odds
+                    spread_line = odds_data.get("spread", 0)
+                    total_line = odds_data.get("total", 220)
+                    
+                    # Determine pick based on best market
+                    xgb_pick = None
+                    xgb_pick_type = best_market
+                    xgb_pick_display = None
+                    xgb_conf = best_conf
+                    
+                    if best_market == "moneyline":
+                        if ml_prob >= 0.55:
+                            xgb_pick = home_team
+                            xgb_pick_display = f"{home_team} ML"
+                            xgb_conf = ml_conf
+                        elif ml_prob <= 0.45:
+                            xgb_pick = away_team
+                            xgb_pick_display = f"{away_team} ML"
+                            xgb_conf = ml_conf
+                    
+                    elif best_market == "spread":
+                        if spread_prob >= 0.55:
+                            xgb_pick = home_team
+                            spread_display = f"{spread_line:+.1f}" if spread_line else ""
+                            xgb_pick_display = f"{home_team} {spread_display}"
+                            xgb_conf = spread_conf
+                        elif spread_prob <= 0.45:
+                            xgb_pick = away_team
+                            spread_display = f"{-spread_line:+.1f}" if spread_line else ""
+                            xgb_pick_display = f"{away_team} {spread_display}"
+                            xgb_conf = spread_conf
+                    
+                    elif best_market == "totals":
+                        if over_prob >= 0.55:
+                            xgb_pick = "OVER"
+                            xgb_pick_display = f"OVER {total_line}"
+                            xgb_conf = totals_conf
+                        elif over_prob <= 0.45:
+                            xgb_pick = "UNDER"
+                            xgb_pick_display = f"UNDER {total_line}"
+                            xgb_conf = totals_conf
                     
                     xgb_result = {
                         "has_pick": xgb_pick is not None,
                         "pick": xgb_pick,
+                        "pick_type": xgb_pick_type,
+                        "pick_display": xgb_pick_display,
                         "confidence": xgb_conf,
-                        "probability": xgb_prob,
-                        "model_accuracy": predictor.training_accuracy
+                        # All market probabilities
+                        "ml_probability": ml_prob,
+                        "spread_probability": spread_prob,
+                        "over_probability": over_prob,
+                        "predicted_total": predicted_total,
+                        # Accuracies
+                        "ml_accuracy": predictor.ml_accuracy,
+                        "spread_accuracy": predictor.spread_accuracy,
+                        "totals_accuracy": predictor.totals_accuracy,
+                        # Best market info
+                        "best_market": best_market,
+                        "spread_line": spread_line,
+                        "total_line": total_line,
+                        # Backward compat
+                        "probability": ml_prob,
+                        "model_accuracy": predictor.ml_accuracy
                     }
                     xgb_available = True
                     
-                    logger.info(f"  🤖 XGBoost: {xgb_prob*100:.1f}% home win prob, pick={xgb_pick}")
+                    logger.info(f"  🤖 XGBoost Best Market: {best_market.upper()}")
+                    logger.info(f"     ML: {ml_prob*100:.1f}%, Spread: {spread_prob*100:.1f}%, Totals: {over_prob*100:.1f}%")
+                    logger.info(f"     Pick: {xgb_pick_display} ({xgb_conf:.0f}% conf)")
             except Exception as e:
                 logger.warning(f"XGBoost prediction failed: {e}")
+                import traceback
+                traceback.print_exc()
         
         # Run V5 and V6 predictors
         try:
