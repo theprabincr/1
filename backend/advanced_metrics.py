@@ -53,6 +53,7 @@ class ELORatingSystem:
     """
     ELO rating system for sports teams.
     Dynamically calculates team strength and predicts outcomes.
+    Uses trained ELO from database when available.
     """
     
     def __init__(self, sport_key: str):
@@ -60,7 +61,13 @@ class ELORatingSystem:
         self.config = ELO_CONFIG.get(sport_key, ELO_CONFIG["basketball_nba"])
     
     def get_team_elo(self, team_name: str) -> float:
-        """Get current ELO rating for a team."""
+        """Get current ELO rating for a team. Prefers DB-trained ELO over in-memory."""
+        # First try DB cache (trained ELO from XGBoost training)
+        db_key = f"{self.sport_key}:{team_name}"
+        if db_key in DB_ELO_CACHE:
+            return DB_ELO_CACHE[db_key]
+        
+        # Fallback to in-memory
         key = f"{self.sport_key}:{team_name}"
         return ELO_RATINGS.get(key, self.config["initial_elo"])
     
