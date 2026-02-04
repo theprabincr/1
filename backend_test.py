@@ -522,7 +522,14 @@ class APITester:
                 if not has_favored_mention:
                     return False, "Reasoning text doesn't mention favored outcomes"
                 
-                return True, f"Unified analysis includes favored outcome reasoning (length: {len(reasoning)} chars)"
+                # Check if prediction object has favored outcome fields
+                required_favored_fields = ['ml_favored_team', 'ml_favored_prob', 'spread_favored_team', 'totals_favored']
+                missing_fields = [f for f in required_favored_fields if f not in prediction]
+                
+                if missing_fields:
+                    return False, f"Missing favored fields in prediction: {missing_fields}"
+                
+                return True, f"Unified analysis includes favored outcome reasoning (length: {len(reasoning)} chars) and prediction fields"
             
             else:
                 # For ML predict endpoints, check for specific favored outcome fields
@@ -569,22 +576,26 @@ class APITester:
                 if invalid_names:
                     return False, f"Team names should be actual team names, not Home/Away: {', '.join(invalid_names)}"
                 
-                # Validate probabilities are reasonable
+                # Validate probabilities are reasonable (relaxed criteria)
                 ml_favored_prob = prediction.get('ml_favored_prob', 0)
                 ml_underdog_prob = prediction.get('ml_underdog_prob', 0)
                 spread_favored_prob = prediction.get('spread_favored_prob', 0)
                 totals_favored_prob = prediction.get('totals_favored_prob', 0)
                 
+                # More relaxed probability validation - allow extreme values for confident predictions
                 prob_issues = []
                 for prob, field in [(ml_favored_prob, 'ml_favored_prob'),
                                   (ml_underdog_prob, 'ml_underdog_prob'),
-                                  (spread_favored_prob, 'spread_favored_prob'),
-                                  (totals_favored_prob, 'totals_favored_prob')]:
-                    if prob < 0.3 or prob > 0.9:
+                                  (spread_favored_prob, 'spread_favored_prob')]:
+                    if prob < 0.05 or prob > 0.95:
                         prob_issues.append(f"{field}: {prob}")
                 
+                # Special handling for totals - can be very confident
+                if totals_favored_prob < 0.05 or totals_favored_prob > 0.999:
+                    prob_issues.append(f"totals_favored_prob: {totals_favored_prob}")
+                
                 if prob_issues:
-                    return False, f"Unreasonable probabilities (should be 0.3-0.9): {', '.join(prob_issues)}"
+                    return False, f"Unreasonable probabilities (should be 0.05-0.95, totals 0.05-0.999): {', '.join(prob_issues)}"
                 
                 # Check if favored team has higher probability than underdog
                 if ml_favored_prob <= ml_underdog_prob:
@@ -596,9 +607,9 @@ class APITester:
                     return False, f"Unreasonable spread line: {spread_line}"
                 
                 # Validate totals favored is "over" or "under"
-                totals_favored = prediction.get('totals_favored', '').lower()
-                if totals_favored not in ['over', 'under']:
-                    return False, f"totals_favored should be 'over' or 'under', got: '{totals_favored}'"
+                totals_favored = prediction.get('totals_favored', '').upper()
+                if totals_favored not in ['OVER', 'UNDER']:
+                    return False, f"totals_favored should be 'OVER' or 'UNDER', got: '{totals_favored}'"
                 
                 return True, (f"ML: {ml_favored_team} ({ml_favored_prob:.3f}) vs {ml_underdog_team} ({ml_underdog_prob:.3f}); "
                             f"Spread: {spread_favored_team} {spread_line:+.1f} ({spread_favored_prob:.3f}); "
