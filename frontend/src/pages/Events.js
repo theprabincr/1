@@ -253,12 +253,12 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
           });
         }
 
-        // Generate analysis using V6
+        // Generate analysis using unified predictor (includes XGBoost ML)
         try {
-          const analysisRes = await axios.post(`${API}/analyze-v6/${event.id}?sport_key=${sportKey}`);
+          const analysisRes = await axios.post(`${API}/analyze-unified/${event.id}?sport_key=${sportKey}`);
           setAnalysis(analysisRes.data);
         } catch (e) {
-          console.log("V6 analysis not available");
+          console.log("Unified analysis not available");
         }
       } catch (error) {
         console.error("Error fetching event details:", error);
