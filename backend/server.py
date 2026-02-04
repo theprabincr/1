@@ -62,6 +62,9 @@ from player_stats import (
     compare_team_stats
 )
 
+# Import Advanced Metrics (includes ELO cache loader)
+from advanced_metrics import load_elo_cache_from_db
+
 # Import Adaptive Learning System for self-improving ML
 from adaptive_learning import (
     AdaptiveLearningSystem,
