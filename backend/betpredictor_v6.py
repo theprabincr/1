@@ -633,11 +633,15 @@ class BetPredictorV6:
         key_factors = []
         
         # Get all the data we need
-        agreement = ensemble_result.get("model_agreement", 0)
-        models_agree = ensemble_result.get("consensus_strength", 0)
-        num_models = ensemble_result.get("num_models", 5)
-        agreeing_models = int(models_agree * num_models)
         individual_preds = ensemble_result.get("individual_predictions", {})
+        num_models = len(individual_preds)
+        
+        # Count ACTUAL agreeing models by checking each model's pick
+        agreeing_models = 0
+        for model_name, model_data in individual_preds.items():
+            model_pick = model_data.get("pick")
+            if model_pick == pick:
+                agreeing_models += 1
         
         elo_diff = matchup_metrics.get("elo_advantage", 0)
         home_elo = matchup_metrics.get("home_elo", 1500)
