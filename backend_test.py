@@ -398,6 +398,215 @@ class APITester:
                          description="Unified analysis with XGBoost - should show algorithm: unified_xgboost, xgb_probability, consensus_level",
                          validate_prediction=True)
 
+    def test_xgboost_favored_outcomes(self):
+        """Test XGBoost ML prediction endpoints for FAVORED OUTCOMES (not just home team probabilities)"""
+        print("\n🎯 TESTING XGBOOST FAVORED OUTCOMES (NEW FEATURE)")
+        print("-" * 50)
+        
+        # Test NBA event with favored outcomes
+        self.test_endpoint_with_favored_validation("POST", "/ml/predict/401810581?sport_key=basketball_nba", 
+                         description="NBA XGBoost prediction with favored outcomes - should show ml_favored_team, spread_favored_team, totals_favored",
+                         sport="NBA")
+        
+        # Test NHL event with favored outcomes  
+        self.test_endpoint_with_favored_validation("POST", "/ml/predict/401803244?sport_key=icehockey_nhl", 
+                         description="NHL XGBoost prediction with favored outcomes - should show ml_favored_team, spread_favored_team, totals_favored",
+                         sport="NHL")
+        
+        # Test unified analysis with favored outcomes
+        self.test_endpoint_with_favored_validation("POST", "/analyze-unified/401810581?sport_key=basketball_nba", 
+                         description="Unified analysis with favored outcomes in reasoning text",
+                         sport="NBA", is_unified=True)
+    
+    def test_endpoint_with_favored_validation(self, method, endpoint, expected_status=200, description="", sport="NBA", is_unified=False):
+        """Test endpoint and validate favored outcomes structure"""
+        url = f"{BASE_URL}{endpoint}"
+        print(f"\n🧪 Testing {method} {endpoint}")
+        print(f"   URL: {url}")
+        if description:
+            print(f"   Description: {description}")
+        
+        try:
+            if method.upper() == "GET":
+                response = requests.get(url, timeout=30)
+            elif method.upper() == "POST":
+                response = requests.post(url, timeout=30)
+            else:
+                raise ValueError(f"Unsupported method: {method}")
+            
+            # Check status code
+            status_ok = response.status_code == expected_status
+            
+            # Try to parse JSON
+            json_ok = False
+            json_data = None
+            try:
+                json_data = response.json()
+                json_ok = True
+            except:
+                json_ok = False
+            
+            # Validate favored outcomes structure
+            favored_validation_ok = True
+            favored_details = ""
+            
+            if json_data and status_ok and json_ok:
+                favored_validation_ok, favored_details = self.validate_favored_outcomes(json_data, endpoint, sport, is_unified)
+            
+            # Print results
+            if status_ok and json_ok and favored_validation_ok:
+                print(f"   ✅ PASS - Status: {response.status_code}, JSON: Valid, Favored Outcomes: Valid")
+                print(f"   🎯 Favored Outcomes: {favored_details}")
+                
+                self.passed += 1
+                self.results.append({
+                    'endpoint': endpoint,
+                    'status': 'PASS',
+                    'status_code': response.status_code,
+                    'json_valid': True,
+                    'favored_outcomes': favored_details
+                })
+            else:
+                error_msg = []
+                if not status_ok:
+                    error_msg.append(f"Expected status {expected_status}, got {response.status_code}")
+                if not json_ok:
+                    error_msg.append("Invalid JSON response")
+                if not favored_validation_ok:
+                    error_msg.append(f"Favored outcomes issue: {favored_details}")
+                
+                print(f"   ❌ FAIL - {', '.join(error_msg)}")
+                print(f"   📄 Response: {response.text[:300]}...")
+                
+                self.failed += 1
+                self.results.append({
+                    'endpoint': endpoint,
+                    'status': 'FAIL',
+                    'status_code': response.status_code,
+                    'json_valid': json_ok,
+                    'error': ', '.join(error_msg),
+                    'response_preview': response.text[:300]
+                })
+                
+        except requests.exceptions.RequestException as e:
+            print(f"   ❌ FAIL - Connection Error: {str(e)}")
+            self.failed += 1
+            self.results.append({
+                'endpoint': endpoint,
+                'status': 'FAIL',
+                'error': f"Connection Error: {str(e)}"
+            })
+        except Exception as e:
+            print(f"   ❌ FAIL - Unexpected Error: {str(e)}")
+            self.failed += 1
+            self.results.append({
+                'endpoint': endpoint,
+                'status': 'FAIL',
+                'error': f"Unexpected Error: {str(e)}"
+            })
+    
+    def validate_favored_outcomes(self, data, endpoint, sport, is_unified=False):
+        """Validate favored outcomes structure in ML prediction responses"""
+        try:
+            if is_unified:
+                # For unified analysis, check if favored outcomes are mentioned in reasoning
+                reasoning = data.get('reasoning', '')
+                prediction = data.get('prediction', {})
+                
+                if not reasoning:
+                    return False, "Missing reasoning text in unified analysis"
+                
+                # Check if reasoning mentions favored teams/outcomes
+                has_favored_mention = any(word in reasoning.lower() for word in ['favored', 'favorite', 'underdog', 'likely', 'expected'])
+                
+                if not has_favored_mention:
+                    return False, "Reasoning text doesn't mention favored outcomes"
+                
+                return True, f"Unified analysis includes favored outcome reasoning (length: {len(reasoning)} chars)"
+            
+            else:
+                # For ML predict endpoints, check for specific favored outcome fields
+                prediction = data.get('prediction', {})
+                if not prediction:
+                    return False, "Missing prediction object in ML response"
+                
+                # Check for ML favored fields
+                ml_favored_fields = ['ml_favored_team', 'ml_favored_prob', 'ml_underdog_team', 'ml_underdog_prob']
+                ml_missing = [f for f in ml_favored_fields if f not in prediction]
+                
+                # Check for spread favored fields
+                spread_favored_fields = ['spread_favored_team', 'spread_favored_prob', 'spread_favored_line']
+                spread_missing = [f for f in spread_favored_fields if f not in prediction]
+                
+                # Check for totals favored fields
+                totals_favored_fields = ['totals_favored', 'totals_favored_prob']
+                totals_missing = [f for f in totals_favored_fields if f not in prediction]
+                
+                # Collect all missing fields
+                all_missing = []
+                if ml_missing:
+                    all_missing.extend([f"ML: {', '.join(ml_missing)}"])
+                if spread_missing:
+                    all_missing.extend([f"Spread: {', '.join(spread_missing)}"])
+                if totals_missing:
+                    all_missing.extend([f"Totals: {', '.join(totals_missing)}"])
+                
+                if all_missing:
+                    return False, f"Missing favored outcome fields - {'; '.join(all_missing)}"
+                
+                # Validate team names are actual team names (not "Home" or "Away")
+                ml_favored_team = prediction.get('ml_favored_team', '')
+                ml_underdog_team = prediction.get('ml_underdog_team', '')
+                spread_favored_team = prediction.get('spread_favored_team', '')
+                
+                invalid_names = []
+                for team_name, field in [(ml_favored_team, 'ml_favored_team'), 
+                                       (ml_underdog_team, 'ml_underdog_team'),
+                                       (spread_favored_team, 'spread_favored_team')]:
+                    if team_name.lower() in ['home', 'away', 'home team', 'away team']:
+                        invalid_names.append(f"{field}: '{team_name}'")
+                
+                if invalid_names:
+                    return False, f"Team names should be actual team names, not Home/Away: {', '.join(invalid_names)}"
+                
+                # Validate probabilities are reasonable
+                ml_favored_prob = prediction.get('ml_favored_prob', 0)
+                ml_underdog_prob = prediction.get('ml_underdog_prob', 0)
+                spread_favored_prob = prediction.get('spread_favored_prob', 0)
+                totals_favored_prob = prediction.get('totals_favored_prob', 0)
+                
+                prob_issues = []
+                for prob, field in [(ml_favored_prob, 'ml_favored_prob'),
+                                  (ml_underdog_prob, 'ml_underdog_prob'),
+                                  (spread_favored_prob, 'spread_favored_prob'),
+                                  (totals_favored_prob, 'totals_favored_prob')]:
+                    if prob < 0.3 or prob > 0.9:
+                        prob_issues.append(f"{field}: {prob}")
+                
+                if prob_issues:
+                    return False, f"Unreasonable probabilities (should be 0.3-0.9): {', '.join(prob_issues)}"
+                
+                # Check if favored team has higher probability than underdog
+                if ml_favored_prob <= ml_underdog_prob:
+                    return False, f"ML favored team prob ({ml_favored_prob}) should be higher than underdog prob ({ml_underdog_prob})"
+                
+                # Validate spread line is reasonable
+                spread_line = prediction.get('spread_favored_line', 0)
+                if abs(spread_line) > 30:  # Spread lines are typically within ±30
+                    return False, f"Unreasonable spread line: {spread_line}"
+                
+                # Validate totals favored is "over" or "under"
+                totals_favored = prediction.get('totals_favored', '').lower()
+                if totals_favored not in ['over', 'under']:
+                    return False, f"totals_favored should be 'over' or 'under', got: '{totals_favored}'"
+                
+                return True, (f"ML: {ml_favored_team} ({ml_favored_prob:.3f}) vs {ml_underdog_team} ({ml_underdog_prob:.3f}); "
+                            f"Spread: {spread_favored_team} {spread_line:+.1f} ({spread_favored_prob:.3f}); "
+                            f"Totals: {totals_favored} ({totals_favored_prob:.3f})")
+            
+        except Exception as e:
+            return False, f"Validation error: {str(e)}"
+
     def run_all_tests(self):
         """Run comprehensive API endpoint tests"""
         print("=" * 60)
