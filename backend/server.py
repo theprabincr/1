@@ -4002,15 +4002,15 @@ async def scheduled_espn_odds_refresh():
                     events = await fetch_espn_events_with_odds(sport_key, days_ahead=7)
                     
                     if events:
-                        # Only store odds snapshots for PRE-MATCH events MORE than 1 hour away
+                        # Only store odds snapshots for PRE-MATCH events MORE than 5 minutes away
                         prematch_count = 0
                         for event in events:
                             try:
                                 commence_str = event.get("commence_time", "")
                                 if commence_str:
                                     commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
-                                    # Stop tracking at 1 hour before game (prediction time)
-                                    if commence_time > now + timedelta(hours=1):
+                                    # Store until 5 minutes before game start
+                                    if commence_time > now + timedelta(minutes=5):
                                         await store_odds_snapshot(event)
                                         prematch_count += 1
                             except Exception:
