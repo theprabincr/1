@@ -4495,6 +4495,14 @@ async def startup_event():
     adaptive_learning = await create_adaptive_learning_system(db)
     logger.info("✅ Adaptive Learning System ready - models will now learn from results!")
     
+    # Load trained ELO ratings from database into memory cache
+    logger.info("📊 Loading trained ELO ratings from database...")
+    elo_count = await load_elo_cache_from_db(db)
+    if elo_count > 0:
+        logger.info(f"✅ Loaded {elo_count} ELO ratings into cache")
+    else:
+        logger.warning("⚠️ No ELO ratings in database - run ML training to populate")
+    
     # Initialize XGBoost ML System
     logger.info("🤖 Initializing XGBoost ML System...")
     historical_collector = HistoricalDataCollector(db)
