@@ -73,8 +73,8 @@ const AnalysisSection = ({ analysisText, defaultExpanded = false }) => {
   
   const getSectionStyle = (header) => {
     if (header.includes('OVERVIEW')) return { bg: 'bg-brand-primary/10', border: 'border-brand-primary/30', text: 'text-brand-primary' };
-    if (header.includes('MODEL')) return { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-400' };
-    if (header.includes('STRENGTH') || header.includes('FORM')) return { bg: 'bg-purple-500/10', border: 'border-purple-500/30', text: 'text-purple-400' };
+    if (header.includes('MODEL') || header.includes('XGBOOST') || header.includes('CONSENSUS')) return { bg: 'bg-purple-500/10', border: 'border-purple-500/30', text: 'text-purple-400' };
+    if (header.includes('STRENGTH') || header.includes('FORM')) return { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-400' };
     if (header.includes('INJURY')) return { bg: 'bg-red-500/10', border: 'border-red-500/30', text: 'text-red-400' };
     if (header.includes('LINE') || header.includes('MOVEMENT')) return { bg: 'bg-cyan-500/10', border: 'border-cyan-500/30', text: 'text-cyan-400' };
     if (header.includes('SIMULATION')) return { bg: 'bg-orange-500/10', border: 'border-orange-500/30', text: 'text-orange-400' };
