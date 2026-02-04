@@ -378,18 +378,18 @@ class XGBoostPredictor:
         
         # Predict
         prob = self.model.predict_proba(X_scaled)[0]
-        home_win_prob = prob[1]  # Probability of home win
+        home_win_prob = float(prob[1])  # Probability of home win
         
         # Calculate confidence (distance from 50%)
         confidence = abs(home_win_prob - 0.5) * 2 * 100  # 0-100 scale
         confidence = min(95, max(55, confidence + 55))  # Reasonable range
         
         return {
-            "home_win_prob": round(home_win_prob, 4),
-            "away_win_prob": round(1 - home_win_prob, 4),
-            "confidence": round(confidence, 1),
+            "home_win_prob": round(float(home_win_prob), 4),
+            "away_win_prob": round(float(1 - home_win_prob), 4),
+            "confidence": round(float(confidence), 1),
             "model_available": True,
-            "model_accuracy": self.training_accuracy,
+            "model_accuracy": float(self.training_accuracy) if self.training_accuracy else 0.0,
             "method": "xgboost",
             "features_used": len(FEATURE_NAMES)
         }
