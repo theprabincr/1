@@ -38,12 +38,11 @@ Use the `auto_frontend_testing_agent` to test UI functionality.
 **XGBOOST ML SYSTEM:**
 | Endpoint | Status | Notes |
 |----------|--------|-------|
-| `GET /api/ml/status` | ✅ PASS | Returns model status for all sports |
-| `POST /api/ml/collect-historical` | ✅ PASS | Collected 1313 NBA games for 2024 season |
-| `POST /api/ml/train` | ✅ PASS | XGBoost trained - 65.4% accuracy, 0.755 AUC |
-| `POST /api/ml/predict/{event_id}` | ✅ PASS | Returns ML probability and pick |
-| `POST /api/ml/backtest` | ✅ PASS | Backtest with 89.5% accuracy, +71% ROI |
-| `GET /api/ml/elo-ratings` | ✅ PASS | Returns ELO ratings for all teams |
+| `GET /api/ml/status` | ✅ PASS | NBA model loaded with 65.4% accuracy |
+| `POST /api/ml/predict/401810581?sport_key=basketball_nba` | ✅ PASS | XGBoost prediction: 0.787 home win prob, method: xgboost |
+| `POST /api/ml/backtest?sport_key=basketball_nba&threshold=0.55` | ✅ PASS | Backtest: 89.5% accuracy, 239 picks, 71.0% ROI |
+| `GET /api/ml/elo-ratings?sport_key=basketball_nba` | ✅ PASS | ELO ratings for 36 NBA teams |
+| `POST /api/analyze-unified/401810581?sport_key=basketball_nba` | ✅ PASS | Unified XGBoost: algorithm=unified_xgboost, xgb_prob=0.787, consensus=moderate_consensus |
 
 **UNIFIED PREDICTOR WITH XGBOOST:**
 | Test | Status | Notes |
