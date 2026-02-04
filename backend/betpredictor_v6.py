@@ -633,8 +633,9 @@ class BetPredictorV6:
         key_factors = []
         
         # Get all the data we need
+        agreement = ensemble_result.get("model_agreement", 0)
         individual_preds = ensemble_result.get("individual_predictions", {})
-        num_models = len(individual_preds)
+        num_models = len(individual_preds) if individual_preds else 5
         
         # Count ACTUAL agreeing models by checking each model's pick
         agreeing_models = 0
