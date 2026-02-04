@@ -846,38 +846,6 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
                   </div>
                 </div>
               )}
-
-              {/* Line Movement Chart Preview */}
-              {lineMovement?.chart_data && (
-                <div className="bg-zinc-800 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <BarChart3 className="w-5 h-5 text-brand-secondary" />
-                    <span className="font-semibold text-text-primary">Line Movement</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                      <p className="text-xs text-text-muted mb-1">OPENING</p>
-                      <p className="font-mono text-lg text-text-primary">
-                        {lineMovement.opening_odds?.spread || spread || '-'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-text-muted mb-1">MOVEMENT</p>
-                      <p className={`font-mono text-lg ${
-                        lineMovement.movement_direction === 'favorable' ? 'text-semantic-success' : 'text-text-primary'
-                      }`}>
-                        {lineMovement.movement_amount ? `${lineMovement.movement_amount > 0 ? '+' : ''}${lineMovement.movement_amount}` : '0'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-text-muted mb-1">CURRENT</p>
-                      <p className="font-mono text-lg text-brand-primary">
-                        {spread || '-'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </div>
