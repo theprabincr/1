@@ -2790,13 +2790,14 @@ async def get_ml_status():
 
 
 @api_router.post("/ml/collect-historical")
-async def collect_historical_data(sport_key: str = "basketball_nba", season: str = "2024"):
+async def collect_historical_data(sport_key: str = "basketball_nba", season: str = "2024", force: bool = False):
     """
     Collect 1 season of historical data from ESPN for model training.
     
     Args:
         sport_key: Sport to collect data for
         season: Season year (e.g., "2024" for 2024-25 season)
+        force: Re-fetch data even if cached
     
     This may take a few minutes as it fetches data from ESPN.
     """
@@ -2806,8 +2807,9 @@ async def collect_historical_data(sport_key: str = "basketball_nba", season: str
         collector = HistoricalDataCollector(db)
         
         # Check if we already have cached data
-        cached = await collector.get_cached_historical_data(sport_key, season)
-        if cached and len(cached) > 100:
+        if not force:
+            cached = await collector.get_cached_historical_data(sport_key, season)
+            if cached and len(cached) > 100:
             return {
                 "message": f"Historical data already cached",
                 "sport_key": sport_key,
