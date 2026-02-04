@@ -79,8 +79,8 @@ const Sidebar = () => {
         <div className="flex items-center gap-3 mb-6">
           <BallzyLogo className="w-10 h-10" />
           <div>
-            <h1 className="ballzy-logo-text text-xl text-text-primary">Ballzy</h1>
-            <p className="text-xs text-text-muted font-medium tracking-wide">Algorithm Driven</p>
+            <h1 className="ballzy-logo-text">Ballzy</h1>
+            <p className="ballzy-tagline">Algorithm Driven</p>
           </div>
         </div>
 
