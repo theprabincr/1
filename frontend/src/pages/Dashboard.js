@@ -966,26 +966,89 @@ const Dashboard = () => {
           )}
         </div>
 
-        {/* Upcoming Events */}
+        {/* Upcoming Events - Organized by sections */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="font-mono font-bold text-lg text-text-primary flex items-center gap-2">
               <Calendar className="w-5 h-5 text-brand-primary" />
               Upcoming Events
             </h2>
+            <button 
+              onClick={() => navigate('/events')}
+              className="text-brand-primary text-sm flex items-center gap-1 hover:underline"
+            >
+              View All <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
           
-          <div className="space-y-3">
-            {events.slice(0, 4).map((event) => (
-              <LiveEventCard key={event.id} event={event} />
-            ))}
-            
-            {events.length === 0 && (
-              <div className="stat-card text-center py-6">
-                <p className="text-text-muted text-sm">No live events</p>
-              </div>
-            )}
-          </div>
+          {events.length > 0 ? (
+            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
+              {/* Starting Soon Section - Events within 3 hours */}
+              {(() => {
+                const now = new Date();
+                const threeHoursFromNow = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+                const startingSoon = events.filter(e => {
+                  const gameTime = new Date(e.commence_time);
+                  return gameTime > now && gameTime <= threeHoursFromNow;
+                });
+                
+                if (startingSoon.length > 0) {
+                  return (
+                    <div className="bg-gradient-to-r from-semantic-warning/10 to-transparent border border-semantic-warning/30 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Clock className="w-4 h-4 text-semantic-warning" />
+                        <span className="text-xs font-bold text-semantic-warning uppercase tracking-wide">Starting Soon</span>
+                        <span className="text-xs text-text-muted">({startingSoon.length})</span>
+                      </div>
+                      <div className="space-y-2">
+                        {startingSoon.slice(0, 3).map((event) => (
+                          <CompactEventItem key={event.id} event={event} showSport={true} />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+              
+              {/* Events by Sport */}
+              {Object.entries(
+                events.reduce((acc, event) => {
+                  const sport = event.sport_key || 'other';
+                  if (!acc[sport]) acc[sport] = [];
+                  acc[sport].push(event);
+                  return acc;
+                }, {})
+              ).map(([sportKey, sportEvents]) => (
+                <div key={sportKey} className="bg-zinc-800/30 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-xs font-bold text-brand-primary uppercase tracking-wide">
+                      {formatSportName(sportKey)}
+                    </span>
+                    <span className="text-xs text-text-muted">({sportEvents.length} games)</span>
+                  </div>
+                  <div className="space-y-2">
+                    {sportEvents.slice(0, 3).map((event) => (
+                      <CompactEventItem key={event.id} event={event} />
+                    ))}
+                    {sportEvents.length > 3 && (
+                      <button 
+                        onClick={() => navigate('/events')}
+                        className="w-full text-center text-xs text-text-muted hover:text-brand-primary py-2"
+                      >
+                        +{sportEvents.length - 3} more {formatSportName(sportKey)} games
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="stat-card text-center py-6">
+              <Calendar className="w-8 h-8 text-text-muted mx-auto mb-2" />
+              <p className="text-text-muted text-sm">No upcoming events</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
