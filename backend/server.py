@@ -289,7 +289,7 @@ async def manual_refresh_odds(sport_key: str = "basketball_nba"):
     global events_cache, last_scrape_time
     
     try:
-        events = await fetch_espn_events_with_odds(sport_key, days_ahead=3)
+        events = await fetch_espn_events_with_odds(sport_key, days_ahead=7)
         
         if events:
             # Store in cache
@@ -628,7 +628,7 @@ async def get_events(sport_key: str, markets: str = "h2h,spreads,totals", force_
     
     # Fetch from ESPN API (REAL ODDS from DraftKings)
     try:
-        events = await fetch_espn_events_with_odds(sport_key, days_ahead=3)
+        events = await fetch_espn_events_with_odds(sport_key, days_ahead=7)
         
         if events:
             # Store odds snapshots for line movement tracking (only for pre-match events)
@@ -724,7 +724,7 @@ async def get_matchup_data(event_id: str, sport_key: str = "basketball_nba"):
     """
     try:
         # First, get the event details
-        events = await fetch_espn_events_with_odds(sport_key, days_ahead=3)
+        events = await fetch_espn_events_with_odds(sport_key, days_ahead=7)
         event = next((e for e in events if e.get("id") == event_id or e.get("espn_id") == event_id), None)
         
         if not event:
@@ -828,7 +828,7 @@ async def get_starting_lineup_endpoint(event_id: str, sport_key: str = "basketba
         lineup_data = await fetch_starting_lineup(event_id, sport_key)
         
         # Get event info for team names
-        events = await fetch_espn_events_with_odds(sport_key, days_ahead=3)
+        events = await fetch_espn_events_with_odds(sport_key, days_ahead=7)
         event = next((e for e in events if e.get("id") == event_id), None)
         
         if event:
@@ -1848,7 +1848,7 @@ async def analyze_event_v5(event_id: str, sport_key: str = "basketball_nba"):
     """
     try:
         # 1. Fetch event
-        events = await fetch_espn_events_with_odds(sport_key, days_ahead=3)
+        events = await fetch_espn_events_with_odds(sport_key, days_ahead=7)
         event = None
         for e in events:
             if e.get("id") == event_id:
@@ -2067,7 +2067,7 @@ async def analyze_event_v6(event_id: str, sport_key: str = "basketball_nba"):
     """
     
     # Fetch event data from ESPN
-    events = await fetch_espn_events_with_odds(sport_key, days_ahead=3)
+    events = await fetch_espn_events_with_odds(sport_key, days_ahead=7)
     event = next((e for e in events if e.get("id") == event_id or e.get("espn_id") == event_id), None)
     
     if not event:
@@ -2585,7 +2585,7 @@ async def analyze_event_unified(event_id: str, sport_key: str = "basketball_nba"
     """
     
     # Fetch event data
-    events = await fetch_espn_events_with_odds(sport_key, days_ahead=3)
+    events = await fetch_espn_events_with_odds(sport_key, days_ahead=7)
     event = next((e for e in events if e.get("id") == event_id or e.get("espn_id") == event_id), None)
     
     if not event:
@@ -3967,7 +3967,7 @@ async def scheduled_espn_odds_refresh():
     try:
         now = datetime.now(timezone.utc)
         for sport_key in sports_to_refresh:
-            events = await fetch_espn_events_with_odds(sport_key, days_ahead=3)
+            events = await fetch_espn_events_with_odds(sport_key, days_ahead=7)
             if events:
                 prematch_count = 0
                 for event in events:
@@ -3999,7 +3999,7 @@ async def scheduled_espn_odds_refresh():
             
             for sport_key in sports_to_refresh:
                 try:
-                    events = await fetch_espn_events_with_odds(sport_key, days_ahead=3)
+                    events = await fetch_espn_events_with_odds(sport_key, days_ahead=7)
                     
                     if events:
                         # Only store odds snapshots for PRE-MATCH events MORE than 1 hour away
