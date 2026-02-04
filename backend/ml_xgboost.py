@@ -445,7 +445,10 @@ class XGBoostPredictor:
         y_spread_prob = self.spread_model.predict_proba(X_test)[:, 1]
         
         spread_accuracy = accuracy_score(y_spread_test, y_spread_pred)
-        spread_auc = roc_auc_score(y_spread_test, y_spread_prob)
+        try:
+            spread_auc = roc_auc_score(y_spread_test, y_spread_prob)
+        except ValueError:
+            spread_auc = 0.5  # Default when only one class
         
         metrics["spread_accuracy"] = round(float(spread_accuracy), 4)
         metrics["spread_auc"] = round(float(spread_auc), 4)
@@ -464,7 +467,10 @@ class XGBoostPredictor:
         y_totals_prob = self.totals_model.predict_proba(X_test)[:, 1]
         
         totals_accuracy = accuracy_score(y_totals_test, y_totals_pred)
-        totals_auc = roc_auc_score(y_totals_test, y_totals_prob)
+        try:
+            totals_auc = roc_auc_score(y_totals_test, y_totals_prob)
+        except ValueError:
+            totals_auc = 0.5  # Default when only one class
         
         metrics["totals_accuracy"] = round(float(totals_accuracy), 4)
         metrics["totals_auc"] = round(float(totals_auc), 4)
