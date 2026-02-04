@@ -42,8 +42,11 @@ ELO_CONFIG = {
     }
 }
 
-# In-memory ELO storage (would use DB in production)
+# In-memory ELO storage (fallback only - prefer DB)
 ELO_RATINGS = {}
+
+# Cached DB ELO ratings (populated from MongoDB on startup)
+DB_ELO_CACHE = {}
 
 
 class ELORatingSystem:
