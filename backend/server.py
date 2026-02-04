@@ -33,11 +33,11 @@ from espn_scores import (
     get_final_games
 )
 
-# Import BetPredictor V5 - Comprehensive Line Movement Analysis Engine
+# Import Ballzy V5 - Comprehensive Line Movement Analysis Engine
 from betpredictor_v5 import generate_v5_prediction, BetPredictorV5
 from line_movement_analyzer import analyze_line_movement, LineMovementAnalyzer
 
-# Import BetPredictor V6 - Advanced Algorithm with ML and Ensemble
+# Import Ballzy V6 - Advanced Algorithm with ML and Ensemble
 from betpredictor_v6 import generate_v6_prediction, BetPredictorV6
 
 # Import Unified Predictor - Combines V5 + V6 with V6 weighted heavier
@@ -1257,7 +1257,7 @@ async def force_generate_picks():
     This endpoint manually triggers analysis for games currently in the 45-75 minute window.
     """
     return {
-        "message": "BetPredictor V5 automatically generates picks 1 hour before game start",
+        "message": "Ballzy V5 automatically generates picks 1 hour before game start",
         "note": "Use POST /api/analyze-v5/{event_id} to manually analyze a specific event"
     }
 
@@ -1839,10 +1839,10 @@ async def cleanup_line_movement_data():
         "total_deleted": deleted_history_count + deleted_opening_count
     }
 
-# BetPredictor V5 - Get predictions
+# Ballzy V5 - Get predictions
 @api_router.get("/predictions/v5")
 async def get_v5_predictions(limit: int = 50, result: str = None):
-    """Get predictions made by BetPredictor V5 algorithm (comprehensive line movement analysis)"""
+    """Get predictions made by Ballzy V5 algorithm (comprehensive line movement analysis)"""
     query = {"ai_model": "betpredictor_v5"}
     if result:
         query["result"] = result
@@ -2024,7 +2024,7 @@ async def analyze_event_v5(event_id: str, sport_key: str = "basketball_nba"):
 # Algorithm Performance Stats (V5 only)
 @api_router.get("/predictions/stats")
 async def get_prediction_stats():
-    """Get BetPredictor V5 performance statistics"""
+    """Get Ballzy V5 performance statistics"""
     
     all_predictions = await db.predictions.find({"ai_model": "betpredictor_v5"}, {"_id": 0}).to_list(10000)
     
@@ -2066,7 +2066,7 @@ async def get_prediction_stats():
 
 @api_router.get("/predictions/v6")
 async def get_v6_predictions(limit: int = 50, result: str = None):
-    """Get BetPredictor V6 predictions (advanced algorithm)"""
+    """Get Ballzy V6 predictions (advanced algorithm)"""
     query = {"ai_model": "betpredictor_v6"}
     if result:
         query["result"] = result
@@ -2101,7 +2101,7 @@ async def get_v6_predictions(limit: int = 50, result: str = None):
 @api_router.post("/analyze-v6/{event_id}")
 async def analyze_event_v6(event_id: str, sport_key: str = "basketball_nba"):
     """
-    Analyze a specific event using BetPredictor V6 (Advanced Algorithm)
+    Analyze a specific event using Ballzy V6 (Advanced Algorithm)
     
     Features:
     - Phase 1: ELO ratings, context (rest/travel/altitude), smart injury weighting, advanced metrics
