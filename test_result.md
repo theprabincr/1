@@ -33,6 +33,35 @@ Use the `auto_frontend_testing_agent` to test UI functionality.
 
 ## Test Status
 
+### ML Enhancement Tests ✅ COMPLETED (February 4, 2026)
+
+**XGBOOST ML SYSTEM:**
+| Endpoint | Status | Notes |
+|----------|--------|-------|
+| `GET /api/ml/status` | ✅ PASS | Returns model status for all sports |
+| `POST /api/ml/collect-historical` | ✅ PASS | Collected 1313 NBA games for 2024 season |
+| `POST /api/ml/train` | ✅ PASS | XGBoost trained - 65.4% accuracy, 0.755 AUC |
+| `POST /api/ml/predict/{event_id}` | ✅ PASS | Returns ML probability and pick |
+| `POST /api/ml/backtest` | ✅ PASS | Backtest with 89.5% accuracy, +71% ROI |
+| `GET /api/ml/elo-ratings` | ✅ PASS | Returns ELO ratings for all teams |
+
+**UNIFIED PREDICTOR WITH XGBOOST:**
+| Test | Status | Notes |
+|------|--------|-------|
+| XGBoost Integration | ✅ PASS | Algorithm shows "unified_xgboost" |
+| Model Consensus | ✅ PASS | Shows consensus level (strong/moderate/xgb_only) |
+| Combined Weights | ✅ PASS | XGBoost 40%, V6 35%, V5 25% |
+
+**TRAINING METRICS:**
+- Training Samples: 1,050 games
+- Test Samples: 263 games  
+- Accuracy: 65.4%
+- AUC-ROC: 0.755
+- Cross-Validation: 67.8% (±4.6%)
+- Top Features: spread, elo_diff, win_pct_diff
+
+---
+
 ### Backend Tests ✅ COMPLETED (January 30, 2026) - Comprehensive Pre-Deployment Testing
 
 **CORE API HEALTH:**
