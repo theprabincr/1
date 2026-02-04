@@ -170,7 +170,7 @@ class APITester:
                 
                 nba_model = models['basketball_nba']
                 accuracy = nba_model.get('accuracy', 0)
-                is_loaded = nba_model.get('loaded', False)
+                is_loaded = nba_model.get('model_loaded', False)  # Updated field name
                 
                 if not is_loaded:
                     return False, "basketball_nba model not loaded"
@@ -181,19 +181,23 @@ class APITester:
                 return True, f"NBA model loaded with {accuracy*100:.1f}% accuracy"
             
             elif "/ml/predict/" in endpoint:
-                # Validate ML prediction response
+                # Validate ML prediction response - check nested prediction object
                 if not isinstance(data, dict):
                     return False, "ML prediction should return a dictionary"
                 
+                prediction = data.get('prediction', {})
+                if not prediction:
+                    return False, "Missing prediction object in ML response"
+                
                 required_fields = ['home_win_prob', 'model_available', 'method']
-                missing_fields = [f for f in required_fields if f not in data]
+                missing_fields = [f for f in required_fields if f not in prediction]
                 
                 if missing_fields:
                     return False, f"Missing ML prediction fields: {missing_fields}"
                 
-                home_win_prob = data.get('home_win_prob', 0)
-                model_available = data.get('model_available', False)
-                method = data.get('method', '')
+                home_win_prob = prediction.get('home_win_prob', 0)
+                model_available = prediction.get('model_available', False)
+                method = prediction.get('method', '')
                 
                 if not model_available:
                     return False, "Model not available for prediction"
@@ -211,19 +215,23 @@ class APITester:
                 return True, f"XGBoost prediction: {home_win_prob:.3f} home win prob, method: {method}"
             
             elif "/ml/backtest" in endpoint:
-                # Validate ML backtest response
+                # Validate ML backtest response - check nested results object
                 if not isinstance(data, dict):
                     return False, "ML backtest should return a dictionary"
                 
+                results = data.get('results', {})
+                if not results:
+                    return False, "Missing results object in backtest response"
+                
                 required_fields = ['accuracy', 'picks_made', 'roi']
-                missing_fields = [f for f in required_fields if f not in data]
+                missing_fields = [f for f in required_fields if f not in results]
                 
                 if missing_fields:
                     return False, f"Missing backtest fields: {missing_fields}"
                 
-                accuracy = data.get('accuracy', 0)
-                picks_made = data.get('picks_made', 0)
-                roi = data.get('roi', 0)
+                accuracy = results.get('accuracy', 0)
+                picks_made = results.get('picks_made', 0)
+                roi = results.get('roi', 0)
                 
                 if accuracy <= 0.5:
                     return False, f"Expected accuracy > 0.5, got {accuracy}"
@@ -234,41 +242,43 @@ class APITester:
                 return True, f"Backtest: {accuracy:.1%} accuracy, {picks_made} picks, {roi:.1f}% ROI"
             
             elif "/ml/elo-ratings" in endpoint:
-                # Validate ELO ratings response
+                # Validate ELO ratings response - check teams array
                 if not isinstance(data, dict):
                     return False, "ELO ratings should return a dictionary"
                 
-                if 'ratings' not in data:
-                    return False, "Missing 'ratings' field in ELO response"
+                if 'teams' not in data:
+                    return False, "Missing 'teams' field in ELO response"
                 
-                ratings = data.get('ratings', {})
-                if len(ratings) < 20:  # NBA has 30 teams, expect at least 20
-                    return False, f"Expected at least 20 NBA teams, got {len(ratings)}"
+                teams = data.get('teams', [])
+                if len(teams) < 20:  # NBA has 30 teams, expect at least 20
+                    return False, f"Expected at least 20 NBA teams, got {len(teams)}"
                 
                 # Check if ratings are reasonable (typically 1000-2000 range)
-                sample_rating = next(iter(ratings.values()), 0)
-                if sample_rating < 800 or sample_rating > 2200:
-                    return False, f"ELO rating seems unreasonable: {sample_rating}"
+                if teams:
+                    sample_rating = teams[0].get('elo', 0)
+                    if sample_rating < 800 or sample_rating > 2200:
+                        return False, f"ELO rating seems unreasonable: {sample_rating}"
                 
-                return True, f"ELO ratings for {len(ratings)} teams"
+                return True, f"ELO ratings for {len(teams)} teams"
                 
             elif "/analyze-unified/" in endpoint:
                 # Check for unified analysis structure with XGBoost integration
-                if 'algorithm' not in data:
-                    return False, "Missing 'algorithm' field in unified analysis"
+                prediction = data.get('prediction', {})
+                if not prediction:
+                    return False, "Missing 'prediction' object in unified analysis"
                 
-                algorithm = data.get('algorithm', '')
+                algorithm = prediction.get('algorithm', '')
                 if algorithm != 'unified_xgboost':
                     return False, f"Expected algorithm 'unified_xgboost', got '{algorithm}'"
                 
-                if 'xgb_probability' not in data:
+                if 'xgb_probability' not in prediction:
                     return False, "Missing 'xgb_probability' field"
                 
-                if 'consensus_level' not in data:
+                if 'consensus_level' not in prediction:
                     return False, "Missing 'consensus_level' field"
                 
-                xgb_prob = data.get('xgb_probability', 0)
-                consensus = data.get('consensus_level', '')
+                xgb_prob = prediction.get('xgb_probability', 0)
+                consensus = prediction.get('consensus_level', '')
                 
                 return True, f"Unified XGBoost: algorithm={algorithm}, xgb_prob={xgb_prob:.3f}, consensus={consensus}"
             
