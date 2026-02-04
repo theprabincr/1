@@ -483,25 +483,46 @@ const LiveEventCard = ({ event }) => {
 };
 
 // Helper to get best odds (decimal format - higher is better)
-const getBestOdds = (bookmakers) => {
+const getBestOdds = (bookmakers, homeTeam, awayTeam) => {
   let bestHome = 1;
   let bestAway = 1;
+  let spread = null;
+  let total = null;
   
   bookmakers.forEach(bm => {
     bm.markets?.forEach(market => {
       if (market.key === 'h2h') {
         market.outcomes?.forEach(outcome => {
-          if (outcome.name === bookmakers[0]?.markets?.[0]?.outcomes?.[0]?.name) {
+          // Match by team name if available, otherwise use first outcome
+          const isHomeTeam = homeTeam ? outcome.name === homeTeam : 
+            outcome.name === bookmakers[0]?.markets?.[0]?.outcomes?.[0]?.name;
+          
+          if (isHomeTeam) {
             if (outcome.price > bestHome) bestHome = outcome.price;
           } else {
             if (outcome.price > bestAway) bestAway = outcome.price;
           }
         });
       }
+      // Extract spread
+      if (market.key === 'spreads' && spread === null) {
+        const homeSpread = market.outcomes?.find(o => o.name === homeTeam);
+        if (homeSpread) spread = homeSpread.point;
+      }
+      // Extract total
+      if (market.key === 'totals' && total === null) {
+        const over = market.outcomes?.find(o => o.name === 'Over');
+        if (over) total = over.point;
+      }
     });
   });
   
-  return { home: bestHome || 1.91, away: bestAway || 1.91 };
+  return { 
+    home: bestHome > 1 ? bestHome : 1.91, 
+    away: bestAway > 1 ? bestAway : 1.91,
+    spread,
+    total
+  };
 };
 
 const Dashboard = () => {
