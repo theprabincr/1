@@ -1,7 +1,10 @@
 {
   "sport_key": "americanfootball_nfl",
-  "accuracy": 0.7758620689655172,
-  "last_trained": "2026-02-04T08:45:24.442451+00:00",
+  "ml_accuracy": 0.7759,
+  "spread_accuracy": 0.5345,
+  "totals_accuracy": 1.0,
+  "totals_mae": 10.62,
+  "last_trained": "2026-02-04T09:44:09.720923+00:00",
   "features": [
     "home_elo",
     "away_elo",
@@ -33,7 +36,12 @@
     "spread",
     "total_line",
     "h2h_home_wins",
-    "h2h_total_games"
+    "h2h_total_games",
+    "combined_avg_pts",
+    "combined_pts_allowed",
+    "pace_factor",
+    "defensive_rating_diff"
   ],
-  "model_type": "XGBClassifier"
+  "model_type": "XGBClassifier_MultiMarket",
+  "accuracy": 0.7759
 }
