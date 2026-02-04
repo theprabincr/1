@@ -70,12 +70,12 @@ class UnifiedBetPredictor:
         player_stats_comparison: Dict = None  # Player stats analysis
     ) -> Dict:
         """
-        Generate unified prediction combining V5 and V6 analysis.
+        Generate unified prediction combining V5, V6, and XGBoost ML analysis.
         
         Args:
             player_stats_comparison: Dict with home/away lineup impact and advantages
         
-        Returns single pick with combined reasoning from both algorithms.
+        Returns single pick with combined reasoning from all algorithms.
         """
         home_team = event.get("home_team", "")
         away_team = event.get("away_team", "")
@@ -90,17 +90,68 @@ class UnifiedBetPredictor:
             for adv in player_stats_comparison.get("key_advantages", [])[:2]:
                 logger.info(f"     - {adv}")
         
-        # Run both predictors in parallel
+        # Initialize XGBoost result
+        xgb_result = None
+        xgb_available = False
+        
+        # Run XGBoost ML if available
+        if XGBOOST_AVAILABLE:
+            try:
+                predictor = get_predictor(sport_key)
+                if predictor.is_loaded:
+                    logger.info("  🤖 Running XGBoost ML...")
+                    
+                    # Build team data for XGBoost
+                    home_team_data = {
+                        "elo_rating": matchup_data.get("home_team", {}).get("elo_rating", 1500),
+                        "form": matchup_data.get("home_team", {}).get("form", {}),
+                        "stats": matchup_data.get("home_team", {}).get("stats", {})
+                    }
+                    away_team_data = {
+                        "elo_rating": matchup_data.get("away_team", {}).get("elo_rating", 1500),
+                        "form": matchup_data.get("away_team", {}).get("form", {}),
+                        "stats": matchup_data.get("away_team", {}).get("stats", {})
+                    }
+                    odds_data = event.get("odds", {})
+                    
+                    xgb_prediction = predictor.predict(home_team_data, away_team_data, odds_data)
+                    xgb_prob = xgb_prediction.get("home_win_prob", 0.5)
+                    
+                    # Determine XGBoost pick
+                    if xgb_prob >= 0.55:
+                        xgb_pick = home_team
+                        xgb_conf = xgb_prob * 100
+                    elif xgb_prob <= 0.45:
+                        xgb_pick = away_team
+                        xgb_conf = (1 - xgb_prob) * 100
+                    else:
+                        xgb_pick = None
+                        xgb_conf = 50
+                    
+                    xgb_result = {
+                        "has_pick": xgb_pick is not None,
+                        "pick": xgb_pick,
+                        "confidence": xgb_conf,
+                        "probability": xgb_prob,
+                        "model_accuracy": predictor.training_accuracy
+                    }
+                    xgb_available = True
+                    
+                    logger.info(f"  🤖 XGBoost: {xgb_prob*100:.1f}% home win prob, pick={xgb_pick}")
+            except Exception as e:
+                logger.warning(f"XGBoost prediction failed: {e}")
+        
+        # Run V5 and V6 predictors
         try:
-            # V6 Analysis (ML Ensemble - Primary)
-            logger.info("  📊 Running V6 (ML Ensemble)...")
+            # V6 Analysis (Rule-based Ensemble)
+            logger.info("  📊 Running V6 (Rule-based Ensemble)...")
             v6_result = await generate_v6_prediction(
                 event, sport_key, squad_data, matchup_data,
                 line_movement_history, opening_odds, current_odds,
-                player_stats=player_stats_comparison  # Pass player stats to V6
+                player_stats=player_stats_comparison
             )
             
-            # V5 Analysis (Line Movement - Secondary)
+            # V5 Analysis (Line Movement)
             logger.info("  📈 Running V5 (Line Movement)...")
             v5_result = await generate_v5_prediction(
                 event, sport_key, squad_data, matchup_data,
@@ -115,9 +166,10 @@ class UnifiedBetPredictor:
                 "algorithm": "unified"
             }
         
-        # Analyze results and combine
+        # Analyze results and combine (now with XGBoost)
         unified_prediction = self._combine_predictions(
-            v5_result, v6_result, home_team, away_team, event
+            v5_result, v6_result, home_team, away_team, event,
+            xgb_result=xgb_result, xgb_available=xgb_available
         )
         
         return unified_prediction
