@@ -78,12 +78,10 @@ const Sidebar = () => {
     <aside className="sidebar" data-testid="sidebar">
       <div className="p-6">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-lg bg-brand-primary flex items-center justify-center">
-            <Zap className="w-6 h-6 text-zinc-950" />
-          </div>
+          <BallzyLogo className="w-10 h-10" />
           <div>
-            <h1 className="font-mono font-bold text-lg text-text-primary">BetPredictor</h1>
-            <p className="text-xs text-text-muted">Algorithm-Powered</p>
+            <h1 className="ballzy-logo-text text-xl text-text-primary">Ballzy</h1>
+            <p className="text-xs text-text-muted font-medium">Smart Betting AI</p>
           </div>
         </div>
 
