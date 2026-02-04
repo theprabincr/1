@@ -550,27 +550,24 @@ class UnifiedBetPredictor:
         consensus_level: str,
         agrees_count: int
     ) -> str:
-        """Build reasoning text when XGBoost is the primary model. Shows FAVORED outcomes."""
+        """Build CONCISE reasoning text when XGBoost is the primary model. Shows FAVORED outcomes."""
         parts = []
         
-        parts.append("=" * 60)
-        parts.append(f"🤖 XGBOOST ML PREDICTION")
-        parts.append("=" * 60)
-        parts.append("")
+        # ===== HEADER =====
+        parts.append("=" * 50)
+        parts.append("🤖 XGBOOST ML PREDICTION")
+        parts.append("=" * 50)
         
         # ===== FAVORED OUTCOMES DISPLAY =====
-        # Moneyline
         ml_favored_team = xgb_result.get("ml_favored_team", "Team")
         ml_favored_prob = xgb_result.get("ml_favored_prob", 0.5)
         ml_underdog_team = xgb_result.get("ml_underdog_team", "Team")
         ml_underdog_prob = xgb_result.get("ml_underdog_prob", 0.5)
         
-        # Spread
         spread_favored_team = xgb_result.get("spread_favored_team", "Team")
         spread_favored_prob = xgb_result.get("spread_favored_prob", 0.5)
         spread_favored_line = xgb_result.get("spread_favored_line", 0)
         
-        # Totals
         totals_favored = xgb_result.get("totals_favored", "OVER")
         totals_favored_prob = xgb_result.get("totals_favored_prob", 0.5)
         totals_line = xgb_result.get("totals_line", 220)
@@ -580,64 +577,76 @@ class UnifiedBetPredictor:
         spread_accuracy = xgb_result.get("spread_accuracy", 0)
         totals_accuracy = xgb_result.get("totals_accuracy", 0)
         
-        parts.append("📊 XGBOOST MARKET PREDICTIONS")
+        # All market predictions in one section (single newlines between)
         parts.append("")
-        parts.append(f"🏀 MONEYLINE:")
-        parts.append(f"   Favored: {ml_favored_team} @ {ml_favored_prob*100:.1f}%")
-        parts.append(f"   Underdog: {ml_underdog_team} @ {ml_underdog_prob*100:.1f}%")
-        parts.append(f"   Model Accuracy: {xgb_accuracy:.1%}")
-        parts.append("")
-        parts.append(f"📏 SPREAD:")
-        parts.append(f"   Favored: {spread_favored_team} {spread_favored_line:+.1f} @ {spread_favored_prob*100:.1f}%")
-        parts.append(f"   Model Accuracy: {spread_accuracy:.1%}")
-        parts.append("")
-        parts.append(f"📈 TOTALS:")
-        parts.append(f"   Favored: {totals_favored} {totals_line} @ {totals_favored_prob*100:.1f}%")
-        parts.append(f"   Predicted Total: {predicted_total:.1f}")
-        parts.append(f"   Model Accuracy: {totals_accuracy:.1%}")
-        parts.append("")
-        parts.append(f"💰 Combined Confidence: {confidence:.1f}%")
-        parts.append(f"🎯 Edge: {edge:+.1f}%")
-        parts.append("")
+        parts.append("📊 MARKET PREDICTIONS")
+        parts.append(f"  🏀 Moneyline: {ml_favored_team} @ {ml_favored_prob*100:.1f}% (Acc: {xgb_accuracy:.0%})")
+        parts.append(f"  📏 Spread: {spread_favored_team} {spread_favored_line:+.1f} @ {spread_favored_prob*100:.1f}% (Acc: {spread_accuracy:.0%})")
+        parts.append(f"  📈 Totals: {totals_favored} {totals_line} @ {totals_favored_prob*100:.1f}% (Predicted: {predicted_total:.0f})")
         
-        # Model agreement
-        parts.append("MODEL AGREEMENT")
         parts.append("")
+        parts.append(f"💰 Confidence: {confidence:.1f}%  |  🎯 Edge: {edge:+.1f}%")
+        
+        # Model agreement section
+        parts.append("")
+        parts.append("📊 MODEL AGREEMENT")
         if consensus_level == "strong_consensus":
-            parts.append("✅ ALL 3 MODELS AGREE (+10% confidence boost)")
+            parts.append("  ✅ ALL 3 MODELS AGREE (+10% boost)")
         elif consensus_level == "moderate_consensus":
-            parts.append("📊 2 OF 3 MODELS AGREE (+5% confidence boost)")
+            parts.append("  📊 2 OF 3 MODELS AGREE (+5% boost)")
         else:
-            parts.append("⚠️ Only XGBoost has a pick")
-        
-        parts.append("")
+            parts.append("  ⚠️ XGBoost only pick")
         
         xgb_pick = xgb_result.get("pick", "N/A")
         xgb_pick_display = xgb_result.get("pick_display", xgb_pick)
         best_market = xgb_result.get("best_market", "moneyline")
         
-        # Show the favored prob for the pick's market
-        if best_market == "moneyline":
-            pick_prob = ml_favored_prob
-        elif best_market == "spread":
-            pick_prob = spread_favored_prob
-        else:
-            pick_prob = totals_favored_prob
+        pick_prob = ml_favored_prob if best_market == "moneyline" else spread_favored_prob if best_market == "spread" else totals_favored_prob
         
-        parts.append(f"  • XGBoost ML: {xgb_pick_display} ({pick_prob*100:.1f}%)")
+        parts.append(f"  • XGBoost: {xgb_pick_display} ({pick_prob*100:.1f}%)")
         
         if v6_result.get("has_pick"):
             v6_pick = v6_result.get("pick", "N/A")
             v6_conf = v6_result.get("confidence", 0)
-            parts.append(f"  • V6 Ensemble: {v6_pick} ({v6_conf:.0f}%)")
+            parts.append(f"  • V6: {v6_pick} ({v6_conf:.0f}%)")
         else:
-            parts.append(f"  • V6 Ensemble: No pick")
+            parts.append("  • V6: No pick")
         
         if v5_result.get("has_pick"):
             v5_pick = v5_result.get("pick", "N/A")
             v5_conf = v5_result.get("confidence", 0)
-            parts.append(f"  • V5 Line Movement: {v5_pick} ({v5_conf:.0f}%)")
+            parts.append(f"  • V5: {v5_pick} ({v5_conf:.0f}%)")
         else:
+            parts.append("  • V5: No pick")
+        
+        parts.append("")
+        parts.append("=" * 50)
+        
+        # Include CONDENSED V6 reasoning (if available)
+        v6_reasoning = v6_result.get("reasoning", "")
+        if v6_reasoning and v6_result.get("has_pick"):
+            # Extract key sections from V6 reasoning (condensed)
+            parts.append("")
+            parts.append("📋 V6 ANALYSIS SUMMARY")
+            
+            # Extract just the essential info from V6
+            if "TEAM STRENGTH" in v6_reasoning:
+                strength_start = v6_reasoning.find("TEAM STRENGTH")
+                strength_end = v6_reasoning.find("\n\n", strength_start + 20)
+                if strength_end > strength_start:
+                    strength_section = v6_reasoning[strength_start:strength_end].replace("\n\n", "\n")
+                    parts.append(strength_section)
+            
+            if "KEY FACTORS" in v6_reasoning:
+                factors_start = v6_reasoning.find("KEY FACTORS")
+                factors_end = v6_reasoning.find("\n\n", factors_start + 20)
+                if factors_end == -1:
+                    factors_end = len(v6_reasoning)
+                factors_section = v6_reasoning[factors_start:factors_end].replace("\n\n", "\n")
+                parts.append("")
+                parts.append(factors_section)
+        
+        return "\n".join(parts)
             parts.append(f"  • V5 Line Movement: No pick")
         
         parts.append("")
