@@ -520,6 +520,7 @@ const Dashboard = () => {
   const [liveScores, setLiveScores] = useState([]);
   const [selectedLiveSport, setSelectedLiveSport] = useState('all');
   const [scoreChanges, setScoreChanges] = useState({});
+  const [mlStatus, setMlStatus] = useState(null);
   
   // Use ref to track previous scores (persists across renders without causing re-renders)
   const previousScoresRef = useRef({});
