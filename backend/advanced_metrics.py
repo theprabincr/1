@@ -364,8 +364,13 @@ def calculate_matchup_metrics(sport_key: str, home_metrics: Dict, away_metrics: 
     """
     Calculate matchup-specific metrics comparing two teams.
     """
+    home_elo = home_metrics.get("elo_rating", 1500)
+    away_elo = away_metrics.get("elo_rating", 1500)
+    
     matchup = {
-        "elo_advantage": home_metrics.get("elo_rating", 1500) - away_metrics.get("elo_rating", 1500),
+        "home_elo": home_elo,
+        "away_elo": away_elo,
+        "elo_advantage": home_elo - away_elo,
         "win_pct_diff": home_metrics["basic_stats"]["win_pct"] - away_metrics["basic_stats"]["win_pct"],
         "margin_diff": home_metrics["basic_stats"]["avg_margin"] - away_metrics["basic_stats"]["avg_margin"]
     }
