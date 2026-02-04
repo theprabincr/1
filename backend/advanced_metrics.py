@@ -388,3 +388,39 @@ def calculate_matchup_metrics(sport_key: str, home_metrics: Dict, away_metrics: 
         matchup["possession_diff"] = home_poss - away_poss
     
     return matchup
+
+
+
+async def load_elo_cache_from_db(db):
+    """
+    Load trained ELO ratings from MongoDB into memory cache.
+    Call this on server startup to use trained ELO values.
+    """
+    global DB_ELO_CACHE
+    
+    try:
+        # Load from elo_ratings collection (populated by XGBoost training)
+        cursor = db.elo_ratings.find({}, {"_id": 0, "sport_key": 1, "team_name": 1, "elo": 1})
+        ratings = await cursor.to_list(1000)
+        
+        for rating in ratings:
+            sport_key = rating.get("sport_key", "")
+            team_name = rating.get("team_name", "")
+            elo = rating.get("elo", 1500)
+            
+            if sport_key and team_name:
+                cache_key = f"{sport_key}:{team_name}"
+                DB_ELO_CACHE[cache_key] = elo
+        
+        logger.info(f"✅ Loaded {len(DB_ELO_CACHE)} ELO ratings from database")
+        return len(DB_ELO_CACHE)
+        
+    except Exception as e:
+        logger.error(f"Failed to load ELO cache from DB: {e}")
+        return 0
+
+
+def get_cached_elo(sport_key: str, team_name: str) -> float:
+    """Get ELO from cache, with fallback to default."""
+    cache_key = f"{sport_key}:{team_name}"
+    return DB_ELO_CACHE.get(cache_key, ELO_CONFIG.get(sport_key, {}).get("initial_elo", 1500))
