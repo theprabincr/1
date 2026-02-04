@@ -391,17 +391,8 @@ const formatSportName = (sportKey) => {
   return sportDisplayNames[sportKey] || sportKey.split('_').pop().toUpperCase();
 };
 
-// Live Event Card - Compact version similar to Events page
-const LiveEventCard = ({ event }) => {
-  const bestOdds = getBestOdds(event.bookmakers || [], event.home_team, event.away_team);
-  const eventOdds = event.odds || {};
-  
-  // Use odds directly (decimal format)
-  const homeML = eventOdds.home_ml_decimal || bestOdds.home;
-  const awayML = eventOdds.away_ml_decimal || bestOdds.away;
-  const spread = eventOdds.spread ?? bestOdds.spread;
-  const total = eventOdds.total ?? bestOdds.total;
-  
+// Compact Event Item - Simple info display without odds
+const CompactEventItem = ({ event, showSport = false }) => {
   // Format time
   const formatTime = (datetime) => {
     if (!datetime) return 'TBD';
@@ -412,72 +403,63 @@ const LiveEventCard = ({ event }) => {
   const formatDate = (datetime) => {
     if (!datetime) return '';
     const date = new Date(datetime);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    if (date.toDateString() === today.toDateString()) {
+      return 'Today';
+    } else if (date.toDateString() === tomorrow.toDateString()) {
+      return 'Tomorrow';
+    }
     return date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
   };
   
+  // Calculate time until game
+  const getTimeUntil = () => {
+    if (!event.commence_time) return null;
+    const now = new Date();
+    const gameTime = new Date(event.commence_time);
+    const diffMs = gameTime - now;
+    if (diffMs < 0) return 'Started';
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    if (hours < 1) return `${minutes}m`;
+    if (hours < 24) return `${hours}h ${minutes}m`;
+    return null;
+  };
+  
+  const timeUntil = getTimeUntil();
+  const isStartingSoon = timeUntil && !timeUntil.includes('Started') && 
+    (timeUntil.includes('m') || (timeUntil.includes('h') && parseInt(timeUntil) < 3));
+  
   return (
-    <div className="event-card" data-testid={`event-${event.id}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-brand-primary animate-pulse"></span>
-          <span className="text-xs font-mono font-bold text-brand-primary">UPCOMING</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-mono text-text-secondary bg-zinc-800 px-2 py-0.5 rounded">
-            {formatSportName(event.sport_key)}
-          </span>
-        </div>
+    <div className="flex items-center gap-3 p-3 bg-zinc-800/50 rounded-lg hover:bg-zinc-800 transition-colors">
+      {/* Time Info */}
+      <div className="flex flex-col items-center min-w-[60px]">
+        <span className="text-xs text-text-muted">{formatDate(event.commence_time)}</span>
+        <span className="text-sm font-mono font-bold text-text-primary">{formatTime(event.commence_time)}</span>
+        {isStartingSoon && (
+          <span className="text-[10px] text-semantic-warning font-bold mt-0.5">{timeUntil}</span>
+        )}
       </div>
       
-      {/* Date & Time */}
-      <div className="flex items-center gap-2 mb-3 text-text-muted">
-        <Clock className="w-3 h-3" />
-        <span className="text-xs">{formatDate(event.commence_time)}</span>
-        <span className="text-xs font-mono text-text-secondary">{formatTime(event.commence_time)}</span>
+      {/* Divider */}
+      <div className="w-px h-10 bg-zinc-700"></div>
+      
+      {/* Teams */}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-text-primary font-medium truncate">{event.away_team}</p>
+        <p className="text-xs text-text-muted">@</p>
+        <p className="text-sm text-text-primary font-medium truncate">{event.home_team}</p>
       </div>
-
-      {/* Teams & Odds - Similar to Events page */}
-      <div className="space-y-2 mb-3">
-        {/* Away Team */}
-        <div className="flex items-center justify-between">
-          <p className="text-text-primary font-semibold text-sm truncate flex-1">{event.away_team}</p>
-          <div className="flex items-center gap-2 font-mono">
-            <span className="text-text-muted text-xs w-8 text-right">ML</span>
-            <span className={`font-bold w-12 text-right text-sm ${awayML && homeML && awayML < homeML ? 'text-semantic-success' : 'text-text-primary'}`}>
-              {awayML?.toFixed(2) || '-'}
-            </span>
-          </div>
-        </div>
-        
-        {/* Home Team */}
-        <div className="flex items-center justify-between">
-          <p className="text-text-primary font-semibold text-sm truncate flex-1">{event.home_team}</p>
-          <div className="flex items-center gap-2 font-mono">
-            <span className="text-text-muted text-xs w-8 text-right">ML</span>
-            <span className={`font-bold w-12 text-right text-sm ${homeML && awayML && homeML < awayML ? 'text-semantic-success' : 'text-text-primary'}`}>
-              {homeML?.toFixed(2) || '-'}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Spread & Total - Compact Row */}
-      <div className="flex items-center justify-between pt-2 border-t border-zinc-800">
-        <div className="text-center flex-1">
-          <p className="text-[10px] text-text-muted uppercase mb-0.5">Spread</p>
-          <p className="font-mono font-bold text-sm text-text-primary">
-            {spread !== null ? (spread > 0 ? `+${spread}` : spread) : '-'}
-          </p>
-        </div>
-        <div className="w-px h-6 bg-zinc-700"></div>
-        <div className="text-center flex-1">
-          <p className="text-[10px] text-text-muted uppercase mb-0.5">Total</p>
-          <p className="font-mono font-bold text-sm text-brand-primary">
-            {total ? `O/U ${total}` : '-'}
-          </p>
-        </div>
-      </div>
+      
+      {/* Sport Badge (optional) */}
+      {showSport && (
+        <span className="text-[10px] font-mono font-bold text-text-secondary bg-zinc-700 px-2 py-1 rounded">
+          {formatSportName(event.sport_key)}
+        </span>
+      )}
     </div>
   );
 };
