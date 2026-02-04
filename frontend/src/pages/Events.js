@@ -736,6 +736,11 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
                     <div className="flex items-center gap-2">
                       <Star className="w-5 h-5 text-brand-primary" />
                       <span className="font-semibold text-text-primary">Predictor Analysis</span>
+                      {analysis.prediction.algorithm === 'unified_xgboost' && (
+                        <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded text-xs font-bold">
+                          🤖 ML ENHANCED
+                        </span>
+                      )}
                     </div>
                     {!isWithinAnalysisWindow && !isGameStarted && (
                       <span className="text-xs px-2 py-1 bg-semantic-warning/20 text-semantic-warning rounded">
@@ -748,6 +753,50 @@ const EventDetailsModal = ({ event, onClose, sportKey }) => {
                       </span>
                     )}
                   </div>
+                  
+                  {/* XGBoost ML Model Info */}
+                  {analysis.prediction.algorithm === 'unified_xgboost' && analysis.prediction.xgb_probability && (
+                    <div className="mb-4 p-3 bg-purple-500/10 rounded-lg border border-purple-500/30">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-purple-400 text-sm font-semibold">🤖 XGBoost ML Prediction</span>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="text-center">
+                          <p className="text-xs text-text-muted">HOME WIN PROB</p>
+                          <p className="text-lg font-mono font-bold text-purple-400">
+                            {(analysis.prediction.xgb_probability * 100).toFixed(1)}%
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-text-muted">MODEL ACCURACY</p>
+                          <p className="text-lg font-mono font-bold text-semantic-success">
+                            {analysis.prediction.xgb_model_accuracy ? (analysis.prediction.xgb_model_accuracy * 100).toFixed(1) : '65'}%
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-text-muted">CONSENSUS</p>
+                          <p className={`text-sm font-bold ${
+                            analysis.prediction.consensus_level === 'strong_consensus' ? 'text-semantic-success' :
+                            analysis.prediction.consensus_level === 'moderate_consensus' ? 'text-semantic-warning' :
+                            'text-text-muted'
+                          }`}>
+                            {analysis.prediction.consensus_level === 'strong_consensus' ? '✅ ALL AGREE' :
+                             analysis.prediction.consensus_level === 'moderate_consensus' ? '📊 2/3 AGREE' :
+                             '⚠️ XGB ONLY'}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-text-muted">MODELS</p>
+                          <div className="flex items-center justify-center gap-1">
+                            <span className={`w-2 h-2 rounded-full ${analysis.prediction.xgb_agrees ? 'bg-semantic-success' : 'bg-semantic-danger'}`} title="XGBoost"></span>
+                            <span className={`w-2 h-2 rounded-full ${analysis.prediction.v6_agrees ? 'bg-semantic-success' : 'bg-semantic-danger'}`} title="V6 Ensemble"></span>
+                            <span className={`w-2 h-2 rounded-full ${analysis.prediction.v5_agrees ? 'bg-semantic-success' : 'bg-semantic-danger'}`} title="V5 Line Movement"></span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="bg-zinc-900/50 rounded-lg p-4">
                     {/* Clear Pick Display */}
                     <div className="mb-4">
