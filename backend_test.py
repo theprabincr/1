@@ -417,6 +417,299 @@ class APITester:
         self.test_endpoint_with_favored_validation("POST", "/analyze-unified/401810581?sport_key=basketball_nba", 
                          description="Unified analysis with favored outcomes in reasoning text",
                          sport="NBA", is_unified=True)
+
+    def test_consolidated_reasoning_text(self):
+        """Test consolidated reasoning text in Events modal - verify no duplicates and no confusing Pick: OVER vs Toronto Raptors ML issues"""
+        print("\n📝 TESTING CONSOLIDATED REASONING TEXT (EVENTS MODAL)")
+        print("-" * 50)
+        
+        # Test 1: Toronto vs Minnesota - should have pick
+        self.test_reasoning_text_validation("POST", "/analyze-unified/401810582?sport_key=basketball_nba", 
+                         description="Toronto vs Minnesota - verify pick_display is 'Toronto Raptors ML', reasoning has ≤7 sections, only ONE OVER mention, no standalone 'Pick:' line",
+                         expected_pick_display="Toronto Raptors ML",
+                         should_have_pick=True)
+        
+        # Test 2: Knicks vs Nuggets - should NOT have pick (edge too low)
+        self.test_reasoning_text_validation("POST", "/analyze-unified/401810581?sport_key=basketball_nba", 
+                         description="Knicks vs Nuggets - verify has_pick is false (edge too low), reasoning explains why no pick was made",
+                         expected_pick_display=None,
+                         should_have_pick=False)
+        
+        # Test 3: Verify favored outcomes are correct team names (not "Home")
+        self.test_favored_outcomes_team_names("POST", "/analyze-unified/401810582?sport_key=basketball_nba", 
+                         description="Verify ml_favored_team, spread_favored_team are actual team names (not 'Home'), totals_favored is 'OVER' or 'UNDER'")
+    
+    def test_reasoning_text_validation(self, method, endpoint, expected_status=200, description="", expected_pick_display=None, should_have_pick=True):
+        """Test endpoint and validate reasoning text structure"""
+        url = f"{BASE_URL}{endpoint}"
+        print(f"\n🧪 Testing {method} {endpoint}")
+        print(f"   URL: {url}")
+        if description:
+            print(f"   Description: {description}")
+        
+        try:
+            if method.upper() == "GET":
+                response = requests.get(url, timeout=30)
+            elif method.upper() == "POST":
+                response = requests.post(url, timeout=30)
+            else:
+                raise ValueError(f"Unsupported method: {method}")
+            
+            # Check status code
+            status_ok = response.status_code == expected_status
+            
+            # Try to parse JSON
+            json_ok = False
+            json_data = None
+            try:
+                json_data = response.json()
+                json_ok = True
+            except:
+                json_ok = False
+            
+            # Validate reasoning text structure
+            reasoning_validation_ok = True
+            reasoning_details = ""
+            
+            if json_data and status_ok and json_ok:
+                reasoning_validation_ok, reasoning_details = self.validate_reasoning_text_structure(json_data, expected_pick_display, should_have_pick)
+            
+            # Print results
+            if status_ok and json_ok and reasoning_validation_ok:
+                print(f"   ✅ PASS - Status: {response.status_code}, JSON: Valid, Reasoning: Valid")
+                print(f"   📝 Reasoning Validation: {reasoning_details}")
+                
+                self.passed += 1
+                self.results.append({
+                    'endpoint': endpoint,
+                    'status': 'PASS',
+                    'status_code': response.status_code,
+                    'json_valid': True,
+                    'reasoning_validation': reasoning_details
+                })
+            else:
+                error_msg = []
+                if not status_ok:
+                    error_msg.append(f"Expected status {expected_status}, got {response.status_code}")
+                if not json_ok:
+                    error_msg.append("Invalid JSON response")
+                if not reasoning_validation_ok:
+                    error_msg.append(f"Reasoning validation issue: {reasoning_details}")
+                
+                print(f"   ❌ FAIL - {', '.join(error_msg)}")
+                print(f"   📄 Response: {response.text[:500]}...")
+                
+                self.failed += 1
+                self.results.append({
+                    'endpoint': endpoint,
+                    'status': 'FAIL',
+                    'status_code': response.status_code,
+                    'json_valid': json_ok,
+                    'error': ', '.join(error_msg),
+                    'response_preview': response.text[:500]
+                })
+                
+        except requests.exceptions.RequestException as e:
+            print(f"   ❌ FAIL - Connection Error: {str(e)}")
+            self.failed += 1
+            self.results.append({
+                'endpoint': endpoint,
+                'status': 'FAIL',
+                'error': f"Connection Error: {str(e)}"
+            })
+        except Exception as e:
+            print(f"   ❌ FAIL - Unexpected Error: {str(e)}")
+            self.failed += 1
+            self.results.append({
+                'endpoint': endpoint,
+                'status': 'FAIL',
+                'error': f"Unexpected Error: {str(e)}"
+            })
+    
+    def validate_reasoning_text_structure(self, data, expected_pick_display, should_have_pick):
+        """Validate reasoning text structure for consolidated reasoning"""
+        try:
+            prediction = data.get('prediction', {})
+            if not prediction:
+                return False, "Missing prediction object"
+            
+            # Check has_pick field
+            has_pick = prediction.get('has_pick', False)
+            if should_have_pick and not has_pick:
+                return False, f"Expected has_pick=true but got has_pick={has_pick}"
+            elif not should_have_pick and has_pick:
+                return False, f"Expected has_pick=false but got has_pick={has_pick}"
+            
+            # Check pick_display if pick is expected
+            if should_have_pick and expected_pick_display:
+                pick_display = prediction.get('pick_display', '')
+                if pick_display != expected_pick_display:
+                    return False, f"Expected pick_display='{expected_pick_display}' but got '{pick_display}'"
+            
+            # Get reasoning text
+            reasoning = prediction.get('reasoning', '') or prediction.get('analysis', '')
+            if not reasoning:
+                return False, "Missing reasoning text"
+            
+            # Check reasoning sections (split by \n\n)
+            sections = reasoning.split('\n\n')
+            sections = [s.strip() for s in sections if s.strip()]  # Remove empty sections
+            
+            if should_have_pick and len(sections) > 7:
+                return False, f"Expected ≤7 reasoning sections but got {len(sections)} sections"
+            
+            # Check for OVER mentions (should only be ONE in totals line)
+            over_mentions = reasoning.upper().count('OVER')
+            if should_have_pick and over_mentions > 1:
+                return False, f"Expected only ONE 'OVER' mention but found {over_mentions} mentions"
+            
+            # Check for standalone "Pick:" lines (should be removed)
+            standalone_pick_lines = []
+            for section in sections:
+                lines = section.split('\n')
+                for line in lines:
+                    line = line.strip()
+                    if line == "Pick:" or line.startswith("Pick:") and len(line.split()) <= 2:
+                        standalone_pick_lines.append(line)
+            
+            if standalone_pick_lines:
+                return False, f"Found standalone 'Pick:' lines that should be removed: {standalone_pick_lines}"
+            
+            # If no pick expected, check reasoning explains why
+            if not should_have_pick:
+                explanation_keywords = ['edge', 'low', 'insufficient', 'no pick', 'not recommended', 'threshold']
+                has_explanation = any(keyword in reasoning.lower() for keyword in explanation_keywords)
+                if not has_explanation:
+                    return False, "Reasoning should explain why no pick was made (missing keywords: edge, low, insufficient, etc.)"
+            
+            # Build success message
+            details = []
+            details.append(f"has_pick={has_pick}")
+            if should_have_pick and expected_pick_display:
+                details.append(f"pick_display='{prediction.get('pick_display', '')}'")
+            details.append(f"reasoning_sections={len(sections)}")
+            if should_have_pick:
+                details.append(f"over_mentions={over_mentions}")
+            details.append(f"reasoning_length={len(reasoning)}")
+            
+            return True, ", ".join(details)
+            
+        except Exception as e:
+            return False, f"Validation error: {str(e)}"
+    
+    def test_favored_outcomes_team_names(self, method, endpoint, expected_status=200, description=""):
+        """Test that favored outcomes use actual team names, not 'Home'/'Away'"""
+        url = f"{BASE_URL}{endpoint}"
+        print(f"\n🧪 Testing {method} {endpoint}")
+        print(f"   URL: {url}")
+        if description:
+            print(f"   Description: {description}")
+        
+        try:
+            if method.upper() == "GET":
+                response = requests.get(url, timeout=30)
+            elif method.upper() == "POST":
+                response = requests.post(url, timeout=30)
+            else:
+                raise ValueError(f"Unsupported method: {method}")
+            
+            # Check status code
+            status_ok = response.status_code == expected_status
+            
+            # Try to parse JSON
+            json_ok = False
+            json_data = None
+            try:
+                json_data = response.json()
+                json_ok = True
+            except:
+                json_ok = False
+            
+            # Validate team names
+            team_names_ok = True
+            team_names_details = ""
+            
+            if json_data and status_ok and json_ok:
+                team_names_ok, team_names_details = self.validate_team_names_not_home_away(json_data)
+            
+            # Print results
+            if status_ok and json_ok and team_names_ok:
+                print(f"   ✅ PASS - Status: {response.status_code}, JSON: Valid, Team Names: Valid")
+                print(f"   🏆 Team Names: {team_names_details}")
+                
+                self.passed += 1
+                self.results.append({
+                    'endpoint': endpoint,
+                    'status': 'PASS',
+                    'status_code': response.status_code,
+                    'json_valid': True,
+                    'team_names_validation': team_names_details
+                })
+            else:
+                error_msg = []
+                if not status_ok:
+                    error_msg.append(f"Expected status {expected_status}, got {response.status_code}")
+                if not json_ok:
+                    error_msg.append("Invalid JSON response")
+                if not team_names_ok:
+                    error_msg.append(f"Team names issue: {team_names_details}")
+                
+                print(f"   ❌ FAIL - {', '.join(error_msg)}")
+                print(f"   📄 Response: {response.text[:500]}...")
+                
+                self.failed += 1
+                self.results.append({
+                    'endpoint': endpoint,
+                    'status': 'FAIL',
+                    'status_code': response.status_code,
+                    'json_valid': json_ok,
+                    'error': ', '.join(error_msg),
+                    'response_preview': response.text[:500]
+                })
+                
+        except requests.exceptions.RequestException as e:
+            print(f"   ❌ FAIL - Connection Error: {str(e)}")
+            self.failed += 1
+            self.results.append({
+                'endpoint': endpoint,
+                'status': 'FAIL',
+                'error': f"Connection Error: {str(e)}"
+            })
+        except Exception as e:
+            print(f"   ❌ FAIL - Unexpected Error: {str(e)}")
+            self.failed += 1
+            self.results.append({
+                'endpoint': endpoint,
+                'status': 'FAIL',
+                'error': f"Unexpected Error: {str(e)}"
+            })
+    
+    def validate_team_names_not_home_away(self, data):
+        """Validate that favored team names are actual team names, not 'Home'/'Away'"""
+        try:
+            prediction = data.get('prediction', {})
+            if not prediction:
+                return False, "Missing prediction object"
+            
+            # Check ml_favored_team
+            ml_favored_team = prediction.get('ml_favored_team', '')
+            if ml_favored_team.lower() in ['home', 'away', 'home team', 'away team']:
+                return False, f"ml_favored_team should be actual team name, not '{ml_favored_team}'"
+            
+            # Check spread_favored_team
+            spread_favored_team = prediction.get('spread_favored_team', '')
+            if spread_favored_team.lower() in ['home', 'away', 'home team', 'away team']:
+                return False, f"spread_favored_team should be actual team name, not '{spread_favored_team}'"
+            
+            # Check totals_favored
+            totals_favored = prediction.get('totals_favored', '').upper()
+            if totals_favored not in ['OVER', 'UNDER']:
+                return False, f"totals_favored should be 'OVER' or 'UNDER', got '{totals_favored}'"
+            
+            return True, f"ml_favored_team='{ml_favored_team}', spread_favored_team='{spread_favored_team}', totals_favored='{totals_favored}'"
+            
+        except Exception as e:
+            return False, f"Validation error: {str(e)}"
     
     def test_endpoint_with_favored_validation(self, method, endpoint, expected_status=200, description="", sport="NBA", is_unified=False):
         """Test endpoint and validate favored outcomes structure"""
