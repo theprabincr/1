@@ -286,8 +286,44 @@ Events.js line 258 should call `/analyze-unified/` endpoint instead of `/analyze
 
 ---
 
+## Consolidated Reasoning Text Testing Results (February 5, 2026)
+
+### ✅ COMPREHENSIVE CONSOLIDATED REASONING TEXT TESTING COMPLETED
+
+**CONSOLIDATED REASONING TEXT VERIFICATION:**
+|| Test | Status | Validation Results |
+||------|--------|-------------------|
+|| **Toronto vs Minnesota (401810582)** | ✅ PASS | **pick_display**: "Toronto Raptors ML" ✅; **reasoning_sections**: 7 (≤7) ✅; **over_mentions**: 1 (only ONE) ✅; **no standalone Pick: lines** ✅ |
+|| **Knicks vs Nuggets (401810581)** | ✅ PASS | **has_pick**: false ✅ (edge too low); **reasoning explains no pick**: "Low confidence: 38.0%" ✅ |
+|| **Favored Outcomes Team Names** | ✅ PASS | **ml_favored_team**: "Toronto Raptors" (not "Home") ✅; **spread_favored_team**: "Toronto Raptors" ✅; **totals_favored**: "OVER" ✅ |
+
+**KEY VALIDATION POINTS VERIFIED:**
+- ✅ **Pick Display Correct**: Toronto vs Minnesota shows "Toronto Raptors ML" (not confusing "Pick: OVER")
+- ✅ **Reasoning Sections Consolidated**: 7 sections (≤7 requirement met) - no excessive duplication
+- ✅ **Single OVER Mention**: Only ONE "OVER" mention found in totals line (no duplicates)
+- ✅ **No Standalone Pick Lines**: No confusing standalone "Pick:" lines found (properly removed)
+- ✅ **Edge Too Low Handling**: Knicks vs Nuggets correctly shows has_pick=false with explanation
+- ✅ **Team Names Not Generic**: All favored outcomes show actual team names (Toronto Raptors, New York Knicks) not "Home"/"Away"
+- ✅ **Totals Format Correct**: totals_favored shows "OVER"/"UNDER" format properly
+
+**DETAILED REASONING TEXT ANALYSIS:**
+- **Toronto vs Minnesota**: 752 characters, 7 sections, structured with XGBoost prediction, market predictions, confidence/edge, model agreement, V6 analysis summary, and key factors
+- **Knicks vs Nuggets**: 57 characters, 1 section, concise explanation of why no pick was made due to low confidence (38.0%)
+
+**TESTING AGENT VERIFICATION (February 5, 2026):**
+- ✅ **ALL 3 CONSOLIDATED REASONING TEXT REQUIREMENTS TESTED AND PASSED**
+- ✅ Events modal reasoning text properly consolidated with no duplicates or confusing Pick: OVER vs team name issues
+- ✅ Toronto vs Minnesota correctly shows "Toronto Raptors ML" as pick_display with consolidated 7-section reasoning
+- ✅ Knicks vs Nuggets correctly shows has_pick=false with clear explanation of low confidence threshold
+- ✅ Favored outcomes use actual team names (Toronto Raptors, New York Knicks) not generic "Home"/"Away" labels
+- ✅ Only ONE "OVER" mention found in totals section, no duplicate mentions causing confusion
+- ✅ No standalone "Pick:" lines found - properly integrated into reasoning flow
+- ✅ No critical issues found - consolidated reasoning text feature fully operational and ready
+
+---
+
 ## Deployment Status
-✅ **DEPLOYMENT READY** - V6 Predictor Fixes Verified
+✅ **DEPLOYMENT READY** - Consolidated Reasoning Text Verified
 - All services running
 - Database connected  
 - ESPN data source active
@@ -295,4 +331,5 @@ Events.js line 258 should call `/analyze-unified/` endpoint instead of `/analyze
 - Algorithm quality verified
 - **✅ XGBoost Favored Outcomes Feature Working Correctly**
 - **✅ V6 Predictor Reasoning Text Fixes Working Correctly**
+- **✅ Consolidated Reasoning Text in Events Modal Working Correctly**
 - **PREVIOUS BLOCKER RESOLVED**: ML enhancement UI issue (separate from V6 predictor fixes)
