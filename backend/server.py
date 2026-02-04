@@ -3924,9 +3924,9 @@ async def scheduled_unified_predictor():
                                     "ai_model": "unified"
                                 })
                                 
+                                # NEW: Always re-analyze in the 40-min window, update if exists
                                 if existing:
-                                    logger.debug(f"Skipping {event_id} - already has unified prediction")
-                                    continue
+                                    logger.info(f"🔄 RE-ANALYZING {event_id} - updating existing prediction with fresh data")
                                 
                                 logger.info(f"🔄 UNIFIED ANALYSIS: {away_team} @ {home_team} "
                                           f"(starts in {minutes_until_game:.0f} min - LINEUP WINDOW)")
