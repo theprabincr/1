@@ -749,6 +749,41 @@ const Dashboard = () => {
         />
       </div>
 
+      {/* ML Model Status Widget */}
+      {mlStatus && (
+        <div className="bg-gradient-to-r from-purple-900/20 to-zinc-900 border border-purple-500/30 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-mono font-bold text-sm text-text-primary flex items-center gap-2">
+              <Zap className="w-4 h-4 text-purple-400" />
+              🤖 XGBoost ML Models
+              <span className="text-xs text-text-muted font-normal">Trained weekly</span>
+            </h2>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {Object.entries(mlStatus.models || {}).map(([sport, model]) => (
+              <div key={sport} className={`p-3 rounded-lg ${model.model_loaded ? 'bg-semantic-success/10 border border-semantic-success/20' : 'bg-zinc-800 border border-zinc-700'}`}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-text-muted uppercase">
+                    {sportNames[sport] || sport.split('_').pop()}
+                  </span>
+                  <span className={`w-2 h-2 rounded-full ${model.model_loaded ? 'bg-semantic-success animate-pulse' : 'bg-zinc-600'}`}></span>
+                </div>
+                {model.model_loaded ? (
+                  <div>
+                    <p className="text-lg font-mono font-bold text-semantic-success">
+                      {(model.accuracy * 100).toFixed(1)}%
+                    </p>
+                    <p className="text-xs text-text-muted">Accuracy</p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-text-muted">Not trained</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Live Games Section - Only shows when games are live */}
       {liveScores.length > 0 && (
         <div className="bg-gradient-to-r from-zinc-900 to-zinc-800 border border-zinc-700 rounded-xl p-6">
