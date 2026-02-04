@@ -510,7 +510,7 @@ class APITester:
         try:
             if is_unified:
                 # For unified analysis, check if favored outcomes are mentioned in reasoning
-                reasoning = data.get('reasoning', '')
+                reasoning = data.get('prediction', {}).get('reasoning', '') or data.get('reasoning', '')
                 prediction = data.get('prediction', {})
                 
                 if not reasoning:
