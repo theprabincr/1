@@ -520,13 +520,20 @@ class XGBoostPredictor:
         away_team_data: Dict,
         odds_data: Dict,
         context_data: Dict = None,
-        h2h_data: Dict = None
+        h2h_data: Dict = None,
+        home_team_name: str = None,
+        away_team_name: str = None
     ) -> Dict:
         """
         Make predictions for ALL THREE MARKETS using trained models.
         
+        Now returns FAVORED OUTCOME for each market:
+        - Moneyline: Which team is favored and their win probability
+        - Spread: Which team is favored to cover and their probability
+        - Totals: OVER or UNDER favored and the probability
+        
         Returns:
-            Predictions with probabilities for ML, Spread, and Totals
+            Predictions with favored outcomes and probabilities for ML, Spread, and Totals
         """
         if not self.is_loaded:
             self.load_model()
@@ -551,9 +558,26 @@ class XGBoostPredictor:
         X = self.feature_engineering.features_to_array(features).reshape(1, -1)
         X_scaled = self.scaler.transform(X)
         
+        # Get spread and total line from odds
+        spread_line = odds_data.get("spread", 0)
+        total_line = odds_data.get("total", 220)
+        
         # ===== MONEYLINE PREDICTION =====
         ml_prob = self.moneyline_model.predict_proba(X_scaled)[0]
         home_win_prob = float(ml_prob[1])
+        away_win_prob = 1 - home_win_prob
+        
+        # Determine FAVORED team for moneyline
+        if home_win_prob >= 0.5:
+            ml_favored_team = home_team_name or "Home"
+            ml_favored_prob = home_win_prob
+            ml_underdog_team = away_team_name or "Away"
+            ml_underdog_prob = away_win_prob
+        else:
+            ml_favored_team = away_team_name or "Away"
+            ml_favored_prob = away_win_prob
+            ml_underdog_team = home_team_name or "Home"
+            ml_underdog_prob = home_win_prob
         
         # ===== SPREAD PREDICTION =====
         if self.spread_model is not None:
@@ -561,6 +585,17 @@ class XGBoostPredictor:
             home_cover_prob = float(spread_prob[1])
         else:
             home_cover_prob = home_win_prob  # Fallback
+        away_cover_prob = 1 - home_cover_prob
+        
+        # Determine FAVORED team for spread
+        if home_cover_prob >= 0.5:
+            spread_favored_team = home_team_name or "Home"
+            spread_favored_prob = home_cover_prob
+            spread_favored_line = spread_line
+        else:
+            spread_favored_team = away_team_name or "Away"
+            spread_favored_prob = away_cover_prob
+            spread_favored_line = -spread_line if spread_line else 0
         
         # ===== TOTALS PREDICTION =====
         if self.totals_model is not None:
@@ -568,6 +603,15 @@ class XGBoostPredictor:
             over_prob = float(totals_prob[1])
         else:
             over_prob = 0.5
+        under_prob = 1 - over_prob
+        
+        # Determine FAVORED totals direction
+        if over_prob >= 0.5:
+            totals_favored = "OVER"
+            totals_favored_prob = over_prob
+        else:
+            totals_favored = "UNDER"
+            totals_favored_prob = under_prob
         
         # ===== PREDICTED TOTAL POINTS =====
         if self.totals_regressor is not None:
@@ -575,7 +619,7 @@ class XGBoostPredictor:
         else:
             predicted_total = features.get("combined_avg_pts", 220)
         
-        # Calculate confidence for each market
+        # Calculate confidence for each market (based on how far from 50%)
         ml_confidence = abs(home_win_prob - 0.5) * 2 * 100
         ml_confidence = min(95, max(55, ml_confidence + 55))
         
@@ -588,41 +632,58 @@ class XGBoostPredictor:
         # Determine best market
         best_market = "moneyline"
         best_confidence = ml_confidence
-        best_prob = home_win_prob
+        best_prob = ml_favored_prob
+        best_pick = ml_favored_team
         
         if spread_confidence > best_confidence and self.spread_model is not None:
             best_market = "spread"
             best_confidence = spread_confidence
-            best_prob = home_cover_prob
+            best_prob = spread_favored_prob
+            best_pick = spread_favored_team
         
         if totals_confidence > best_confidence and self.totals_model is not None:
             best_market = "totals"
             best_confidence = totals_confidence
-            best_prob = over_prob
+            best_prob = totals_favored_prob
+            best_pick = totals_favored
         
         return {
-            # Moneyline
-            "home_win_prob": round(float(home_win_prob), 4),
-            "away_win_prob": round(float(1 - home_win_prob), 4),
+            # ===== MONEYLINE (FAVORED DISPLAY) =====
+            "ml_favored_team": ml_favored_team,
+            "ml_favored_prob": round(float(ml_favored_prob), 4),
+            "ml_underdog_team": ml_underdog_team,
+            "ml_underdog_prob": round(float(ml_underdog_prob), 4),
             "ml_confidence": round(float(ml_confidence), 1),
+            # Raw probabilities (for backward compat)
+            "home_win_prob": round(float(home_win_prob), 4),
+            "away_win_prob": round(float(away_win_prob), 4),
             
-            # Spread
-            "home_cover_prob": round(float(home_cover_prob), 4),
-            "away_cover_prob": round(float(1 - home_cover_prob), 4),
+            # ===== SPREAD (FAVORED DISPLAY) =====
+            "spread_favored_team": spread_favored_team,
+            "spread_favored_prob": round(float(spread_favored_prob), 4),
+            "spread_favored_line": round(float(spread_favored_line), 1) if spread_favored_line else 0,
             "spread_confidence": round(float(spread_confidence), 1),
+            # Raw probabilities
+            "home_cover_prob": round(float(home_cover_prob), 4),
+            "away_cover_prob": round(float(away_cover_prob), 4),
             
-            # Totals
-            "over_prob": round(float(over_prob), 4),
-            "under_prob": round(float(1 - over_prob), 4),
+            # ===== TOTALS (FAVORED DISPLAY) =====
+            "totals_favored": totals_favored,
+            "totals_favored_prob": round(float(totals_favored_prob), 4),
+            "totals_line": round(float(total_line), 1),
             "totals_confidence": round(float(totals_confidence), 1),
             "predicted_total": round(float(predicted_total), 1),
+            # Raw probabilities
+            "over_prob": round(float(over_prob), 4),
+            "under_prob": round(float(under_prob), 4),
             
-            # Best market recommendation
+            # ===== BEST MARKET (OVERALL RECOMMENDATION) =====
             "best_market": best_market,
+            "best_pick": best_pick,
             "best_confidence": round(float(best_confidence), 1),
             "best_prob": round(float(best_prob), 4),
             
-            # Model info
+            # ===== MODEL INFO =====
             "model_available": True,
             "ml_accuracy": float(self.ml_accuracy) if self.ml_accuracy else 0.0,
             "spread_accuracy": float(self.spread_accuracy) if self.spread_accuracy else 0.0,
