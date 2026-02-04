@@ -3756,13 +3756,13 @@ async def get_line_movement_history(event_id: str) -> List[Dict]:
 
 # Background task for line movement data cleanup
 async def scheduled_line_movement_cleanup():
-    """Background task that cleans up line movement data for events that have started"""
+    """Background task that cleans up line movement data for events that have FINISHED (not just started)"""
     # Wait 5 minutes on startup
     await asyncio.sleep(300)
     
     while True:
         try:
-            logger.info("Running line movement cleanup for live/finished events...")
+            logger.info("Running line movement cleanup for FINISHED events...")
             now = datetime.now(timezone.utc)
             deleted_history_count = 0
             deleted_opening_count = 0
@@ -3793,7 +3793,9 @@ async def scheduled_line_movement_cleanup():
                 if commence_str:
                     try:
                         commence_time = datetime.fromisoformat(commence_str.replace('Z', '+00:00'))
-                        if commence_time <= now:
+                        # Only clean up events that are MORE THAN 6 HOURS OLD (game is definitely finished)
+                        # This allows users to view line movement for games that just started
+                        if commence_time <= now - timedelta(hours=6):
                             # Delete odds history
                             result = await db.odds_history.delete_many({"event_id": event_id})
                             deleted_history_count += result.deleted_count
@@ -3805,13 +3807,12 @@ async def scheduled_line_movement_cleanup():
                         pass
             
             if deleted_history_count > 0 or deleted_opening_count > 0:
-                logger.info(f"Cleaned up {deleted_history_count} history records, {deleted_opening_count} opening odds for started events")
+                logger.info(f"Cleaned up {deleted_history_count} history records, {deleted_opening_count} opening odds for finished events")
             
             await asyncio.sleep(1800)  # Run every 30 minutes
             
         except Exception as e:
             logger.error(f"Line movement cleanup error: {e}")
-            await asyncio.sleep(300)
 
 # Background task for daily summary notification
 async def scheduled_daily_summary():
