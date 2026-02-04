@@ -180,14 +180,36 @@ class UnifiedBetPredictor:
         v6_result: Dict,
         home_team: str,
         away_team: str,
-        event: Dict
+        event: Dict,
+        xgb_result: Dict = None,
+        xgb_available: bool = False
     ) -> Dict:
         """
-        Combine V5 and V6 predictions into single unified recommendation.
+        Combine V5, V6, and XGBoost predictions into single unified recommendation.
+        
+        When XGBoost is available:
+        - XGBoost: 40% weight
+        - V6: 35% weight  
+        - V5: 25% weight
+        
+        Without XGBoost:
+        - V6: 70% weight
+        - V5: 30% weight
         """
         v5_has_pick = v5_result.get("has_pick", False)
         v6_has_pick = v6_result.get("has_pick", False)
+        xgb_has_pick = xgb_result.get("has_pick", False) if xgb_result else False
         
+        # Count how many models have picks
+        picks_count = sum([v5_has_pick, v6_has_pick, xgb_has_pick])
+        
+        # If XGBoost is available and has a pick, use enhanced combination
+        if xgb_available and xgb_has_pick:
+            return self._combine_with_xgboost(
+                v5_result, v6_result, xgb_result, home_team, away_team, event
+            )
+        
+        # Fallback to original V5/V6 combination
         # SCENARIO 1: Both have picks
         if v5_has_pick and v6_has_pick:
             return self._handle_both_pick(v5_result, v6_result, home_team, away_team, event)
@@ -203,6 +225,190 @@ class UnifiedBetPredictor:
         # SCENARIO 4: Neither has pick
         else:
             return self._handle_no_picks(v5_result, v6_result)
+    
+    def _combine_with_xgboost(
+        self,
+        v5_result: Dict,
+        v6_result: Dict,
+        xgb_result: Dict,
+        home_team: str,
+        away_team: str,
+        event: Dict
+    ) -> Dict:
+        """
+        Combine predictions when XGBoost ML is available.
+        Uses weighted voting with XGBoost as primary signal.
+        """
+        xgb_pick = xgb_result.get("pick")
+        xgb_conf = xgb_result.get("confidence", 50) / 100
+        xgb_prob = xgb_result.get("probability", 0.5)
+        xgb_accuracy = xgb_result.get("model_accuracy", 0)
+        
+        v5_pick = v5_result.get("pick", "").replace(" ML", "").replace(" Spread", "").strip() if v5_result.get("has_pick") else None
+        v6_pick = v6_result.get("pick", "").replace(" ML", "").replace(" Spread", "").strip() if v6_result.get("has_pick") else None
+        
+        v5_conf = v5_result.get("confidence", 0) / 100 if v5_result.get("has_pick") else 0
+        v6_conf = v6_result.get("confidence", 0) / 100 if v6_result.get("has_pick") else 0
+        
+        # Count agreements with XGBoost
+        agrees_with_xgb = 0
+        if v5_pick and v5_pick == xgb_pick:
+            agrees_with_xgb += 1
+        if v6_pick and v6_pick == xgb_pick:
+            agrees_with_xgb += 1
+        
+        # Calculate weighted confidence
+        # XGBoost: 40%, V6: 35%, V5: 25%
+        weighted_conf = (
+            xgb_conf * self.xgb_weight +
+            v6_conf * self.v6_weight_with_xgb +
+            v5_conf * self.v5_weight_with_xgb
+        )
+        
+        # Add agreement bonus
+        if agrees_with_xgb == 2:
+            weighted_conf += self.agreement_bonus  # All 3 agree
+            consensus_level = "strong_consensus"
+            logger.info(f"  ✅ STRONG CONSENSUS: All 3 models agree on {xgb_pick}")
+        elif agrees_with_xgb == 1:
+            weighted_conf += self.two_agree_bonus  # 2 agree
+            consensus_level = "moderate_consensus"
+            logger.info(f"  📊 MODERATE CONSENSUS: 2/3 models agree on {xgb_pick}")
+        else:
+            consensus_level = "xgb_only"
+            logger.info(f"  ⚠️ XGB ONLY: Only XGBoost picks {xgb_pick}")
+        
+        # Calculate edge
+        odds_data = event.get("odds", {})
+        if xgb_pick == home_team:
+            pick_odds = odds_data.get("home_ml_decimal", 1.91)
+        else:
+            pick_odds = odds_data.get("away_ml_decimal", 1.91)
+        
+        implied_prob = 1 / pick_odds if pick_odds > 1 else 0.5
+        if xgb_pick == home_team:
+            edge = xgb_prob - implied_prob
+        else:
+            edge = (1 - xgb_prob) - implied_prob
+        
+        # Determine if we should make a pick
+        # Require: weighted confidence >= 60% OR (XGBoost conf >= 65% AND 1+ model agrees)
+        should_pick = (
+            weighted_conf >= self.min_unified_confidence or
+            (xgb_conf >= 0.65 and agrees_with_xgb >= 1)
+        )
+        
+        if should_pick and edge >= self.min_edge:
+            return {
+                "has_pick": True,
+                "pick": xgb_pick,
+                "pick_type": "moneyline",
+                "pick_display": f"{xgb_pick} ML",
+                "confidence": round(weighted_conf * 100, 1),
+                "edge": round(edge * 100, 1),
+                "odds": pick_odds,
+                "algorithm": "unified_xgboost",
+                "consensus_level": consensus_level,
+                "xgb_agrees": True,
+                "v5_agrees": v5_pick == xgb_pick if v5_pick else False,
+                "v6_agrees": v6_pick == xgb_pick if v6_pick else False,
+                "xgb_probability": round(xgb_prob, 3),
+                "xgb_model_accuracy": xgb_accuracy,
+                "reasoning": self._build_xgb_reasoning(
+                    xgb_result, v5_result, v6_result,
+                    weighted_conf * 100, edge * 100,
+                    consensus_level, agrees_with_xgb
+                ),
+                "v5_analysis": v5_result,
+                "v6_analysis": v6_result,
+                "xgb_analysis": xgb_result
+            }
+        else:
+            reason = []
+            if weighted_conf < self.min_unified_confidence:
+                reason.append(f"Low confidence: {weighted_conf*100:.1f}%")
+            if edge < self.min_edge:
+                reason.append(f"Insufficient edge: {edge*100:.1f}%")
+            
+            return {
+                "has_pick": False,
+                "reasoning": f"XGBoost picked {xgb_pick} but: {'; '.join(reason)}",
+                "algorithm": "unified_xgboost",
+                "xgb_pick": xgb_pick,
+                "xgb_probability": xgb_prob,
+                "weighted_confidence": round(weighted_conf * 100, 1),
+                "edge": round(edge * 100, 1),
+                "v5_analysis": v5_result,
+                "v6_analysis": v6_result,
+                "xgb_analysis": xgb_result
+            }
+    
+    def _build_xgb_reasoning(
+        self,
+        xgb_result: Dict,
+        v5_result: Dict,
+        v6_result: Dict,
+        confidence: float,
+        edge: float,
+        consensus_level: str,
+        agrees_count: int
+    ) -> str:
+        """Build reasoning text when XGBoost is the primary model."""
+        parts = []
+        
+        parts.append("=" * 60)
+        parts.append(f"🤖 XGBOOST ML PREDICTION")
+        parts.append("=" * 60)
+        parts.append("")
+        
+        xgb_prob = xgb_result.get("probability", 0.5)
+        xgb_accuracy = xgb_result.get("model_accuracy", 0)
+        
+        parts.append(f"📊 XGBoost Probability: {xgb_prob*100:.1f}% home win")
+        parts.append(f"📈 Model Training Accuracy: {xgb_accuracy:.1%}")
+        parts.append(f"💰 Combined Confidence: {confidence:.1f}%")
+        parts.append(f"🎯 Edge: {edge:+.1f}%")
+        parts.append("")
+        
+        # Model agreement
+        parts.append("MODEL AGREEMENT")
+        parts.append("")
+        if consensus_level == "strong_consensus":
+            parts.append("✅ ALL 3 MODELS AGREE (+10% confidence boost)")
+        elif consensus_level == "moderate_consensus":
+            parts.append("📊 2 OF 3 MODELS AGREE (+5% confidence boost)")
+        else:
+            parts.append("⚠️ Only XGBoost has a pick")
+        
+        parts.append("")
+        parts.append(f"  • XGBoost ML: {xgb_result.get('pick')} ({xgb_prob*100:.1f}%)")
+        
+        if v6_result.get("has_pick"):
+            v6_pick = v6_result.get("pick", "N/A")
+            v6_conf = v6_result.get("confidence", 0)
+            parts.append(f"  • V6 Ensemble: {v6_pick} ({v6_conf:.0f}%)")
+        else:
+            parts.append(f"  • V6 Ensemble: No pick")
+        
+        if v5_result.get("has_pick"):
+            v5_pick = v5_result.get("pick", "N/A")
+            v5_conf = v5_result.get("confidence", 0)
+            parts.append(f"  • V5 Line Movement: {v5_pick} ({v5_conf:.0f}%)")
+        else:
+            parts.append(f"  • V5 Line Movement: No pick")
+        
+        parts.append("")
+        parts.append("=" * 60)
+        
+        # Include V6 detailed reasoning if available
+        v6_reasoning = v6_result.get("reasoning", "")
+        if v6_reasoning:
+            parts.append("")
+            parts.append("DETAILED ANALYSIS (V6)")
+            parts.append("")
+            parts.append(v6_reasoning)
+        
+        return "\n".join(parts)
     
     def _handle_both_pick(
         self,
