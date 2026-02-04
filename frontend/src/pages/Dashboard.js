@@ -690,12 +690,34 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6" data-testid="dashboard">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* Header with ML Status */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <h1 className="font-mono font-bold text-2xl text-text-primary">Dashboard</h1>
           <p className="text-text-muted text-sm mt-1">AI-powered betting insights</p>
         </div>
+        
+        {/* Compact ML Model Status - Inline with header */}
+        {mlStatus && (
+          <div className="flex items-center gap-3 bg-zinc-800/50 rounded-lg px-3 py-2 border border-purple-500/20">
+            <span className="text-xs font-mono text-purple-400 flex items-center gap-1">
+              <Zap className="w-3 h-3" />
+              XGBoost ML
+            </span>
+            <div className="flex items-center gap-2">
+              {Object.entries(mlStatus.models || {}).map(([sport, model]) => (
+                <div key={sport} className="flex items-center gap-1" title={`${sportNames[sport] || sport}: ${model.model_loaded ? (model.accuracy * 100).toFixed(0) + '% accuracy' : 'Not trained'}`}>
+                  <span className={`w-2 h-2 rounded-full ${model.model_loaded ? 'bg-semantic-success' : 'bg-zinc-600'}`}></span>
+                  <span className="text-xs text-text-muted">{sportNames[sport]?.slice(0, 3) || sport.split('_').pop()?.slice(0, 3).toUpperCase()}</span>
+                  {model.model_loaded && (
+                    <span className="text-xs font-mono text-semantic-success">{(model.accuracy * 100).toFixed(0)}%</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
         <button 
           onClick={fetchData}
           className="btn-outline flex items-center gap-2"
