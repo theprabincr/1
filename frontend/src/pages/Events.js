@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { 
-  Calendar, Clock, RefreshCw, ChevronRight, 
-  TrendingUp, BarChart3, Zap, Filter, X, MapPin,
+  Calendar, Clock, RefreshCw, 
+  BarChart3, Filter, X, MapPin,
   Users, Activity, ThermometerSun, Wind, Cloud,
   Home, Plane, AlertTriangle, CheckCircle, Star
 } from "lucide-react";
