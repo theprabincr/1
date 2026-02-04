@@ -647,20 +647,6 @@ class UnifiedBetPredictor:
                 parts.append(factors_section)
         
         return "\n".join(parts)
-            parts.append(f"  • V5 Line Movement: No pick")
-        
-        parts.append("")
-        parts.append("=" * 60)
-        
-        # Include V6 detailed reasoning if available
-        v6_reasoning = v6_result.get("reasoning", "")
-        if v6_reasoning:
-            parts.append("")
-            parts.append("DETAILED ANALYSIS (V6)")
-            parts.append("")
-            parts.append(v6_reasoning)
-        
-        return "\n".join(parts)
     
     def _handle_both_pick(
         self,
