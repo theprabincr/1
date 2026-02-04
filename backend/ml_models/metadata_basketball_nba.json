@@ -1,7 +1,7 @@
 {
   "sport_key": "basketball_nba",
   "accuracy": 1.0,
-  "last_trained": "2026-02-04T08:18:16.238182+00:00",
+  "last_trained": "2026-02-04T08:18:24.501555+00:00",
   "features": [
     "home_elo",
     "away_elo",
