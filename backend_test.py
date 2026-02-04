@@ -628,6 +628,9 @@ class APITester:
         # ML ENDPOINTS (NEW XGBoost Integration)
         self.test_ml_endpoints()
         
+        # XGBOOST FAVORED OUTCOMES (NEW FEATURE TESTING)
+        self.test_xgboost_favored_outcomes()
+        
         # PREDICTION ALGORITHM (MOST IMPORTANT)
         self.test_prediction_algorithm()
         
