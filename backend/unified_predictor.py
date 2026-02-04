@@ -627,24 +627,66 @@ class UnifiedBetPredictor:
         if v6_reasoning and v6_result.get("has_pick"):
             # Extract key sections from V6 reasoning (condensed)
             parts.append("")
-            parts.append("📋 V6 ANALYSIS SUMMARY")
+            parts.append("📋 V6 DETAILED ANALYSIS")
             
-            # Extract just the essential info from V6
-            if "TEAM STRENGTH" in v6_reasoning:
-                strength_start = v6_reasoning.find("TEAM STRENGTH")
-                strength_end = v6_reasoning.find("\n\n", strength_start + 20)
-                if strength_end > strength_start:
-                    strength_section = v6_reasoning[strength_start:strength_end].replace("\n\n", "\n")
-                    parts.append(strength_section)
+            # Helper function to extract a section
+            def extract_section(section_name, v6_text):
+                if section_name in v6_text:
+                    start = v6_text.find(section_name)
+                    # Find next section or end
+                    next_sections = ["PREDICTION OVERVIEW", "MODEL AGREEMENT", "TEAM STRENGTH", 
+                                   "RECENT FORM", "SITUATIONAL FACTORS", "INJURY IMPACT",
+                                   "LINE MOVEMENT", "SIMULATION RESULTS", "WHY THIS BET",
+                                   "KEY FACTORS"]
+                    end = len(v6_text)
+                    for ns in next_sections:
+                        if ns != section_name:
+                            ns_pos = v6_text.find(ns, start + len(section_name))
+                            if ns_pos > start and ns_pos < end:
+                                end = ns_pos
+                    section = v6_text[start:end].strip()
+                    # Clean up extra newlines
+                    section = "\n".join(line for line in section.split("\n") if line.strip())
+                    return section
+                return None
             
-            if "KEY FACTORS" in v6_reasoning:
-                factors_start = v6_reasoning.find("KEY FACTORS")
-                factors_end = v6_reasoning.find("\n\n", factors_start + 20)
-                if factors_end == -1:
-                    factors_end = len(v6_reasoning)
-                factors_section = v6_reasoning[factors_start:factors_end].replace("\n\n", "\n")
+            # Add TEAM STRENGTH section
+            strength = extract_section("TEAM STRENGTH", v6_reasoning)
+            if strength:
                 parts.append("")
-                parts.append(factors_section)
+                parts.append(strength)
+            
+            # Add RECENT FORM section (condensed - just the summary lines)
+            form = extract_section("RECENT FORM", v6_reasoning)
+            if form:
+                parts.append("")
+                # Only include first few lines
+                form_lines = form.split("\n")[:8]  # Header + both teams basic info
+                parts.append("\n".join(form_lines))
+            
+            # Add SITUATIONAL FACTORS section
+            situation = extract_section("SITUATIONAL FACTORS", v6_reasoning)
+            if situation:
+                parts.append("")
+                parts.append(situation)
+            
+            # Add INJURY IMPACT section
+            injury = extract_section("INJURY IMPACT", v6_reasoning)
+            if injury:
+                parts.append("")
+                parts.append(injury)
+            
+            # Add SIMULATION RESULTS section
+            sim = extract_section("SIMULATION RESULTS", v6_reasoning)
+            if sim:
+                parts.append("")
+                parts.append(sim)
+            
+            # Add KEY FACTORS section
+            factors = extract_section("KEY FACTORS", v6_reasoning)
+            if factors:
+                parts.append("")
+                parts.append(factors)
         
         return "\n".join(parts)
     
