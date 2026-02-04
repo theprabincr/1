@@ -74,7 +74,7 @@ const EventCard = ({ event, onCompare }) => {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <span className="text-xs font-mono text-text-muted uppercase">
-            {event.sport_title || event.sport_key?.replace(/_/g, ' ')}
+            {formatSportName(event.sport_key)}
           </span>
           {isLive && (
             <span className="status-badge live">
