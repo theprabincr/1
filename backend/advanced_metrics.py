@@ -349,8 +349,23 @@ def calculate_advanced_metrics(sport_key: str, team_data: Dict) -> Dict:
     
     # Initialize from record if ELO is at default
     if team_elo == elo_system.config["initial_elo"]:
-        wins = form.get("wins", 0)
-        losses = form.get("losses", 0)
+        # Try to get season record from stats first, fallback to form (last 10)
+        stats = team_data.get("stats", {})
+        record_str = stats.get("record", "")
+        
+        if record_str and "-" in record_str:
+            # Parse "32-18" format
+            try:
+                parts = record_str.split("-")
+                wins = int(parts[0])
+                losses = int(parts[1])
+            except (ValueError, IndexError):
+                wins = form.get("wins", 0)
+                losses = form.get("losses", 0)
+        else:
+            wins = form.get("wins", 0)
+            losses = form.get("losses", 0)
+        
         if wins + losses > 0:
             elo_system.initialize_elo_from_record(team_data.get("name", ""), wins, losses)
             team_elo = elo_system.get_team_elo(team_data.get("name", ""))
