@@ -361,30 +361,42 @@ class UnifiedBetPredictor:
         if agrees_with_xgb == 2:
             weighted_conf += self.agreement_bonus  # All 3 agree
             consensus_level = "strong_consensus"
-            logger.info(f"  ✅ STRONG CONSENSUS: All 3 models agree on {xgb_pick}")
+            logger.info(f"  ✅ STRONG CONSENSUS: All 3 models agree on {xgb_pick_display}")
         elif agrees_with_xgb == 1:
             weighted_conf += self.two_agree_bonus  # 2 agree
             consensus_level = "moderate_consensus"
-            logger.info(f"  📊 MODERATE CONSENSUS: 2/3 models agree on {xgb_pick}")
+            logger.info(f"  📊 MODERATE CONSENSUS: 2/3 models agree on {xgb_pick_display}")
         else:
             consensus_level = "xgb_only"
-            logger.info(f"  ⚠️ XGB ONLY: Only XGBoost picks {xgb_pick}")
+            logger.info(f"  ⚠️ XGB ONLY: Only XGBoost picks {xgb_pick_display}")
         
-        # Calculate edge
+        # Calculate edge based on market type
         odds_data = event.get("odds", {})
-        if xgb_pick == home_team:
-            pick_odds = odds_data.get("home_ml_decimal", 1.91)
-        else:
-            pick_odds = odds_data.get("away_ml_decimal", 1.91)
         
-        implied_prob = 1 / pick_odds if pick_odds > 1 else 0.5
-        if xgb_pick == home_team:
-            edge = xgb_prob - implied_prob
+        if xgb_pick_type == "moneyline":
+            if xgb_pick == home_team:
+                pick_odds = odds_data.get("home_ml_decimal", 1.91)
+                edge = ml_prob - (1 / pick_odds if pick_odds > 1 else 0.5)
+            else:
+                pick_odds = odds_data.get("away_ml_decimal", 1.91)
+                edge = (1 - ml_prob) - (1 / pick_odds if pick_odds > 1 else 0.5)
+        elif xgb_pick_type == "spread":
+            pick_odds = 1.91  # Standard -110
+            if xgb_pick == home_team:
+                edge = spread_prob - 0.524  # Break-even at -110
+            else:
+                edge = (1 - spread_prob) - 0.524
+        elif xgb_pick_type == "totals":
+            pick_odds = 1.91
+            if xgb_pick == "OVER":
+                edge = over_prob - 0.524
+            else:
+                edge = (1 - over_prob) - 0.524
         else:
-            edge = (1 - xgb_prob) - implied_prob
+            pick_odds = 1.91
+            edge = 0
         
         # Determine if we should make a pick
-        # Require: weighted confidence >= 60% OR (XGBoost conf >= 65% AND 1+ model agrees)
         should_pick = (
             weighted_conf >= self.min_unified_confidence or
             (xgb_conf >= 0.65 and agrees_with_xgb >= 1)
@@ -394,8 +406,8 @@ class UnifiedBetPredictor:
             return {
                 "has_pick": True,
                 "pick": xgb_pick,
-                "pick_type": "moneyline",
-                "pick_display": f"{xgb_pick} ML",
+                "pick_type": xgb_pick_type,
+                "pick_display": xgb_pick_display,
                 "confidence": round(weighted_conf * 100, 1),
                 "edge": round(edge * 100, 1),
                 "odds": pick_odds,
@@ -404,8 +416,20 @@ class UnifiedBetPredictor:
                 "xgb_agrees": True,
                 "v5_agrees": v5_pick == xgb_pick if v5_pick else False,
                 "v6_agrees": v6_pick == xgb_pick if v6_pick else False,
-                "xgb_probability": round(xgb_prob, 3),
-                "xgb_model_accuracy": xgb_accuracy,
+                # All market probabilities
+                "xgb_probability": round(ml_prob, 3),
+                "xgb_spread_probability": round(spread_prob, 3),
+                "xgb_over_probability": round(over_prob, 3),
+                "xgb_predicted_total": predicted_total,
+                "xgb_best_market": xgb_best_market,
+                # Accuracies
+                "xgb_ml_accuracy": ml_accuracy,
+                "xgb_spread_accuracy": spread_accuracy,
+                "xgb_totals_accuracy": totals_accuracy,
+                "xgb_model_accuracy": ml_accuracy,  # Backward compat
+                # Lines
+                "spread_line": spread_line,
+                "total_line": total_line,
                 "reasoning": self._build_xgb_reasoning(
                     xgb_result, v5_result, v6_result,
                     weighted_conf * 100, edge * 100,
