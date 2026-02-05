@@ -417,53 +417,69 @@ class EnsemblePredictor:
             "catboost": catboost_params
         }
     
-    def _create_ensemble(self, params: Dict) -> VotingClassifier:
-        """Create voting ensemble from base models."""
+    def _train_base_models(self, X_train: np.ndarray, y_train: np.ndarray, 
+                           params: Dict) -> Tuple[Dict, np.ndarray]:
+        """
+        Train base models and generate meta-features for stacking.
+        Uses out-of-fold predictions for meta-features.
+        """
+        from sklearn.model_selection import KFold
         
-        xgb = XGBClassifier(**params["xgb"])
-        lgbm = LGBMClassifier(**params["lgbm"])
-        catboost = CatBoostClassifier(**params["catboost"])
+        models = {}
+        n_samples = len(X_train)
+        meta_features = np.zeros((n_samples, 3))  # 3 base models
         
-        # Soft voting uses predicted probabilities
-        ensemble = VotingClassifier(
-            estimators=[
-                ('xgb', xgb),
-                ('lgbm', lgbm),
-                ('catboost', catboost)
-            ],
-            voting='soft',
-            weights=[0.4, 0.35, 0.25]  # XGBoost slightly weighted higher
-        )
+        kfold = KFold(n_splits=5, shuffle=True, random_state=42)
         
-        return ensemble
+        # Train each base model with cross-validation for meta-features
+        for idx, (name, ModelClass, model_params) in enumerate([
+            ("xgb", XGBClassifier, params["xgb"]),
+            ("lgbm", LGBMClassifier, params["lgbm"]),
+            ("catboost", CatBoostClassifier, params["catboost"])
+        ]):
+            # Out-of-fold predictions for meta-features
+            for train_idx, val_idx in kfold.split(X_train):
+                X_tr, X_val = X_train[train_idx], X_train[val_idx]
+                y_tr = y_train[train_idx]
+                
+                model = ModelClass(**model_params)
+                model.fit(X_tr, y_tr)
+                
+                # Store probability predictions
+                meta_features[val_idx, idx] = model.predict_proba(X_val)[:, 1]
+            
+            # Train final model on all training data
+            final_model = ModelClass(**model_params)
+            final_model.fit(X_train, y_train)
+            models[name] = final_model
+        
+        return models, meta_features
     
-    def _create_stacking_ensemble(self, params: Dict) -> StackingClassifier:
-        """Create stacking ensemble with meta-learner."""
+    def _train_meta_learner(self, meta_features: np.ndarray, y_train: np.ndarray) -> LogisticRegression:
+        """Train meta-learner on base model predictions."""
+        meta_learner = LogisticRegression(C=1.0, max_iter=1000, random_state=42)
+        meta_learner.fit(meta_features, y_train)
+        return meta_learner
+    
+    def _ensemble_predict_proba(self, models: Dict, X: np.ndarray) -> np.ndarray:
+        """Get ensemble predictions using trained models."""
+        # Get predictions from each base model
+        xgb_prob = models["xgb"].predict_proba(X)[:, 1]
+        lgbm_prob = models["lgbm"].predict_proba(X)[:, 1]
+        catboost_prob = models["catboost"].predict_proba(X)[:, 1]
         
-        xgb = XGBClassifier(**params["xgb"])
-        lgbm = LGBMClassifier(**params["lgbm"])
-        catboost = CatBoostClassifier(**params["catboost"])
+        # Stack predictions for meta-learner
+        meta_features = np.column_stack([xgb_prob, lgbm_prob, catboost_prob])
         
-        # Meta-learner: Logistic Regression
-        meta_learner = LogisticRegression(
-            C=1.0, 
-            max_iter=1000,
-            random_state=42
-        )
+        if "meta" in models:
+            # Use meta-learner (stacking)
+            final_prob = models["meta"].predict_proba(meta_features)[:, 1]
+        else:
+            # Use weighted average (voting)
+            weights = [0.4, 0.35, 0.25]
+            final_prob = xgb_prob * weights[0] + lgbm_prob * weights[1] + catboost_prob * weights[2]
         
-        stacking = StackingClassifier(
-            estimators=[
-                ('xgb', xgb),
-                ('lgbm', lgbm),
-                ('catboost', catboost)
-            ],
-            final_estimator=meta_learner,
-            cv=5,
-            stack_method='predict_proba',
-            passthrough=False  # Don't pass original features to meta-learner
-        )
-        
-        return stacking
+        return final_prob
     
     def train(self, games: List[Dict], use_stacking: bool = True, 
               optimize_hyperparams: bool = False) -> Dict:
