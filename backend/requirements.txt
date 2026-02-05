@@ -42,3 +42,8 @@ pywebpush>=1.14.0
 
 threadpoolctl
 http_ece
+
+lightgbm
+catboost
+optuna
+shap
