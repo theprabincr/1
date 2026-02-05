@@ -3088,13 +3088,15 @@ async def collect_historical_data(sport_key: str = "basketball_nba", season: str
 
 
 @api_router.post("/ml/train")
-async def train_ml_model(sport_key: str = "basketball_nba", rebuild_elo: bool = True):
+async def train_ml_model(sport_key: str = "basketball_nba", rebuild_elo: bool = True, seasons: str = None):
     """
     Train XGBoost model on collected historical data.
     
     Args:
         sport_key: Sport to train model for
         rebuild_elo: Whether to rebuild ELO ratings from historical data
+        seasons: Comma-separated list of seasons to use (e.g., "2022,2023,2024"). 
+                 If not provided, uses all available seasons.
     
     Requires historical data to be collected first via /api/ml/collect-historical
     """
@@ -3103,13 +3105,29 @@ async def train_ml_model(sport_key: str = "basketball_nba", rebuild_elo: bool = 
     try:
         # Get historical data
         collector = HistoricalDataCollector(db)
-        games = await collector.get_cached_historical_data(sport_key)
+        
+        # Filter by seasons if specified
+        if seasons:
+            season_list = [s.strip() for s in seasons.split(",")]
+            games = []
+            for season in season_list:
+                season_games = await collector.get_cached_historical_data(sport_key, season)
+                games.extend(season_games)
+            logger.info(f"  Using {len(season_list)} seasons: {season_list}")
+        else:
+            games = await collector.get_cached_historical_data(sport_key)
+            # Get unique seasons for logging
+            unique_seasons = list(set(g.get("season", "unknown") for g in games))
+            logger.info(f"  Using all available seasons: {sorted(unique_seasons)}")
         
         if len(games) < 50:
             raise HTTPException(
                 status_code=400,
                 detail=f"Insufficient training data: {len(games)} games (need 50+). Run /api/ml/collect-historical first."
             )
+        
+        # Sort games by date for proper chronological training
+        games = sorted(games, key=lambda x: x.get("date", ""))
         
         # Optionally rebuild ELO from historical games
         if rebuild_elo:
@@ -3124,9 +3142,14 @@ async def train_ml_model(sport_key: str = "basketball_nba", rebuild_elo: bool = 
         if metrics.get("success"):
             xgboost_predictors[sport_key] = predictor
             
+            # Get unique seasons used
+            seasons_used = list(set(g.get("season", "unknown") for g in games))
+            
             return {
                 "message": "Model training complete",
                 "sport_key": sport_key,
+                "seasons_used": sorted(seasons_used),
+                "total_games": len(games),
                 "metrics": metrics
             }
         else:
