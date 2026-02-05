@@ -858,21 +858,6 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
-      )}
-                        {model.ml_accuracy ? `${(model.ml_accuracy * 100).toFixed(0)}%` : '--'}
-                      </p>
-                    </div>
-                  ))}
-                  {!mlStatus.ensemble && (
-                    <div className="col-span-3 text-center text-text-muted text-xs">Not trained yet</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Live Games Section - Only shows when games are live */}
       {liveScores.length > 0 && (
         <div className="bg-gradient-to-r from-zinc-900 to-zinc-800 border border-zinc-700 rounded-xl p-6">
