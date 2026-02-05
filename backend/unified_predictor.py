@@ -565,8 +565,8 @@ class UnifiedBetPredictor:
             
             return {
                 "has_pick": False,
-                "reasoning": f"XGBoost picked {xgb_pick} but: {'; '.join(reason)}",
-                "algorithm": "unified_xgboost",
+                "reasoning": f"{'Ensemble' if ml_method == 'ensemble' else 'XGBoost'} picked {xgb_pick} but: {'; '.join(reason)}",
+                "algorithm": "unified_ensemble" if ml_method == "ensemble" else "unified_xgboost",
                 "xgb_pick": xgb_pick,
                 
                 # ===== FAVORED OUTCOMES (NEW - DISPLAY THESE EVEN WITHOUT PICK) =====
