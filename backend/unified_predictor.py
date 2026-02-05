@@ -508,7 +508,7 @@ class UnifiedBetPredictor:
                 "confidence": round(weighted_conf * 100, 1),
                 "edge": round(edge * 100, 1),
                 "odds": pick_odds,
-                "algorithm": "unified_xgboost",
+                "algorithm": "unified_ensemble" if ml_method == "ensemble" else "unified_xgboost",
                 "consensus_level": consensus_level,
                 "xgb_agrees": True,
                 "v5_agrees": v5_pick == xgb_pick if v5_pick else False,
