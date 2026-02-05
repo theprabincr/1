@@ -87,6 +87,14 @@ from ml_xgboost import (
     get_elo_system
 )
 
+# Import Ensemble ML System
+from ml_ensemble import (
+    EnsemblePredictor,
+    AdvancedFeatureEngineering,
+    get_ensemble_predictor,
+    ENHANCED_FEATURE_NAMES
+)
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
