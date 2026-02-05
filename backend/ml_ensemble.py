@@ -330,17 +330,22 @@ class AdvancedFeatureEngineering:
 class EnsemblePredictor:
     """
     Ensemble model combining XGBoost, LightGBM, and CatBoost.
-    Uses soft voting and optional stacking for improved accuracy.
+    Uses manual stacking approach for sklearn compatibility.
     """
     
     def __init__(self, sport_key: str = "basketball_nba"):
         self.sport_key = sport_key
         self.feature_engineering = AdvancedFeatureEngineering()
         
-        # Models for each market
-        self.ml_ensemble = None  # Moneyline
-        self.spread_ensemble = None  # Spread
-        self.totals_ensemble = None  # Totals
+        # Individual models for each market (stored separately for manual stacking)
+        self.ml_models = {}  # {"xgb": model, "lgbm": model, "catboost": model, "meta": model}
+        self.spread_models = {}
+        self.totals_models = {}
+        
+        # Legacy attributes for compatibility
+        self.ml_ensemble = None
+        self.spread_ensemble = None
+        self.totals_ensemble = None
         
         self.scaler = None
         self.is_loaded = False
