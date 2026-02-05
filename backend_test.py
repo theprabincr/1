@@ -1757,7 +1757,7 @@ class APITester:
             algorithm = prediction.get('algorithm', '')
             
             # Look for ensemble indicators in algorithm field
-            ensemble_indicators = ['ensemble', 'unified_ensemble', 'ensemble_ml']
+            ensemble_indicators = ['ensemble', 'unified_ensemble']
             uses_ensemble = any(indicator in algorithm.lower() for indicator in ensemble_indicators)
             
             if not uses_ensemble:
