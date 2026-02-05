@@ -3280,7 +3280,7 @@ async def ensemble_predict_game(event_id: str, sport_key: str = "basketball_nba"
         event = await db.events.find_one({"id": event_id, "sport_key": sport_key})
         
         if not event:
-            events_list = await fetch_espn_events_with_odds(sport_key, db, force_refresh=True)
+            events_list = await fetch_espn_events_with_odds(sport_key, days_ahead=7)
             event = next((e for e in events_list if str(e.get("id")) == str(event_id)), None)
         
         if not event:
