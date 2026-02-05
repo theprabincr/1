@@ -1,10 +1,10 @@
 {
   "sport_key": "basketball_nba",
-  "ml_accuracy": 0.5978,
-  "spread_accuracy": 0.5277,
-  "totals_accuracy": 0.6273,
-  "totals_mae": 15.48,
-  "last_trained": "2026-02-05T10:04:20.742970+00:00",
+  "ml_accuracy": 0.6,
+  "spread_accuracy": 0.5481,
+  "totals_accuracy": 0.5444,
+  "totals_mae": 15.06,
+  "last_trained": "2026-02-05T10:13:44.934895+00:00",
   "features": [
     "home_elo",
     "away_elo",
@@ -43,11 +43,9 @@
     "defensive_rating_diff"
   ],
   "model_type": "XGBClassifier_MultiMarket_v2",
-  "warnings": [
-    "\u26a0\ufe0f totals accuracy 62.7% suspiciously high (>60.0%) - possible data leakage!"
-  ],
+  "warnings": [],
   "data_quality": {
-    "total_games": 1351,
+    "total_games": 4048,
     "games_with_real_spread": 0,
     "games_with_real_totals": 0,
     "label_validation": {
@@ -59,17 +57,17 @@
   },
   "cv_scores": {
     "ml": {
-      "mean": 0.5954,
-      "std": 0.0246
+      "mean": 0.6059,
+      "std": 0.0098
     },
     "spread": {
-      "mean": 0.5713,
-      "std": 0.0237
+      "mean": 0.5531,
+      "std": 0.0113
     },
     "totals": {
-      "mean": 0.6333,
-      "std": 0.0342
+      "mean": 0.5692,
+      "std": 0.0154
     }
   },
-  "accuracy": 0.5978
+  "accuracy": 0.6
 }
