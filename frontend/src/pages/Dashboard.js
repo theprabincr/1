@@ -709,7 +709,7 @@ const Dashboard = () => {
           <div className="flex items-center gap-3 bg-zinc-800/50 rounded-lg px-3 py-2 border border-purple-500/20">
             <span className="text-xs font-mono text-purple-400 flex items-center gap-1">
               <Zap className="w-3 h-3" />
-              XGBoost ML
+              Ensemble ML
             </span>
             <div className="flex items-center gap-2">
               {/* Use Ensemble models if available, fallback to basic models */}
