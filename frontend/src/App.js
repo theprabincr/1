@@ -67,18 +67,16 @@ const navItems = [
 
 // Sidebar Component
 const Sidebar = () => {
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const { unreadCount, refreshNotificationCount } = useNotifications();
   const [dataStatus, setDataStatus] = useState({ source: 'live', lastUpdate: null });
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [notifRes, statusRes] = await Promise.all([
-          axios.get(`${API}/notifications?unread_only=true&limit=1`),
-          axios.get(`${API}/data-source-status`)
-        ]);
-        setUnreadNotifications(notifRes.data.unread_count);
+        const statusRes = await axios.get(`${API}/data-source-status`);
         setDataStatus(statusRes.data);
+        // Refresh notification count
+        refreshNotificationCount();
       } catch (error) {
         console.error("Error fetching sidebar data:", error);
       }
@@ -87,7 +85,7 @@ const Sidebar = () => {
     fetchData();
     const interval = setInterval(fetchData, 30000); // Refresh every 30 seconds
     return () => clearInterval(interval);
-  }, []);
+  }, [refreshNotificationCount]);
 
   return (
     <aside className="sidebar" data-testid="sidebar">
@@ -113,9 +111,9 @@ const Sidebar = () => {
         >
           <Bell className="w-5 h-5" />
           <span className="font-medium">Notifications</span>
-          {unreadNotifications > 0 && (
+          {unreadCount > 0 && (
             <span className="ml-auto px-2 py-0.5 rounded-full text-xs bg-brand-primary text-zinc-950 font-bold">
-              {unreadNotifications}
+              {unreadCount}
             </span>
           )}
         </NavLink>
