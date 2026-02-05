@@ -205,9 +205,9 @@ class UnifiedBetPredictor:
                     "pick_type": xgb_pick_type,
                     "pick_display": xgb_pick_display,
                     "confidence": xgb_conf,
-                    "ml_method": ml_method,  # "ensemble" or "xgboost"
+                    "ml_method": "ensemble",  # Always ensemble now
                     
-                    # ===== FAVORED OUTCOMES (NEW - DISPLAY THESE) =====
+                    # ===== FAVORED OUTCOMES =====
                     # Moneyline
                     "ml_favored_team": ml_favored_team,
                     "ml_favored_prob": ml_favored_prob,
@@ -246,7 +246,7 @@ class UnifiedBetPredictor:
                     "model_accuracy": ml_prediction.get("ml_accuracy", 0)
                 }
                 
-                logger.info(f"  🤖 ML ({ml_method.upper()}) Best Market: {best_market.upper()}")
+                logger.info(f"  🤖 Ensemble ML Best Market: {best_market.upper()}")
                 logger.info(f"     ML: {ml_favored_team} {ml_favored_prob*100:.1f}% (vs {ml_underdog_team} {ml_underdog_prob*100:.1f}%)")
                 logger.info(f"     Spread: {spread_favored_team} {spread_favored_line:+.1f} @ {spread_favored_prob*100:.1f}%")
                 logger.info(f"     Totals: {totals_favored} {totals_line} @ {totals_favored_prob*100:.1f}%")
