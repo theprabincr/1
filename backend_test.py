@@ -1662,6 +1662,149 @@ class APITester:
         except Exception as e:
             return False, f"Validation error: {str(e)}"
 
+    def test_ensemble_unified_integration(self):
+        """Test Ensemble ML integration into unified predictor - SPECIFIC REVIEW REQUEST"""
+        print("\n🎯 TESTING ENSEMBLE ML INTEGRATION INTO UNIFIED PREDICTOR (REVIEW REQUEST)")
+        print("-" * 70)
+        
+        # Test 1: POST /api/analyze-unified/{event_id}?sport_key=basketball_nba - Should use Ensemble ML
+        self.test_unified_predictor_uses_ensemble()
+
+    def test_unified_predictor_uses_ensemble(self):
+        """Test that unified predictor now uses Ensemble ML instead of XGBoost"""
+        # First get a real event ID
+        try:
+            events_response = requests.get(f"{BASE_URL}/events/basketball_nba", timeout=30)
+            if events_response.status_code == 200:
+                events = events_response.json()
+                if events and len(events) > 0:
+                    event_id = events[0].get('id')
+                    home_team = events[0].get('home_team', 'Unknown')
+                    away_team = events[0].get('away_team', 'Unknown')
+                else:
+                    event_id = "401810581"  # Fallback
+                    home_team = "Test Home"
+                    away_team = "Test Away"
+            else:
+                event_id = "401810581"  # Fallback
+                home_team = "Test Home"
+                away_team = "Test Away"
+        except:
+            event_id = "401810581"  # Fallback
+            home_team = "Test Home"
+            away_team = "Test Away"
+        
+        url = f"{BASE_URL}/analyze-unified/{event_id}?sport_key=basketball_nba"
+        print(f"\n🧪 Testing POST /analyze-unified/{event_id}?sport_key=basketball_nba")
+        print(f"   URL: {url}")
+        print(f"   Description: Should use Ensemble ML (check logs for 'Running ENSEMBLE ML')")
+        print(f"   Event: {away_team} @ {home_team}")
+        
+        try:
+            response = requests.post(url, timeout=60)  # Longer timeout for ML processing
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Validate that unified predictor uses ensemble ML
+                ensemble_integration_ok, integration_details = self.validate_ensemble_integration(data)
+                
+                if ensemble_integration_ok:
+                    print(f"   ✅ PASS - Ensemble Integration: {integration_details}")
+                    
+                    self.passed += 1
+                    self.results.append({
+                        'endpoint': f'/analyze-unified/{event_id}',
+                        'status': 'PASS',
+                        'integration_details': integration_details
+                    })
+                else:
+                    print(f"   ❌ FAIL - Ensemble integration issue: {integration_details}")
+                    self.failed += 1
+                    self.results.append({
+                        'endpoint': f'/analyze-unified/{event_id}',
+                        'status': 'FAIL',
+                        'error': f"Ensemble integration: {integration_details}"
+                    })
+            else:
+                print(f"   ❌ FAIL - Status: {response.status_code}")
+                print(f"   📄 Response: {response.text[:300]}...")
+                self.failed += 1
+                self.results.append({
+                    'endpoint': f'/analyze-unified/{event_id}',
+                    'status': 'FAIL',
+                    'error': f"HTTP {response.status_code}",
+                    'response_preview': response.text[:300]
+                })
+                
+        except Exception as e:
+            print(f"   ❌ FAIL - Error: {str(e)}")
+            self.failed += 1
+            self.results.append({
+                'endpoint': f'/analyze-unified/{event_id}',
+                'status': 'FAIL',
+                'error': str(e)
+            })
+
+    def validate_ensemble_integration(self, data):
+        """Validate that unified predictor is using Ensemble ML"""
+        try:
+            prediction = data.get('prediction', {})
+            if not prediction:
+                return False, "Missing prediction object"
+            
+            # Check algorithm field - should indicate ensemble usage
+            algorithm = prediction.get('algorithm', '')
+            
+            # Look for ensemble indicators in algorithm field
+            ensemble_indicators = ['ensemble', 'unified_ensemble', 'ensemble_ml']
+            uses_ensemble = any(indicator in algorithm.lower() for indicator in ensemble_indicators)
+            
+            if not uses_ensemble:
+                # Check if it's still using old XGBoost
+                if 'xgboost' in algorithm.lower():
+                    return False, f"Still using XGBoost algorithm '{algorithm}' instead of Ensemble ML"
+                else:
+                    return False, f"Algorithm '{algorithm}' doesn't indicate Ensemble ML usage"
+            
+            # Check for ensemble-specific fields
+            ensemble_fields = ['ensemble_probability', 'ensemble_confidence', 'ml_ensemble_prob']
+            has_ensemble_fields = any(field in prediction for field in ensemble_fields)
+            
+            # Check method field if available
+            method = prediction.get('method', '')
+            ensemble_method = 'ensemble' in method.lower() if method else False
+            
+            # Check reasoning/analysis for ensemble mentions
+            reasoning = prediction.get('reasoning', '') or prediction.get('analysis', '')
+            ensemble_in_reasoning = 'ensemble' in reasoning.lower() if reasoning else False
+            
+            # Build validation details
+            details = [f"algorithm='{algorithm}'"]
+            
+            if method:
+                details.append(f"method='{method}'")
+            
+            if has_ensemble_fields:
+                details.append("has_ensemble_fields=true")
+            
+            if ensemble_in_reasoning:
+                details.append("ensemble_mentioned_in_reasoning=true")
+            
+            # Additional validation - check for ensemble-specific probability fields
+            ensemble_prob_fields = ['ml_ensemble_prob', 'ensemble_ml_prob', 'ensemble_probability']
+            found_ensemble_prob = None
+            for field in ensemble_prob_fields:
+                if field in prediction:
+                    found_ensemble_prob = prediction[field]
+                    details.append(f"{field}={found_ensemble_prob}")
+                    break
+            
+            return True, ", ".join(details)
+            
+        except Exception as e:
+            return False, f"Validation error: {str(e)}"
+
     def run_all_tests(self):
         """Run comprehensive API endpoint tests"""
         print("=" * 60)
