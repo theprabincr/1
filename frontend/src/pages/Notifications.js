@@ -105,7 +105,7 @@ const Notifications = () => {
             )}
           </h1>
           <p className="text-text-muted text-sm mt-1">
-            Stay updated on line movements, API status, and results
+            New picks, results, line movements & daily summaries
           </p>
         </div>
         <div className="flex gap-2">
