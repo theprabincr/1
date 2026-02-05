@@ -243,6 +243,17 @@ Use the `auto_frontend_testing_agent` to test UI functionality.
 - ✅ All ML endpoints returning expected data structures and validation passing
 - ✅ No critical issues found - ML system fully operational and ready
 
+**Ensemble ML Integration Testing Report (February 5, 2026):**
+- ✅ **COMPREHENSIVE ENSEMBLE ML INTEGRATION TESTING COMPLETED**
+- ✅ Verified unified predictor now uses Ensemble ML as primary model instead of single XGBoost
+- ✅ Algorithm field correctly returns "unified_ensemble" when using Ensemble ML (was "unified_xgboost")
+- ✅ Backend logs confirm "Running ENSEMBLE ML (XGBoost + LightGBM + CatBoost)" during unified analysis
+- ✅ Ensemble status endpoint shows accurate metrics: NBA ML=61.5%, Spread=60.4%, Totals=56.9%
+- ✅ Ensemble vs XGBoost comparison verified: 61.5% vs 60.0% (+2.5% improvement)
+- ✅ Fallback mechanism working: uses XGBoost if Ensemble not available/trained
+- ✅ All 3 specific review request requirements tested and verified working correctly
+- ✅ No critical issues found - Ensemble ML integration fully operational and ready for production
+
 **Ensemble ML System Testing Report (February 5, 2026):**
 - ✅ **COMPREHENSIVE ENSEMBLE ML SYSTEM TESTING COMPLETED**
 - ✅ All 3 ensemble ML endpoints tested and verified working correctly
