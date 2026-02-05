@@ -749,15 +749,12 @@ class EnsemblePredictor:
         X = np.nan_to_num(X, nan=0, posinf=0, neginf=0)
         X_scaled = self.scaler.transform(X)
         
-        # Get predictions from each ensemble
-        ml_prob = self.ml_ensemble.predict_proba(X_scaled)[0]
-        home_win_prob = float(ml_prob[1])
+        # Get predictions from each ensemble using manual stacking
+        home_win_prob = float(self._ensemble_predict_proba(self.ml_models, X_scaled)[0])
         
-        spread_prob = self.spread_ensemble.predict_proba(X_scaled)[0] if self.spread_ensemble else [0.5, 0.5]
-        home_cover_prob = float(spread_prob[1])
+        home_cover_prob = float(self._ensemble_predict_proba(self.spread_models, X_scaled)[0]) if self.spread_models else 0.5
         
-        totals_prob = self.totals_ensemble.predict_proba(X_scaled)[0] if self.totals_ensemble else [0.5, 0.5]
-        over_prob = float(totals_prob[1])
+        over_prob = float(self._ensemble_predict_proba(self.totals_models, X_scaled)[0]) if self.totals_models else 0.5
         
         # Determine favored outcomes
         if home_win_prob >= 0.5:
