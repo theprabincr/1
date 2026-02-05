@@ -1,10 +1,10 @@
 {
   "sport_key": "americanfootball_nfl",
-  "ml_accuracy": 0.6034,
-  "spread_accuracy": 0.5,
-  "totals_accuracy": 0.6207,
-  "totals_mae": 11.72,
-  "last_trained": "2026-02-05T10:05:16.665275+00:00",
+  "ml_accuracy": 0.5913,
+  "spread_accuracy": 0.5739,
+  "totals_accuracy": 0.4957,
+  "totals_mae": 11.69,
+  "last_trained": "2026-02-05T10:13:55.716268+00:00",
   "features": [
     "home_elo",
     "away_elo",
@@ -43,11 +43,9 @@
     "defensive_rating_diff"
   ],
   "model_type": "XGBClassifier_MultiMarket_v2",
-  "warnings": [
-    "\u26a0\ufe0f totals accuracy 62.1% suspiciously high (>60.0%) - possible data leakage!"
-  ],
+  "warnings": [],
   "data_quality": {
-    "total_games": 286,
+    "total_games": 572,
     "games_with_real_spread": 0,
     "games_with_real_totals": 0,
     "label_validation": {
@@ -59,17 +57,17 @@
   },
   "cv_scores": {
     "ml": {
-      "mean": 0.6312,
-      "std": 0.0662
+      "mean": 0.6302,
+      "std": 0.0232
     },
     "spread": {
-      "mean": 0.5872,
-      "std": 0.0469
+      "mean": 0.5163,
+      "std": 0.0133
     },
     "totals": {
-      "mean": 0.4386,
-      "std": 0.0529
+      "mean": 0.6084,
+      "std": 0.021
     }
   },
-  "accuracy": 0.6034
+  "accuracy": 0.5913
 }

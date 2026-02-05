@@ -1,10 +1,10 @@
 {
   "sport_key": "icehockey_nhl",
-  "ml_accuracy": 0.509,
+  "ml_accuracy": 0.5331,
   "spread_accuracy": 0.5,
-  "totals_accuracy": 0.5341,
-  "totals_mae": 2.07,
-  "last_trained": "2026-02-05T10:06:03.390962+00:00",
+  "totals_accuracy": 0.551,
+  "totals_mae": 2.04,
+  "last_trained": "2026-02-05T10:14:03.936047+00:00",
   "features": [
     "home_elo",
     "away_elo",
@@ -44,11 +44,10 @@
   ],
   "model_type": "XGBClassifier_MultiMarket_v2",
   "warnings": [
-    "moneyline accuracy 50.9% below expected minimum 52.0%",
     "spread_model_skipped_invalid_labels"
   ],
   "data_quality": {
-    "total_games": 1394,
+    "total_games": 2793,
     "games_with_real_spread": 0,
     "games_with_real_totals": 0,
     "label_validation": {
@@ -56,19 +55,19 @@
       "spread_valid": false,
       "totals_valid": true,
       "issues": [
-        "spread_imbalanced_24.68%"
+        "spread_imbalanced_23.67%"
       ]
     }
   },
   "cv_scores": {
     "ml": {
-      "mean": 0.5561,
-      "std": 0.0266
+      "mean": 0.5215,
+      "std": 0.0224
     },
     "totals": {
-      "mean": 0.5381,
-      "std": 0.0214
+      "mean": 0.526,
+      "std": 0.0103
     }
   },
-  "accuracy": 0.509
+  "accuracy": 0.5331
 }
