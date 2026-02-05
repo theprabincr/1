@@ -1,10 +1,10 @@
 {
   "sport_key": "icehockey_nhl",
-  "ml_accuracy": 0,
-  "spread_accuracy": 0,
-  "totals_accuracy": 0,
-  "last_trained": "2026-02-05T10:46:42.255931+00:00",
-  "model_type": "Ensemble",
+  "ml_accuracy": 0.5546,
+  "spread_accuracy": 0.6064,
+  "totals_accuracy": 0.5778,
+  "last_trained": "2026-02-05T11:28:16.377928+00:00",
+  "model_type": "Stacking",
   "features": [
     "home_elo",
     "away_elo",
