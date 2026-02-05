@@ -863,6 +863,8 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
+      )}
+
       {/* Live Games Section - Only shows when games are live */}
       {liveScores.length > 0 && (
         <div className="bg-gradient-to-r from-zinc-900 to-zinc-800 border border-zinc-700 rounded-xl p-6">
