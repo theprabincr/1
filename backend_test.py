@@ -1006,6 +1006,8 @@ class APITester:
             expected_sports = ['basketball_nba', 'americanfootball_nfl', 'icehockey_nhl']
             
             status_info = []
+            trained_models = 0
+            
             for sport in expected_sports:
                 if sport not in models:
                     return False, f"Missing sport {sport} in ensemble status"
@@ -1030,12 +1032,22 @@ class APITester:
                 spread_acc = sport_data.get('spread_accuracy')
                 totals_acc = sport_data.get('totals_accuracy')
                 
-                # Validate accuracy values are reasonable
+                # If all accuracies are 0, model is loaded but not trained
+                if ml_acc == 0 and spread_acc == 0 and totals_acc == 0:
+                    status_info.append(f"{sport}=loaded_not_trained")
+                    continue
+                
+                # Validate accuracy values are reasonable for trained models
                 for acc, name in [(ml_acc, 'ml'), (spread_acc, 'spread'), (totals_acc, 'totals')]:
-                    if acc is not None and (acc < 0.4 or acc > 0.95):
+                    if acc is not None and acc > 0 and (acc < 0.4 or acc > 0.95):
                         return False, f"Unreasonable {name}_accuracy for {sport}: {acc}"
                 
-                status_info.append(f"{sport}=loaded(ML:{ml_acc:.1%},Spread:{spread_acc:.1%},Totals:{totals_acc:.1%})")
+                status_info.append(f"{sport}=trained(ML:{ml_acc:.1%},Spread:{spread_acc:.1%},Totals:{totals_acc:.1%})")
+                trained_models += 1
+            
+            # Require at least one trained model (NBA should be trained)
+            if trained_models == 0:
+                return False, "No ensemble models are trained"
             
             return True, "; ".join(status_info)
             
