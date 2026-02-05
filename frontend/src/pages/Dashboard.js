@@ -715,6 +715,15 @@ const Dashboard = () => {
                 </div>
               ))}
             </div>
+            {/* Training Schedule Info */}
+            {mlStatus.training_schedule && (
+              <div className="flex items-center gap-1 ml-2 pl-2 border-l border-zinc-700" title={`Next training: ${new Date(mlStatus.training_schedule.next_scheduled).toLocaleString()}`}>
+                <Calendar className="w-3 h-3 text-text-muted" />
+                <span className="text-[10px] text-text-muted">
+                  Next: {new Date(mlStatus.training_schedule.next_scheduled).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
+                </span>
+              </div>
+            )}
           </div>
         )}
         
