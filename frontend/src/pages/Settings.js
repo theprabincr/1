@@ -193,21 +193,30 @@ const Settings = () => {
               <button
                 onClick={handlePushToggle}
                 disabled={pushLoading}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`px-6 py-2.5 rounded-lg font-semibold transition-all ${
                   pushSubscribed 
                     ? 'bg-zinc-700 text-text-secondary hover:bg-zinc-600' 
-                    : 'bg-brand-primary text-zinc-950 hover:bg-brand-primary/90'
+                    : 'bg-brand-primary text-zinc-950 hover:bg-brand-primary/90 shadow-lg shadow-brand-primary/30'
                 }`}
               >
                 {pushLoading ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <RefreshCw className="w-5 h-5 animate-spin" />
                 ) : pushSubscribed ? (
                   'Disable'
                 ) : (
-                  'Enable'
+                  '🔔 Enable Now'
                 )}
               </button>
             </div>
+
+            {/* Permission Guide */}
+            {!pushSubscribed && pushPermission !== 'denied' && (
+              <div className="p-4 bg-brand-primary/10 border border-brand-primary/30 rounded-lg">
+                <p className="text-brand-primary text-sm">
+                  <strong>Tip:</strong> Click "Enable Now" and then click "Allow" when your browser asks for permission.
+                </p>
+              </div>
+            )}
 
             {/* Permission denied warning */}
             {pushPermission === 'denied' && (
