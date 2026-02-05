@@ -337,7 +337,8 @@ class UnifiedBetPredictor:
         away_team: str,
         event: Dict,
         xgb_result: Dict = None,
-        xgb_available: bool = False
+        xgb_available: bool = False,
+        ml_method: str = "xgboost"
     ) -> Dict:
         """
         Combine V5, V6, and XGBoost predictions into single unified recommendation.
