@@ -579,6 +579,75 @@ async def trigger_new_pick_notification():
         )
         return {"message": "Sample new pick notification created"}
 
+# ==================== PUSH NOTIFICATION ENDPOINTS ====================
+
+class PushSubscription(BaseModel):
+    endpoint: str
+    keys: Dict[str, str]
+
+@api_router.get("/push/vapid-public-key")
+async def get_vapid_public_key():
+    """Get the VAPID public key for push subscription"""
+    vapid_key = os.environ.get("VAPID_PUBLIC_KEY")
+    if not vapid_key:
+        raise HTTPException(status_code=500, detail="Push notifications not configured")
+    return {"publicKey": vapid_key}
+
+@api_router.post("/push/subscribe")
+async def subscribe_push(subscription: Dict[str, Any]):
+    """Subscribe to push notifications"""
+    if not subscription.get("endpoint"):
+        raise HTTPException(status_code=400, detail="Invalid subscription")
+    
+    # Check if already subscribed
+    existing = await db.push_subscriptions.find_one({"subscription.endpoint": subscription["endpoint"]})
+    if existing:
+        return {"message": "Already subscribed", "subscribed": True}
+    
+    # Store subscription
+    await db.push_subscriptions.insert_one({
+        "id": str(uuid.uuid4()),
+        "subscription": subscription,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    logger.info(f"New push subscription registered")
+    return {"message": "Successfully subscribed to push notifications", "subscribed": True}
+
+@api_router.post("/push/unsubscribe")
+async def unsubscribe_push(subscription: Dict[str, Any]):
+    """Unsubscribe from push notifications"""
+    endpoint = subscription.get("endpoint")
+    if not endpoint:
+        raise HTTPException(status_code=400, detail="Invalid subscription")
+    
+    result = await db.push_subscriptions.delete_one({"subscription.endpoint": endpoint})
+    
+    if result.deleted_count > 0:
+        return {"message": "Successfully unsubscribed", "subscribed": False}
+    return {"message": "Subscription not found", "subscribed": False}
+
+@api_router.get("/push/status")
+async def get_push_status():
+    """Get push notification status"""
+    count = await db.push_subscriptions.count_documents({})
+    vapid_configured = bool(os.environ.get("VAPID_PUBLIC_KEY"))
+    return {
+        "enabled": vapid_configured,
+        "subscriptions": count
+    }
+
+@api_router.post("/push/test")
+async def test_push_notification():
+    """Send a test push notification"""
+    await send_push_notification(
+        "🎯 Test Notification",
+        "Push notifications are working! You'll receive alerts when new picks are available.",
+        "test",
+        {"test": True}
+    )
+    return {"message": "Test notification sent"}
+
 # ==================== SETTINGS ENDPOINTS ====================
 
 @api_router.get("/settings")
