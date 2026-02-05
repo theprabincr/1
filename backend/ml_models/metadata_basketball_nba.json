@@ -4,7 +4,7 @@
   "spread_accuracy": 0.5481,
   "totals_accuracy": 0.5444,
   "totals_mae": 15.06,
-  "last_trained": "2026-02-05T10:22:27.484045+00:00",
+  "last_trained": "2026-02-05T10:50:59.749436+00:00",
   "features": [
     "home_elo",
     "away_elo",
