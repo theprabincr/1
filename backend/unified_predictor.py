@@ -281,10 +281,10 @@ class UnifiedBetPredictor:
                 "algorithm": "unified"
             }
         
-        # Analyze results and combine (now with Ensemble/XGBoost)
+        # Analyze results and combine with Ensemble ML
         unified_prediction = self._combine_predictions(
             v5_result, v6_result, home_team, away_team, event,
-            xgb_result=xgb_result, xgb_available=xgb_available, ml_method=ml_method
+            xgb_result=xgb_result, xgb_available=xgb_available, ml_method="ensemble"
         )
         
         return unified_prediction
@@ -298,13 +298,13 @@ class UnifiedBetPredictor:
         event: Dict,
         xgb_result: Dict = None,
         xgb_available: bool = False,
-        ml_method: str = "xgboost"
+        ml_method: str = "ensemble"
     ) -> Dict:
         """
-        Combine V5, V6, and XGBoost predictions into single unified recommendation.
+        Combine V5, V6, and Ensemble ML predictions into single unified recommendation.
         
-        When XGBoost is available:
-        - XGBoost: 40% weight
+        When Ensemble ML is available:
+        - Ensemble ML: 40% weight
         - V6: 35% weight  
         - V5: 25% weight
         
