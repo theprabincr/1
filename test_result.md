@@ -33,6 +33,33 @@ Use the `auto_frontend_testing_agent` to test UI functionality.
 
 ## Test Status
 
+### ML Training System v2.0 Tests ✅ COMPLETED (February 5, 2026)
+
+**MULTI-SEASON TRAINING & SCHEDULE INFO:**
+| Endpoint | Status | Notes |
+|----------|--------|-------|
+| `GET /api/ml/status` | ✅ PASS | Returns training_schedule (next: Sun Feb 8, 3:00 AM UTC), historical_data with seasons array, model accuracies |
+| `POST /api/ml/train?sport_key=basketball_nba` | ✅ PASS | Multi-season training: 3 seasons (2022, 2023, 2024), 4048 games, ML: 60.0%, Spread: 54.8%, Totals: 54.4% |
+| `POST /api/ml/predict/{event_id}?sport_key=basketball_nba` | ✅ PASS | Favored team predictions with actual team names (Detroit Pistons, Washington Wizards) |
+
+**TRAINING DATA BY SPORT:**
+| Sport | Total Games | Seasons | ML Accuracy | Spread Accuracy | Totals Accuracy |
+|-------|-------------|---------|-------------|-----------------|-----------------|
+| NBA | 4,048 | 2022, 2023, 2024 | 60.0% | 54.8% | 54.4% |
+| NFL | 572 | 2023, 2024 | 59.1% | 57.4% | 49.6% |
+| NHL | 2,793 | 2023, 2024 | 53.3% | 50.0% | 55.1% |
+
+**KEY FIXES APPLIED:**
+- ✅ Fixed train/test split alignment across all models
+- ✅ Fixed circular logic in totals labels (was causing 100% accuracy)
+- ✅ Added cross-validation scores for reliable estimates
+- ✅ Added sanity checks for suspicious accuracy values
+- ✅ Added multi-season training support
+- ✅ Added training schedule info to API response
+- ✅ All accuracy metrics now within expected bounds (no data leakage warnings)
+
+---
+
 ### ML Enhancement Tests ✅ COMPLETED (February 4, 2026)
 
 **XGBOOST ML SYSTEM:**
