@@ -276,7 +276,70 @@ async def create_notification(notif_type: str, title: str, message: str, data: D
     )
     await db.notifications.insert_one(notification.model_dump())
     notification_queue.append(notification.model_dump())
+    
+    # Send browser push notification
+    await send_push_notification(title, message, notif_type, data)
+    
     return notification
+
+# Web Push Notification Helper
+async def send_push_notification(title: str, body: str, notif_type: str = "general", data: Dict = None):
+    """Send push notification to all subscribed browsers"""
+    vapid_public = os.environ.get("VAPID_PUBLIC_KEY")
+    vapid_private = os.environ.get("VAPID_PRIVATE_KEY")
+    vapid_email = os.environ.get("VAPID_CLAIMS_EMAIL", "ballzy@example.com")
+    
+    if not vapid_public or not vapid_private:
+        logger.warning("VAPID keys not configured, skipping push notification")
+        return
+    
+    # Get all push subscriptions
+    subscriptions = await db.push_subscriptions.find({}).to_list(1000)
+    
+    if not subscriptions:
+        logger.debug("No push subscriptions found")
+        return
+    
+    payload = json.dumps({
+        "title": title,
+        "body": body,
+        "icon": "/logo192.png",
+        "badge": "/logo192.png",
+        "tag": f"ballzy-{notif_type}-{datetime.now().timestamp()}",
+        "data": data or {},
+        "requireInteraction": notif_type == "new_pick"  # Keep new picks visible until interacted
+    })
+    
+    vapid_claims = {"sub": f"mailto:{vapid_email}"}
+    
+    failed_subscriptions = []
+    success_count = 0
+    
+    for sub in subscriptions:
+        try:
+            subscription_info = sub.get("subscription")
+            if subscription_info:
+                webpush(
+                    subscription_info=subscription_info,
+                    data=payload,
+                    vapid_private_key=vapid_private,
+                    vapid_claims=vapid_claims
+                )
+                success_count += 1
+        except WebPushException as e:
+            logger.warning(f"Push notification failed: {e}")
+            # If subscription is invalid (410 Gone), mark for removal
+            if e.response and e.response.status_code in [404, 410]:
+                failed_subscriptions.append(sub.get("_id"))
+        except Exception as e:
+            logger.error(f"Unexpected push error: {e}")
+    
+    # Remove failed subscriptions
+    if failed_subscriptions:
+        await db.push_subscriptions.delete_many({"_id": {"$in": failed_subscriptions}})
+        logger.info(f"Removed {len(failed_subscriptions)} invalid push subscriptions")
+    
+    logger.info(f"Push notifications sent: {success_count}/{len(subscriptions)}")
 
 # ==================== DATA SOURCE STATUS ====================
 
