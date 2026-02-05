@@ -1661,6 +1661,9 @@ class APITester:
         # ML TRAINING SYSTEM (SPECIFIC REVIEW REQUEST)
         self.test_ml_training_system()
         
+        # ENSEMBLE ML SYSTEM (SPECIFIC REVIEW REQUEST)
+        self.test_ensemble_ml_system()
+        
         # ML ENDPOINTS (NEW XGBoost Integration)
         self.test_ml_endpoints()
         
