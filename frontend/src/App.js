@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, createContext, useContext } from "react";
 import "./App.css";
 import { BrowserRouter, Routes, Route, NavLink, useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -8,6 +8,17 @@ import {
   Calendar, Clock, Zap, DollarSign, Wifi,
   Bell, Activity, Circle
 } from "lucide-react";
+
+// Notification Context - shared state for notification count
+const NotificationContext = createContext();
+
+export const useNotifications = () => {
+  const context = useContext(NotificationContext);
+  if (!context) {
+    throw new Error('useNotifications must be used within NotificationProvider');
+  }
+  return context;
+};
 
 // Ballzy Logo Component - Premium sports betting aesthetic
 const BallzyLogo = ({ className = "w-10 h-10" }) => (
