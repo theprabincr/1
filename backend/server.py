@@ -1173,9 +1173,12 @@ async def get_recommendations(
     """Get ML-generated bet recommendations - filtered by 70%+ confidence and time window"""
     now = datetime.now(timezone.utc)
     
-    # Calculate time window: later today through 3 days from now
+    # Calculate time window for future games (up to 3 days ahead)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     three_days_later = today_start + timedelta(days=4)  # End of day 3
+    
+    # For in-progress games, allow up to 4 hours after start time (typical game duration)
+    max_game_duration = timedelta(hours=4)
     
     # Base query - pending predictions with valid odds
     query = {
@@ -1196,7 +1199,7 @@ async def get_recommendations(
         {"_id": 0}
     ).sort("confidence", -1).limit(limit * 3).to_list(limit * 3)  # Get extra to filter by time
     
-    # Filter by time window: only events starting later today through 3 days
+    # Filter by time window: include in-progress games and upcoming games (up to 3 days)
     filtered_predictions = []
     for pred in predictions:
         try:
@@ -1204,8 +1207,19 @@ async def get_recommendations(
             if commence_time_str:
                 commence_time = datetime.fromisoformat(commence_time_str.replace('Z', '+00:00'))
                 
-                # Must be in the future (not already started) and within 3 days
+                # Calculate when game likely ends (start time + max duration)
+                estimated_end_time = commence_time + max_game_duration
+                
+                # Include if:
+                # 1. Game hasn't started yet and is within 3 days (upcoming)
+                # 2. Game has started but hasn't been going for more than 4 hours (in-progress)
                 if now < commence_time <= three_days_later:
+                    # Upcoming game
+                    pred["game_status"] = "upcoming"
+                    filtered_predictions.append(pred)
+                elif commence_time <= now < estimated_end_time:
+                    # In-progress game (started within last 4 hours)
+                    pred["game_status"] = "in_progress"
                     filtered_predictions.append(pred)
         except Exception:
             # If we can't parse time, skip this prediction
