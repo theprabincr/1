@@ -178,24 +178,51 @@ const MobileNav = () => {
   );
 };
 
+// Notification Provider Component
+const NotificationProvider = ({ children }) => {
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const refreshNotificationCount = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/notifications?unread_only=true&limit=1`);
+      setUnreadCount(res.data.unread_count);
+    } catch (error) {
+      console.error("Error fetching notification count:", error);
+    }
+  }, []);
+
+  // Initial fetch
+  useEffect(() => {
+    refreshNotificationCount();
+  }, [refreshNotificationCount]);
+
+  return (
+    <NotificationContext.Provider value={{ unreadCount, setUnreadCount, refreshNotificationCount }}>
+      {children}
+    </NotificationContext.Provider>
+  );
+};
+
 function App() {
   return (
     <div className="App">
       <BrowserRouter>
-        <div className="main-layout">
-          <Sidebar />
-          <main className="main-content pb-20 md:pb-6">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/events" element={<Events />} />
-              <Route path="/line-movement" element={<LineMovement />} />
-              <Route path="/performance" element={<Performance />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/notifications" element={<Notifications />} />
-            </Routes>
-          </main>
-          <MobileNav />
-        </div>
+        <NotificationProvider>
+          <div className="main-layout">
+            <Sidebar />
+            <main className="main-content pb-20 md:pb-6">
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/events" element={<Events />} />
+                <Route path="/line-movement" element={<LineMovement />} />
+                <Route path="/performance" element={<Performance />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/notifications" element={<Notifications />} />
+              </Routes>
+            </main>
+            <MobileNav />
+          </div>
+        </NotificationProvider>
       </BrowserRouter>
     </div>
   );
