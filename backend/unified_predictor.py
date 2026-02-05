@@ -1,7 +1,7 @@
 """
 Unified BetPredictor - Combines V5, V6, and Ensemble ML into Single Prediction System
-Leverages line movement analysis (V5), rule-based ensemble (V6), and real Ensemble ML
-Now upgraded to use Ensemble model (XGBoost + LightGBM + CatBoost) for improved accuracy
+Leverages line movement analysis (V5), rule-based ensemble (V6), and Ensemble ML
+Uses Ensemble model (XGBoost + LightGBM + CatBoost) for ML predictions
 """
 import logging
 from datetime import datetime, timezone
@@ -10,19 +10,11 @@ from typing import Dict, List, Optional
 from betpredictor_v5 import generate_v5_prediction
 from betpredictor_v6 import generate_v6_prediction
 
-# Import Ensemble ML (primary) and XGBoost (fallback)
-ENSEMBLE_AVAILABLE = False
-XGBOOST_AVAILABLE = False
-
+# Import Ensemble ML
+ML_AVAILABLE = False
 try:
     from ml_ensemble import get_ensemble_predictor
-    ENSEMBLE_AVAILABLE = True
-except ImportError:
-    pass
-
-try:
-    from ml_xgboost import get_predictor, FeatureEngineering
-    XGBOOST_AVAILABLE = True
+    ML_AVAILABLE = True
 except ImportError:
     pass
 
