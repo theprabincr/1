@@ -2,19 +2,18 @@ import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { 
   Bell, Check, Trash2, RefreshCw, X,
-  TrendingUp, AlertTriangle, Trophy, Zap, Key
+  TrendingUp, Trophy, Zap, Target, BarChart3, Cpu
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const NotificationIcon = ({ type }) => {
   const icons = {
-    'line_movement': <TrendingUp className="w-5 h-5 text-semantic-success" />,
-    'api_low': <AlertTriangle className="w-5 h-5 text-semantic-warning" />,
-    'api_exhausted': <AlertTriangle className="w-5 h-5 text-semantic-danger" />,
-    'api_rotation': <Key className="w-5 h-5 text-brand-primary" />,
-    'api_key_added': <Key className="w-5 h-5 text-semantic-success" />,
+    'new_pick': <Target className="w-5 h-5 text-brand-primary" />,
     'result': <Trophy className="w-5 h-5 text-brand-primary" />,
+    'line_movement': <TrendingUp className="w-5 h-5 text-semantic-success" />,
+    'daily_summary': <BarChart3 className="w-5 h-5 text-blue-400" />,
+    'ml_retrain': <Cpu className="w-5 h-5 text-purple-400" />,
     'recommendation': <Zap className="w-5 h-5 text-brand-primary" />,
   };
   return icons[type] || <Bell className="w-5 h-5 text-text-muted" />;
