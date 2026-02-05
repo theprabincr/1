@@ -790,67 +790,92 @@ const Dashboard = () => {
       {/* ML Training Schedule Section */}
       {mlStatus && mlStatus.training_schedule && (
         <div className="bg-gradient-to-r from-purple-900/20 to-zinc-800 border border-purple-500/30 rounded-xl p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-500/20 rounded-lg">
-                <Zap className="w-5 h-5 text-purple-400" />
+          <div className="flex flex-col gap-4">
+            {/* Header Row */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-500/20 rounded-lg">
+                  <Zap className="w-5 h-5 text-purple-400" />
+                </div>
+                <div>
+                  <h3 className="font-mono font-bold text-sm text-purple-400">ML Prediction Models</h3>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    Auto-retrain {mlStatus.training_schedule.frequency}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-mono font-bold text-sm text-purple-400">XGBoost ML Training</h3>
-                <p className="text-xs text-text-muted mt-0.5">
-                  Models auto-retrain {mlStatus.training_schedule.frequency}
-                </p>
+              
+              <div className="flex items-center gap-6">
+                {/* Training Schedule */}
+                <div className="text-right">
+                  <p className="text-xs text-text-muted">Next Training</p>
+                  <p className="text-sm font-mono text-text-primary">
+                    {new Date(mlStatus.training_schedule.next_scheduled).toLocaleDateString([], { 
+                      weekday: 'short', 
+                      month: 'short', 
+                      day: 'numeric'
+                    })}
+                  </p>
+                  <p className="text-xs text-text-muted">
+                    {mlStatus.training_schedule.time} {mlStatus.training_schedule.timezone}
+                  </p>
+                </div>
+                
+                {/* Vertical Divider */}
+                <div className="w-px h-10 bg-zinc-700"></div>
+                
+                {/* Historical Data */}
+                <div className="text-right">
+                  <p className="text-xs text-text-muted">Training Data</p>
+                  <p className="text-sm font-mono text-text-primary">
+                    {Object.values(mlStatus.historical_data || {}).reduce((sum, d) => sum + (d.total_games || d || 0), 0).toLocaleString()} games
+                  </p>
+                  <p className="text-xs text-text-muted">
+                    {[...new Set(Object.values(mlStatus.historical_data || {}).flatMap(d => d.seasons || []))].length} seasons
+                  </p>
+                </div>
               </div>
             </div>
             
-            <div className="flex items-center gap-6">
-              {/* Training Schedule */}
-              <div className="text-right">
-                <p className="text-xs text-text-muted">Next Training</p>
-                <p className="text-sm font-mono text-text-primary">
-                  {new Date(mlStatus.training_schedule.next_scheduled).toLocaleDateString([], { 
-                    weekday: 'short', 
-                    month: 'short', 
-                    day: 'numeric'
-                  })}
-                </p>
-                <p className="text-xs text-text-muted">
-                  {mlStatus.training_schedule.time} {mlStatus.training_schedule.timezone}
-                </p>
-              </div>
-              
-              {/* Vertical Divider */}
-              <div className="w-px h-10 bg-zinc-700"></div>
-              
-              {/* Historical Data */}
-              <div className="text-right">
-                <p className="text-xs text-text-muted">Training Data</p>
-                <p className="text-sm font-mono text-text-primary">
-                  {Object.values(mlStatus.historical_data || {}).reduce((sum, d) => sum + (d.total_games || d || 0), 0).toLocaleString()} games
-                </p>
-                <p className="text-xs text-text-muted">
-                  {[...new Set(Object.values(mlStatus.historical_data || {}).flatMap(d => d.seasons || []))].length} seasons
-                </p>
-              </div>
-              
-              {/* Vertical Divider */}
-              <div className="w-px h-10 bg-zinc-700"></div>
-              
-              {/* Model Accuracies */}
-              <div className="flex gap-3">
-                {Object.entries(mlStatus.models || {}).map(([sport, model]) => (
-                  <div key={sport} className="text-center">
-                    <p className="text-xs text-text-muted">{sportNames[sport]?.slice(0, 3) || sport.split('_').pop()?.slice(0, 3).toUpperCase()}</p>
-                    <p className={`text-sm font-mono font-bold ${model.model_loaded ? 'text-semantic-success' : 'text-text-muted'}`}>
-                      {model.model_loaded ? `${(model.accuracy * 100).toFixed(0)}%` : '--'}
-                    </p>
-                    {model.last_trained && (
-                      <p className="text-[10px] text-text-muted">
-                        {new Date(model.last_trained).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+            {/* Model Comparison Table */}
+            <div className="grid grid-cols-2 gap-4">
+              {/* XGBoost Model */}
+              <div className="bg-zinc-900/50 rounded-lg p-3 border border-zinc-700">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-mono font-bold text-blue-400">XGBoost</span>
+                  <span className="text-[10px] text-text-muted bg-zinc-800 px-1.5 py-0.5 rounded">Single Model</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {Object.entries(mlStatus.models || {}).map(([sport, model]) => (
+                    <div key={sport} className="text-center">
+                      <p className="text-[10px] text-text-muted">{sportNames[sport]?.slice(0, 3) || sport.split('_').pop()?.slice(0, 3).toUpperCase()}</p>
+                      <p className={`text-sm font-mono font-bold ${model.model_loaded ? 'text-blue-400' : 'text-text-muted'}`}>
+                        {model.model_loaded ? `${(model.accuracy * 100).toFixed(0)}%` : '--'}
                       </p>
-                    )}
-                  </div>
-                ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Ensemble Model */}
+              <div className="bg-zinc-900/50 rounded-lg p-3 border border-green-500/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-mono font-bold text-green-400">Ensemble</span>
+                  <span className="text-[10px] text-text-muted bg-zinc-800 px-1.5 py-0.5 rounded">XGB + LGBM + CatBoost</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {mlStatus.ensemble && Object.entries(mlStatus.ensemble.models || {}).map(([sport, model]) => (
+                    <div key={sport} className="text-center">
+                      <p className="text-[10px] text-text-muted">{sportNames[sport]?.slice(0, 3) || sport.split('_').pop()?.slice(0, 3).toUpperCase()}</p>
+                      <p className={`text-sm font-mono font-bold ${model.ml_accuracy ? 'text-green-400' : 'text-text-muted'}`}>
+                        {model.ml_accuracy ? `${(model.ml_accuracy * 100).toFixed(0)}%` : '--'}
+                      </p>
+                    </div>
+                  ))}
+                  {!mlStatus.ensemble && (
+                    <div className="col-span-3 text-center text-text-muted text-xs">Not trained yet</div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
