@@ -31,31 +31,40 @@ logger = logging.getLogger(__name__)
 
 class UnifiedBetPredictor:
     """
-    Unified predictor combining V5 (line movement), V6 (rule-based), and XGBoost ML.
+    Unified predictor combining V5 (line movement), V6 (rule-based), and Ensemble ML.
     
-    Weighting (when XGBoost is trained):
-    - XGBoost ML: 40% weight - Real trained machine learning
+    UPGRADED: Now uses Ensemble model (XGBoost + LightGBM + CatBoost) as primary ML.
+    Falls back to single XGBoost if Ensemble is not trained.
+    
+    Weighting (when Ensemble/XGBoost is trained):
+    - Ensemble/XGBoost ML: 40% weight - Real trained machine learning
     - V6 (Rule-based): 35% weight - Comprehensive analysis
     - V5 (Line Movement): 25% weight - Sharp money validation
     
-    Weighting (without XGBoost):
+    Weighting (without ML):
     - V6 (Rule-based): 70% weight - Primary decision maker
     - V5 (Line Movement): 30% weight - Validation signal
     
     Philosophy:
-    - Use XGBoost when trained for real ML predictions
+    - Use Ensemble ML when trained for best predictions (higher accuracy)
+    - Fall back to XGBoost if Ensemble not available
     - Use V6's comprehensive analysis as backup/validation
     - Use V5's sharp money signals for confirmation
     - Only recommend when multiple signals align
     """
     
     def __init__(self):
-        # Weighting when XGBoost is available
-        self.xgb_weight = 0.40  # XGBoost ML
-        self.v6_weight_with_xgb = 0.35  # V6 when XGBoost available
-        self.v5_weight_with_xgb = 0.25  # V5 when XGBoost available
+        # Weighting when ML is available
+        self.ml_weight = 0.40  # Ensemble/XGBoost ML
+        self.v6_weight_with_ml = 0.35  # V6 when ML available
+        self.v5_weight_with_ml = 0.25  # V5 when ML available
         
-        # Weighting without XGBoost (fallback)
+        # Legacy attribute names for compatibility
+        self.xgb_weight = self.ml_weight
+        self.v6_weight_with_xgb = self.v6_weight_with_ml
+        self.v5_weight_with_xgb = self.v5_weight_with_ml
+        
+        # Weighting without ML (fallback)
         self.v6_weight = 0.70  # V6 is primary (ML ensemble)
         self.v5_weight = 0.30  # V5 is secondary (line movement validation)
         
