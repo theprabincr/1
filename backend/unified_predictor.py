@@ -361,7 +361,7 @@ class UnifiedBetPredictor:
         # If XGBoost is available and has a pick, use enhanced combination
         if xgb_available and xgb_has_pick:
             return self._combine_with_xgboost(
-                v5_result, v6_result, xgb_result, home_team, away_team, event
+                v5_result, v6_result, xgb_result, home_team, away_team, event, ml_method
             )
         
         # Fallback to original V5/V6 combination
