@@ -33,6 +33,33 @@ Use the `auto_frontend_testing_agent` to test UI functionality.
 
 ## Test Status
 
+### Ensemble ML System Tests ✅ COMPLETED (February 5, 2026)
+
+**ENSEMBLE MODEL (XGBoost + LightGBM + CatBoost Stacking):**
+| Endpoint | Status | Notes |
+|----------|--------|-------|
+| `GET /api/ml/ensemble-status` | ✅ PASS | Returns models with ml_accuracy, spread_accuracy, totals_accuracy for each sport |
+| `POST /api/ml/train-ensemble?sport_key=basketball_nba` | ✅ PASS | Stacking ensemble with 47 features, 4048 games |
+| `POST /api/ml/ensemble-predict/{event_id}` | ✅ PASS | Returns favored teams with actual names |
+
+**ENSEMBLE vs XGBOOST COMPARISON:**
+| Sport | XGBoost ML | Ensemble ML | Improvement |
+|-------|------------|-------------|-------------|
+| NBA | 60.0% | **61.5%** | +1.5% |
+| NBA Spread | 54.8% | **60.4%** | **+5.6%** |
+| NBA Totals | 54.4% | **56.9%** | +2.5% |
+| NFL | 59.1% | 57.4% | -1.7% |
+| NHL | 53.3% | **55.5%** | +2.2% |
+
+**ENSEMBLE FEATURES:**
+- ✅ 3 algorithms: XGBoost, LightGBM, CatBoost
+- ✅ Manual stacking with logistic regression meta-learner
+- ✅ 47 enhanced features including rolling stats
+- ✅ Advanced feature engineering with momentum metrics
+- ✅ Actual rest days calculated from game dates
+
+---
+
 ### ML Training System v2.0 Tests ✅ COMPLETED (February 5, 2026)
 
 **MULTI-SEASON TRAINING & SCHEDULE INFO:**
