@@ -669,12 +669,17 @@ class EnsemblePredictor:
             if self.scaler:
                 joblib.dump(self.scaler, self.model_dir / "scaler.joblib")
             
-            # Save metadata
+            # Update instance accuracy attributes
+            self.ml_accuracy = metrics.get("ml_accuracy", 0)
+            self.spread_accuracy = metrics.get("spread_accuracy", 0)
+            self.totals_accuracy = metrics.get("totals_accuracy", 0)
+            
+            # Save metadata with proper accuracy values
             metadata = {
                 "sport_key": self.sport_key,
-                "ml_accuracy": metrics.get("ml_accuracy", 0),
-                "spread_accuracy": metrics.get("spread_accuracy", 0),
-                "totals_accuracy": metrics.get("totals_accuracy", 0),
+                "ml_accuracy": self.ml_accuracy,
+                "spread_accuracy": self.spread_accuracy,
+                "totals_accuracy": self.totals_accuracy,
                 "last_trained": datetime.now(timezone.utc).isoformat(),
                 "model_type": metrics.get("model_type", "Ensemble"),
                 "features": ENHANCED_FEATURE_NAMES,
