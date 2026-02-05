@@ -2986,30 +2986,59 @@ async def get_upcoming_predictions_window(sport_key: str = "basketball_nba"):
 
 @api_router.get("/ml/status")
 async def get_ml_status():
-    """Get status of ML models for all sports"""
+    """Get status of ML models for all sports including training schedule"""
     status = {}
     
     for sport_key in ["basketball_nba", "americanfootball_nfl", "icehockey_nhl"]:
         predictor = get_predictor(sport_key)
         
-        status[sport_key] = {
+        # Get detailed model info from metadata
+        model_info = {
             "model_loaded": predictor.is_loaded,
             "accuracy": predictor.training_accuracy if predictor.is_loaded else None,
             "last_trained": predictor.last_trained,
             "model_type": "XGBoost" if predictor.is_loaded else None
         }
+        
+        # Add detailed accuracy per market if available
+        if predictor.is_loaded:
+            model_info["ml_accuracy"] = predictor.ml_accuracy
+            model_info["spread_accuracy"] = predictor.spread_accuracy
+            model_info["totals_accuracy"] = predictor.totals_accuracy
+            model_info["warnings"] = getattr(predictor, 'training_warnings', [])
+        
+        status[sport_key] = model_info
     
-    # Get historical data counts
+    # Get historical data counts by season
     historical_counts = {}
     for sport_key in ["basketball_nba", "americanfootball_nfl", "icehockey_nhl"]:
         count = await db.historical_games.count_documents({"sport_key": sport_key})
-        historical_counts[sport_key] = count
+        # Get seasons available
+        seasons = await db.historical_games.distinct("season", {"sport_key": sport_key})
+        historical_counts[sport_key] = {
+            "total_games": count,
+            "seasons": sorted(seasons) if seasons else []
+        }
+    
+    # Calculate next training schedule
+    now = datetime.now(timezone.utc)
+    # Next Sunday at 3 AM UTC
+    days_until_sunday = (6 - now.weekday()) % 7
+    if days_until_sunday == 0 and now.hour >= 3:
+        days_until_sunday = 7  # Next week
+    next_training = now.replace(hour=3, minute=0, second=0, microsecond=0) + timedelta(days=days_until_sunday)
     
     return {
         "models": status,
         "historical_data": historical_counts,
-        "features_used": 32,  # Number of features in the model
-        "model_type": "XGBoostClassifier"
+        "features_used": 35,  # Updated number of features
+        "model_type": "XGBoostClassifier_MultiMarket_v2",
+        "training_schedule": {
+            "frequency": "Weekly (Every Sunday)",
+            "time": "3:00 AM UTC",
+            "next_scheduled": next_training.isoformat(),
+            "timezone": "UTC"
+        }
     }
 
 
