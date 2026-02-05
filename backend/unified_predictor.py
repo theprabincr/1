@@ -258,42 +258,41 @@ class UnifiedBetPredictor:
                     "spread_favored_team": spread_favored_team,
                     "spread_favored_prob": spread_favored_prob,
                     "spread_favored_line": spread_favored_line,
-                        
-                        # Totals
-                        "totals_favored": totals_favored,
-                        "totals_favored_prob": totals_favored_prob,
-                        "totals_line": totals_line,
-                        "predicted_total": predicted_total,
-                        
-                        # Raw probabilities (backward compat)
-                        "ml_probability": home_win_prob,
-                        "spread_probability": home_cover_prob,
-                        "over_probability": over_prob,
-                        
-                        # Accuracies
-                        "ml_accuracy": predictor.ml_accuracy,
-                        "spread_accuracy": predictor.spread_accuracy,
-                        "totals_accuracy": predictor.totals_accuracy,
-                        
-                        # Best market info
-                        "best_market": best_market,
-                        "best_pick": best_pick,
-                        "spread_line": spread_line,
-                        "total_line": total_line,
-                        
-                        # Backward compat
-                        "probability": home_win_prob,
-                        "model_accuracy": predictor.ml_accuracy
-                    }
-                    xgb_available = True
                     
-                    logger.info(f"  🤖 XGBoost Best Market: {best_market.upper()}")
-                    logger.info(f"     ML: {ml_favored_team} {ml_favored_prob*100:.1f}% (vs {ml_underdog_team} {ml_underdog_prob*100:.1f}%)")
-                    logger.info(f"     Spread: {spread_favored_team} {spread_favored_line:+.1f} @ {spread_favored_prob*100:.1f}%")
-                    logger.info(f"     Totals: {totals_favored} {totals_line} @ {totals_favored_prob*100:.1f}%")
-                    logger.info(f"     Pick: {xgb_pick_display} ({xgb_conf:.0f}% conf)")
+                    # Totals
+                    "totals_favored": totals_favored,
+                    "totals_favored_prob": totals_favored_prob,
+                    "totals_line": totals_line,
+                    "predicted_total": predicted_total,
+                    
+                    # Raw probabilities (backward compat)
+                    "ml_probability": home_win_prob,
+                    "spread_probability": home_cover_prob,
+                    "over_probability": over_prob,
+                    
+                    # Accuracies
+                    "ml_accuracy": ml_prediction.get("ml_accuracy", 0),
+                    "spread_accuracy": ml_prediction.get("spread_accuracy", 0),
+                    "totals_accuracy": ml_prediction.get("totals_accuracy", 0),
+                    
+                    # Best market info
+                    "best_market": best_market,
+                    "best_pick": best_pick,
+                    "spread_line": spread_line,
+                    "total_line": total_line,
+                    
+                    # Backward compat
+                    "probability": home_win_prob,
+                    "model_accuracy": ml_prediction.get("ml_accuracy", 0)
+                }
+                
+                logger.info(f"  🤖 ML ({ml_method.upper()}) Best Market: {best_market.upper()}")
+                logger.info(f"     ML: {ml_favored_team} {ml_favored_prob*100:.1f}% (vs {ml_underdog_team} {ml_underdog_prob*100:.1f}%)")
+                logger.info(f"     Spread: {spread_favored_team} {spread_favored_line:+.1f} @ {spread_favored_prob*100:.1f}%")
+                logger.info(f"     Totals: {totals_favored} {totals_line} @ {totals_favored_prob*100:.1f}%")
+                logger.info(f"     Pick: {xgb_pick_display} ({xgb_conf:.0f}% conf)")
             except Exception as e:
-                logger.warning(f"XGBoost prediction failed: {e}")
+                logger.warning(f"ML prediction processing failed: {e}")
                 import traceback
                 traceback.print_exc()
         
@@ -322,7 +321,7 @@ class UnifiedBetPredictor:
                 "algorithm": "unified"
             }
         
-        # Analyze results and combine (now with XGBoost)
+        # Analyze results and combine (now with Ensemble/XGBoost)
         unified_prediction = self._combine_predictions(
             v5_result, v6_result, home_team, away_team, event,
             xgb_result=xgb_result, xgb_available=xgb_available
