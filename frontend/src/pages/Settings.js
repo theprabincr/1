@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { 
   Settings as SettingsIcon, Bell, Clock, Save, RefreshCw,
-  Check, TestTube, Zap
+  Check, TestTube, Zap, Smartphone, AlertCircle
 } from "lucide-react";
+import { usePushNotifications } from "../hooks/usePushNotifications";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -19,6 +20,18 @@ const Settings = () => {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [testingSent, setTestingSent] = useState(false);
+
+  // Push notification hook
+  const {
+    isSupported: pushSupported,
+    isSubscribed: pushSubscribed,
+    isLoading: pushLoading,
+    permission: pushPermission,
+    error: pushError,
+    subscribe: subscribePush,
+    unsubscribe: unsubscribePush,
+    testPush
+  } = usePushNotifications();
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -69,6 +82,22 @@ const Settings = () => {
     }
   };
 
+  const handlePushToggle = async () => {
+    if (pushSubscribed) {
+      await unsubscribePush();
+    } else {
+      await subscribePush();
+    }
+  };
+
+  const handleTestPush = async () => {
+    const success = await testPush();
+    if (success) {
+      setTestingSent(true);
+      setTimeout(() => setTestingSent(false), 3000);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -107,29 +136,118 @@ const Settings = () => {
         </button>
       </div>
 
-      {/* Notification Settings */}
+      {/* Push Notifications Card */}
+      <div className="stat-card border-2 border-brand-primary/30">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-mono font-bold text-lg text-text-primary flex items-center gap-2">
+            <Smartphone className="w-5 h-5 text-brand-primary" />
+            Browser Push Notifications
+          </h2>
+          {pushSubscribed && (
+            <button
+              onClick={handleTestPush}
+              disabled={pushLoading}
+              className="btn-outline text-sm flex items-center gap-2"
+            >
+              {testingSent ? (
+                <>
+                  <Check className="w-4 h-4 text-semantic-success" />
+                  Sent!
+                </>
+              ) : (
+                <>
+                  <TestTube className="w-4 h-4" />
+                  Test Push
+                </>
+              )}
+            </button>
+          )}
+        </div>
+
+        {!pushSupported ? (
+          <div className="p-4 bg-semantic-danger/10 border border-semantic-danger/30 rounded-lg">
+            <div className="flex items-center gap-2 text-semantic-danger">
+              <AlertCircle className="w-5 h-5" />
+              <p>Push notifications are not supported in this browser.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Push Status */}
+            <div className="flex items-center justify-between p-4 bg-zinc-800 rounded-lg">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-full ${pushSubscribed ? 'bg-semantic-success/20' : 'bg-zinc-700'}`}>
+                  <Bell className={`w-5 h-5 ${pushSubscribed ? 'text-semantic-success' : 'text-text-muted'}`} />
+                </div>
+                <div>
+                  <p className="text-text-primary font-semibold">
+                    {pushSubscribed ? 'Push Notifications Enabled' : 'Enable Push Notifications'}
+                  </p>
+                  <p className="text-text-muted text-sm">
+                    {pushSubscribed 
+                      ? "You'll receive alerts even when the app is closed" 
+                      : "Get instant alerts on your device when new picks arrive"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handlePushToggle}
+                disabled={pushLoading}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  pushSubscribed 
+                    ? 'bg-zinc-700 text-text-secondary hover:bg-zinc-600' 
+                    : 'bg-brand-primary text-zinc-950 hover:bg-brand-primary/90'
+                }`}
+              >
+                {pushLoading ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : pushSubscribed ? (
+                  'Disable'
+                ) : (
+                  'Enable'
+                )}
+              </button>
+            </div>
+
+            {/* Permission denied warning */}
+            {pushPermission === 'denied' && (
+              <div className="p-4 bg-semantic-warning/10 border border-semantic-warning/30 rounded-lg">
+                <div className="flex items-start gap-2 text-semantic-warning">
+                  <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-semibold">Permission Blocked</p>
+                    <p className="text-sm opacity-90">
+                      You've blocked notifications. To enable, click the lock icon in your browser's address bar and allow notifications.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Error message */}
+            {pushError && (
+              <div className="p-3 bg-semantic-danger/10 border border-semantic-danger/30 rounded-lg">
+                <p className="text-semantic-danger text-sm">{pushError}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* In-App Notification Settings */}
       <div className="stat-card">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-mono font-bold text-lg text-text-primary flex items-center gap-2">
             <Bell className="w-5 h-5 text-brand-primary" />
-            Notifications
+            In-App Notifications
           </h2>
           <button
             onClick={sendTestNotification}
             className="btn-outline text-sm flex items-center gap-2"
             data-testid="test-notification-btn"
           >
-            {testingSent ? (
-              <>
-                <Check className="w-4 h-4 text-semantic-success" />
-                Sent!
-              </>
-            ) : (
-              <>
-                <TestTube className="w-4 h-4" />
-                Test Notification
-              </>
-            )}
+            <TestTube className="w-4 h-4" />
+            Test In-App
           </button>
         </div>
         
@@ -204,19 +322,19 @@ const Settings = () => {
 
       {/* Info Card */}
       <div className="stat-card bg-zinc-800/50">
-        <h3 className="text-text-primary font-semibold mb-2">About Notifications</h3>
+        <h3 className="text-text-primary font-semibold mb-2">How Push Notifications Work</h3>
         <ul className="text-text-muted text-sm space-y-2">
           <li className="flex items-start gap-2">
+            <Smartphone className="w-4 h-4 mt-0.5 text-brand-primary flex-shrink-0" />
+            <span><strong>Browser Push:</strong> Receive notifications even when Ballzy isn't open. Works on mobile & desktop browsers.</span>
+          </li>
+          <li className="flex items-start gap-2">
             <Zap className="w-4 h-4 mt-0.5 text-brand-primary flex-shrink-0" />
-            <span><strong>New Picks:</strong> Alerts when the predictor generates a new pick (45-75 min before game)</span>
+            <span><strong>Instant Alerts:</strong> Get notified the moment a new pick is generated (35-50 min before game).</span>
           </li>
           <li className="flex items-start gap-2">
-            <Check className="w-4 h-4 mt-0.5 text-semantic-success flex-shrink-0" />
-            <span><strong>Results:</strong> Updates when games finish and picks are graded (win/loss)</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <Clock className="w-4 h-4 mt-0.5 text-brand-secondary flex-shrink-0" />
-            <span><strong>Daily Summary:</strong> Overview of picks and performance each day</span>
+            <Bell className="w-4 h-4 mt-0.5 text-text-muted flex-shrink-0" />
+            <span><strong>In-App:</strong> Notifications stored in the app for viewing anytime.</span>
           </li>
         </ul>
       </div>
