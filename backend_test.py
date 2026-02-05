@@ -398,6 +398,408 @@ class APITester:
                          description="Unified analysis with XGBoost - should show algorithm: unified_xgboost, xgb_probability, consensus_level",
                          validate_prediction=True)
 
+    def test_ml_training_system(self):
+        """Test ML Training System endpoints - SPECIFIC REVIEW REQUEST"""
+        print("\n🎯 TESTING ML TRAINING SYSTEM (REVIEW REQUEST)")
+        print("-" * 50)
+        
+        # Test 1: GET /api/ml/status - Verify training schedule and multi-sport models
+        self.test_ml_status_with_training_schedule()
+        
+        # Test 2: POST /api/ml/train - Verify multi-season training support
+        self.test_ml_training_endpoint()
+        
+        # Test 3: POST /api/ml/predict/{event_id} - Verify favored team predictions
+        self.test_ml_predict_with_favored_outcomes()
+
+    def test_ml_status_with_training_schedule(self):
+        """Test ML status endpoint for training schedule information"""
+        url = f"{BASE_URL}/ml/status"
+        print(f"\n🧪 Testing GET /ml/status")
+        print(f"   URL: {url}")
+        print(f"   Description: Verify models with accuracy for NBA/NFL/NHL, historical data counts with seasons, training schedule")
+        
+        try:
+            response = requests.get(url, timeout=30)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Validate training schedule information
+                training_schedule_ok, schedule_details = self.validate_training_schedule(data)
+                
+                # Validate multi-sport models
+                models_ok, models_details = self.validate_multi_sport_models(data)
+                
+                # Validate historical data with seasons
+                historical_ok, historical_details = self.validate_historical_data_seasons(data)
+                
+                if training_schedule_ok and models_ok and historical_ok:
+                    print(f"   ✅ PASS - Training Schedule: {schedule_details}")
+                    print(f"   🏀 Models: {models_details}")
+                    print(f"   📊 Historical Data: {historical_details}")
+                    
+                    self.passed += 1
+                    self.results.append({
+                        'endpoint': '/ml/status',
+                        'status': 'PASS',
+                        'training_schedule': schedule_details,
+                        'models': models_details,
+                        'historical_data': historical_details
+                    })
+                else:
+                    error_msg = []
+                    if not training_schedule_ok:
+                        error_msg.append(f"Training schedule issue: {schedule_details}")
+                    if not models_ok:
+                        error_msg.append(f"Models issue: {models_details}")
+                    if not historical_ok:
+                        error_msg.append(f"Historical data issue: {historical_details}")
+                    
+                    print(f"   ❌ FAIL - {', '.join(error_msg)}")
+                    self.failed += 1
+                    self.results.append({
+                        'endpoint': '/ml/status',
+                        'status': 'FAIL',
+                        'error': ', '.join(error_msg)
+                    })
+            else:
+                print(f"   ❌ FAIL - Status: {response.status_code}")
+                self.failed += 1
+                self.results.append({
+                    'endpoint': '/ml/status',
+                    'status': 'FAIL',
+                    'error': f"HTTP {response.status_code}"
+                })
+                
+        except Exception as e:
+            print(f"   ❌ FAIL - Error: {str(e)}")
+            self.failed += 1
+            self.results.append({
+                'endpoint': '/ml/status',
+                'status': 'FAIL',
+                'error': str(e)
+            })
+
+    def test_ml_training_endpoint(self):
+        """Test ML training endpoint for multi-season support"""
+        url = f"{BASE_URL}/ml/train?sport_key=basketball_nba"
+        print(f"\n🧪 Testing POST /ml/train")
+        print(f"   URL: {url}")
+        print(f"   Description: Verify returns seasons_used array, total_games count, metrics with ml_accuracy/spread_accuracy/totals_accuracy")
+        
+        try:
+            response = requests.post(url, timeout=120)  # Training can take time
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Validate training response structure
+                training_ok, training_details = self.validate_training_response(data)
+                
+                if training_ok:
+                    print(f"   ✅ PASS - Training Response: {training_details}")
+                    
+                    self.passed += 1
+                    self.results.append({
+                        'endpoint': '/ml/train',
+                        'status': 'PASS',
+                        'training_details': training_details
+                    })
+                else:
+                    print(f"   ❌ FAIL - Training validation issue: {training_details}")
+                    self.failed += 1
+                    self.results.append({
+                        'endpoint': '/ml/train',
+                        'status': 'FAIL',
+                        'error': f"Training validation: {training_details}"
+                    })
+            else:
+                print(f"   ❌ FAIL - Status: {response.status_code}")
+                print(f"   📄 Response: {response.text[:300]}...")
+                self.failed += 1
+                self.results.append({
+                    'endpoint': '/ml/train',
+                    'status': 'FAIL',
+                    'error': f"HTTP {response.status_code}",
+                    'response_preview': response.text[:300]
+                })
+                
+        except Exception as e:
+            print(f"   ❌ FAIL - Error: {str(e)}")
+            self.failed += 1
+            self.results.append({
+                'endpoint': '/ml/train',
+                'status': 'FAIL',
+                'error': str(e)
+            })
+
+    def test_ml_predict_with_favored_outcomes(self):
+        """Test ML predict endpoint for favored team predictions"""
+        # First get a real event ID
+        try:
+            events_response = requests.get(f"{BASE_URL}/events/basketball_nba", timeout=30)
+            if events_response.status_code == 200:
+                events = events_response.json()
+                if events and len(events) > 0:
+                    event_id = events[0].get('id')
+                    home_team = events[0].get('home_team', 'Unknown')
+                    away_team = events[0].get('away_team', 'Unknown')
+                else:
+                    event_id = "401810581"  # Fallback
+                    home_team = "Test Home"
+                    away_team = "Test Away"
+            else:
+                event_id = "401810581"  # Fallback
+                home_team = "Test Home"
+                away_team = "Test Away"
+        except:
+            event_id = "401810581"  # Fallback
+            home_team = "Test Home"
+            away_team = "Test Away"
+        
+        url = f"{BASE_URL}/ml/predict/{event_id}?sport_key=basketball_nba"
+        print(f"\n🧪 Testing POST /ml/predict/{event_id}")
+        print(f"   URL: {url}")
+        print(f"   Description: Verify favored team predictions, spread and totals predictions, model_available=true")
+        print(f"   Event: {away_team} @ {home_team}")
+        
+        try:
+            response = requests.post(url, timeout=30)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Validate prediction response structure
+                prediction_ok, prediction_details = self.validate_ml_prediction_response(data)
+                
+                if prediction_ok:
+                    print(f"   ✅ PASS - ML Prediction: {prediction_details}")
+                    
+                    self.passed += 1
+                    self.results.append({
+                        'endpoint': f'/ml/predict/{event_id}',
+                        'status': 'PASS',
+                        'prediction_details': prediction_details
+                    })
+                else:
+                    print(f"   ❌ FAIL - Prediction validation issue: {prediction_details}")
+                    self.failed += 1
+                    self.results.append({
+                        'endpoint': f'/ml/predict/{event_id}',
+                        'status': 'FAIL',
+                        'error': f"Prediction validation: {prediction_details}"
+                    })
+            else:
+                print(f"   ❌ FAIL - Status: {response.status_code}")
+                print(f"   📄 Response: {response.text[:300]}...")
+                self.failed += 1
+                self.results.append({
+                    'endpoint': f'/ml/predict/{event_id}',
+                    'status': 'FAIL',
+                    'error': f"HTTP {response.status_code}",
+                    'response_preview': response.text[:300]
+                })
+                
+        except Exception as e:
+            print(f"   ❌ FAIL - Error: {str(e)}")
+            self.failed += 1
+            self.results.append({
+                'endpoint': f'/ml/predict/{event_id}',
+                'status': 'FAIL',
+                'error': str(e)
+            })
+
+    def validate_training_schedule(self, data):
+        """Validate training schedule information in ML status response"""
+        try:
+            if 'training_schedule' not in data:
+                return False, "Missing training_schedule field"
+            
+            schedule = data['training_schedule']
+            required_fields = ['frequency', 'time', 'next_scheduled', 'timezone']
+            missing_fields = [f for f in required_fields if f not in schedule]
+            
+            if missing_fields:
+                return False, f"Missing schedule fields: {missing_fields}"
+            
+            # Validate schedule values
+            frequency = schedule.get('frequency', '')
+            time = schedule.get('time', '')
+            timezone = schedule.get('timezone', '')
+            next_scheduled = schedule.get('next_scheduled', '')
+            
+            if 'weekly' not in frequency.lower():
+                return False, f"Expected weekly frequency, got: {frequency}"
+            
+            if 'utc' not in timezone.lower():
+                return False, f"Expected UTC timezone, got: {timezone}"
+            
+            if not next_scheduled:
+                return False, "Missing next_scheduled timestamp"
+            
+            return True, f"frequency={frequency}, time={time}, timezone={timezone}, next_scheduled={next_scheduled[:19]}"
+            
+        except Exception as e:
+            return False, f"Validation error: {str(e)}"
+
+    def validate_multi_sport_models(self, data):
+        """Validate multi-sport models in ML status response"""
+        try:
+            if 'models' not in data:
+                return False, "Missing models field"
+            
+            models = data['models']
+            expected_sports = ['basketball_nba', 'americanfootball_nfl', 'icehockey_nhl']
+            
+            model_info = []
+            for sport in expected_sports:
+                if sport not in models:
+                    return False, f"Missing model for {sport}"
+                
+                model = models[sport]
+                accuracy = model.get('accuracy')
+                model_loaded = model.get('model_loaded', False)
+                
+                if accuracy is not None:
+                    model_info.append(f"{sport}={accuracy:.1%}")
+                else:
+                    model_info.append(f"{sport}=not_trained")
+            
+            return True, ", ".join(model_info)
+            
+        except Exception as e:
+            return False, f"Validation error: {str(e)}"
+
+    def validate_historical_data_seasons(self, data):
+        """Validate historical data counts with seasons arrays"""
+        try:
+            if 'historical_data' not in data:
+                return False, "Missing historical_data field"
+            
+            historical = data['historical_data']
+            expected_sports = ['basketball_nba', 'americanfootball_nfl', 'icehockey_nhl']
+            
+            data_info = []
+            for sport in expected_sports:
+                if sport not in historical:
+                    return False, f"Missing historical data for {sport}"
+                
+                sport_data = historical[sport]
+                total_games = sport_data.get('total_games', 0)
+                seasons = sport_data.get('seasons', [])
+                
+                if not isinstance(seasons, list):
+                    return False, f"seasons should be array for {sport}"
+                
+                data_info.append(f"{sport}={total_games}games/{len(seasons)}seasons")
+            
+            return True, ", ".join(data_info)
+            
+        except Exception as e:
+            return False, f"Validation error: {str(e)}"
+
+    def validate_training_response(self, data):
+        """Validate ML training response structure"""
+        try:
+            required_fields = ['seasons_used', 'total_games', 'metrics']
+            missing_fields = [f for f in required_fields if f not in data]
+            
+            if missing_fields:
+                return False, f"Missing fields: {missing_fields}"
+            
+            # Validate seasons_used is array
+            seasons_used = data.get('seasons_used', [])
+            if not isinstance(seasons_used, list):
+                return False, "seasons_used should be an array"
+            
+            # Validate total_games is positive number
+            total_games = data.get('total_games', 0)
+            if total_games <= 0:
+                return False, f"total_games should be positive, got {total_games}"
+            
+            # Validate metrics structure
+            metrics = data.get('metrics', {})
+            accuracy_fields = ['ml_accuracy', 'spread_accuracy', 'totals_accuracy']
+            
+            accuracy_info = []
+            for field in accuracy_fields:
+                if field in metrics:
+                    accuracy = metrics[field]
+                    if isinstance(accuracy, (int, float)) and 0 <= accuracy <= 1:
+                        accuracy_info.append(f"{field}={accuracy:.1%}")
+                    else:
+                        return False, f"Invalid {field}: {accuracy}"
+                else:
+                    accuracy_info.append(f"{field}=missing")
+            
+            # Check for suspicious accuracy (too high)
+            for field in accuracy_fields:
+                if field in metrics and metrics[field] > 0.95:
+                    return False, f"Suspicious {field}: {metrics[field]:.1%} (too high)"
+            
+            return True, f"seasons={len(seasons_used)}, games={total_games}, accuracies=({', '.join(accuracy_info)})"
+            
+        except Exception as e:
+            return False, f"Validation error: {str(e)}"
+
+    def validate_ml_prediction_response(self, data):
+        """Validate ML prediction response structure"""
+        try:
+            if 'prediction' not in data:
+                return False, "Missing prediction object"
+            
+            prediction = data['prediction']
+            
+            # Check model_available
+            model_available = prediction.get('model_available', False)
+            if not model_available:
+                return False, "model_available should be true"
+            
+            # Check for favored team predictions
+            favored_fields = ['ml_favored_team', 'ml_favored_prob']
+            missing_favored = [f for f in favored_fields if f not in prediction]
+            
+            if missing_favored:
+                return False, f"Missing favored team fields: {missing_favored}"
+            
+            # Check for spread and totals predictions
+            spread_fields = ['spread_favored_team', 'spread_favored_prob']
+            totals_fields = ['totals_favored', 'totals_favored_prob']
+            
+            spread_ok = all(f in prediction for f in spread_fields)
+            totals_ok = all(f in prediction for f in totals_fields)
+            
+            if not spread_ok:
+                return False, f"Missing spread prediction fields: {[f for f in spread_fields if f not in prediction]}"
+            
+            if not totals_ok:
+                return False, f"Missing totals prediction fields: {[f for f in totals_fields if f not in prediction]}"
+            
+            # Validate probabilities are reasonable
+            ml_prob = prediction.get('ml_favored_prob', 0)
+            spread_prob = prediction.get('spread_favored_prob', 0)
+            totals_prob = prediction.get('totals_favored_prob', 0)
+            
+            if not (0.5 <= ml_prob <= 0.95):
+                return False, f"ml_favored_prob should be 0.5-0.95, got {ml_prob}"
+            
+            if not (0.5 <= spread_prob <= 0.95):
+                return False, f"spread_favored_prob should be 0.5-0.95, got {spread_prob}"
+            
+            if not (0.5 <= totals_prob <= 0.999):
+                return False, f"totals_favored_prob should be 0.5-0.999, got {totals_prob}"
+            
+            # Get team names
+            ml_favored_team = prediction.get('ml_favored_team', '')
+            spread_favored_team = prediction.get('spread_favored_team', '')
+            totals_favored = prediction.get('totals_favored', '')
+            
+            return True, f"ML: {ml_favored_team} ({ml_prob:.3f}), Spread: {spread_favored_team} ({spread_prob:.3f}), Totals: {totals_favored} ({totals_prob:.3f})"
+            
+        except Exception as e:
+            return False, f"Validation error: {str(e)}"
+
     def test_xgboost_favored_outcomes(self):
         """Test XGBoost ML prediction endpoints for FAVORED OUTCOMES (not just home team probabilities)"""
         print("\n🎯 TESTING XGBOOST FAVORED OUTCOMES (NEW FEATURE)")
