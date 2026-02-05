@@ -1087,7 +1087,12 @@ class APITester:
             if not (0.5 <= totals_prob <= 0.999):
                 return False, f"totals_favored_prob should be 0.5-0.999, got {totals_prob}"
             
-            return True, f"ML: {ml_favored_team} ({ml_prob:.3f}), Spread: {spread_favored_team} ({spread_prob:.3f}), Totals: {totals_favored} ({totals_prob:.3f})"
+            # Check method is ensemble
+            method = prediction.get('method', '')
+            if 'ensemble' not in method.lower():
+                return False, f"Expected ensemble method, got '{method}'"
+            
+            return True, f"ML: {ml_favored_team} ({ml_prob:.3f}), Spread: {spread_favored_team} ({spread_prob:.3f}), Totals: {totals_favored} ({totals_prob:.3f}), Method: {method}"
             
         except Exception as e:
             return False, f"Validation error: {str(e)}"
