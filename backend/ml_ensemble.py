@@ -569,16 +569,14 @@ class EnsemblePredictor:
         metrics = {"success": True, "warnings": [], "models": {}}
         
         # === TRAIN MONEYLINE ENSEMBLE ===
-        logger.info("  📊 Training Moneyline ensemble...")
+        logger.info("  📊 Training Moneyline ensemble (XGBoost + LightGBM + CatBoost)...")
+        self.ml_models, ml_meta_features = self._train_base_models(X_train, y_ml_train, params)
+        
         if use_stacking:
-            self.ml_ensemble = self._create_stacking_ensemble(params)
-        else:
-            self.ml_ensemble = self._create_ensemble(params)
+            self.ml_models["meta"] = self._train_meta_learner(ml_meta_features, y_ml_train)
         
-        self.ml_ensemble.fit(X_train, y_ml_train)
-        
-        y_ml_pred = self.ml_ensemble.predict(X_test)
-        y_ml_prob = self.ml_ensemble.predict_proba(X_test)[:, 1]
+        y_ml_prob = self._ensemble_predict_proba(self.ml_models, X_test)
+        y_ml_pred = (y_ml_prob >= 0.5).astype(int)
         
         ml_accuracy = accuracy_score(y_ml_test, y_ml_pred)
         ml_auc = roc_auc_score(y_ml_test, y_ml_prob)
@@ -586,21 +584,23 @@ class EnsemblePredictor:
         self.ml_accuracy = ml_accuracy
         metrics["models"]["moneyline"] = {
             "accuracy": round(float(ml_accuracy), 4),
-            "auc": round(float(ml_auc), 4)
+            "auc": round(float(ml_auc), 4),
+            "xgb_solo": round(float(accuracy_score(y_ml_test, (self.ml_models["xgb"].predict_proba(X_test)[:, 1] >= 0.5).astype(int))), 4),
+            "lgbm_solo": round(float(accuracy_score(y_ml_test, (self.ml_models["lgbm"].predict_proba(X_test)[:, 1] >= 0.5).astype(int))), 4),
+            "catboost_solo": round(float(accuracy_score(y_ml_test, (self.ml_models["catboost"].predict_proba(X_test)[:, 1] >= 0.5).astype(int))), 4)
         }
-        logger.info(f"     Accuracy: {ml_accuracy:.1%}, AUC: {ml_auc:.3f}")
+        logger.info(f"     Ensemble Accuracy: {ml_accuracy:.1%}, AUC: {ml_auc:.3f}")
+        logger.info(f"     Individual: XGB={metrics['models']['moneyline']['xgb_solo']:.1%}, LGBM={metrics['models']['moneyline']['lgbm_solo']:.1%}, CatBoost={metrics['models']['moneyline']['catboost_solo']:.1%}")
         
         # === TRAIN SPREAD ENSEMBLE ===
         logger.info("  📊 Training Spread ensemble...")
+        self.spread_models, spread_meta_features = self._train_base_models(X_train, y_spread_train, params)
+        
         if use_stacking:
-            self.spread_ensemble = self._create_stacking_ensemble(params)
-        else:
-            self.spread_ensemble = self._create_ensemble(params)
+            self.spread_models["meta"] = self._train_meta_learner(spread_meta_features, y_spread_train)
         
-        self.spread_ensemble.fit(X_train, y_spread_train)
-        
-        y_spread_pred = self.spread_ensemble.predict(X_test)
-        y_spread_prob = self.spread_ensemble.predict_proba(X_test)[:, 1]
+        y_spread_prob = self._ensemble_predict_proba(self.spread_models, X_test)
+        y_spread_pred = (y_spread_prob >= 0.5).astype(int)
         
         spread_accuracy = accuracy_score(y_spread_test, y_spread_pred)
         try:
@@ -617,15 +617,13 @@ class EnsemblePredictor:
         
         # === TRAIN TOTALS ENSEMBLE ===
         logger.info("  📊 Training Totals ensemble...")
+        self.totals_models, totals_meta_features = self._train_base_models(X_train, y_totals_train, params)
+        
         if use_stacking:
-            self.totals_ensemble = self._create_stacking_ensemble(params)
-        else:
-            self.totals_ensemble = self._create_ensemble(params)
+            self.totals_models["meta"] = self._train_meta_learner(totals_meta_features, y_totals_train)
         
-        self.totals_ensemble.fit(X_train, y_totals_train)
-        
-        y_totals_pred = self.totals_ensemble.predict(X_test)
-        y_totals_prob = self.totals_ensemble.predict_proba(X_test)[:, 1]
+        y_totals_prob = self._ensemble_predict_proba(self.totals_models, X_test)
+        y_totals_pred = (y_totals_prob >= 0.5).astype(int)
         
         totals_accuracy = accuracy_score(y_totals_test, y_totals_pred)
         try:
