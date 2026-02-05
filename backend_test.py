@@ -814,6 +814,319 @@ class APITester:
         except Exception as e:
             return False, f"Validation error: {str(e)}"
 
+    def test_ensemble_status(self):
+        """Test ensemble ML status endpoint"""
+        url = f"{BASE_URL}/ml/ensemble-status"
+        print(f"\n🧪 Testing GET /ml/ensemble-status")
+        print(f"   URL: {url}")
+        print(f"   Description: Verify models with ml_accuracy, spread_accuracy, totals_accuracy for each sport")
+        
+        try:
+            response = requests.get(url, timeout=30)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Validate ensemble status structure
+                ensemble_ok, ensemble_details = self.validate_ensemble_status(data)
+                
+                if ensemble_ok:
+                    print(f"   ✅ PASS - Ensemble Status: {ensemble_details}")
+                    
+                    self.passed += 1
+                    self.results.append({
+                        'endpoint': '/ml/ensemble-status',
+                        'status': 'PASS',
+                        'ensemble_details': ensemble_details
+                    })
+                else:
+                    print(f"   ❌ FAIL - Ensemble validation issue: {ensemble_details}")
+                    self.failed += 1
+                    self.results.append({
+                        'endpoint': '/ml/ensemble-status',
+                        'status': 'FAIL',
+                        'error': f"Ensemble validation: {ensemble_details}"
+                    })
+            else:
+                print(f"   ❌ FAIL - Status: {response.status_code}")
+                print(f"   📄 Response: {response.text[:300]}...")
+                self.failed += 1
+                self.results.append({
+                    'endpoint': '/ml/ensemble-status',
+                    'status': 'FAIL',
+                    'error': f"HTTP {response.status_code}",
+                    'response_preview': response.text[:300]
+                })
+                
+        except Exception as e:
+            print(f"   ❌ FAIL - Error: {str(e)}")
+            self.failed += 1
+            self.results.append({
+                'endpoint': '/ml/ensemble-status',
+                'status': 'FAIL',
+                'error': str(e)
+            })
+
+    def test_ensemble_predict(self):
+        """Test ensemble ML predict endpoint with valid NBA event"""
+        # First get a real event ID
+        try:
+            events_response = requests.get(f"{BASE_URL}/events/basketball_nba", timeout=30)
+            if events_response.status_code == 200:
+                events = events_response.json()
+                if events and len(events) > 0:
+                    event_id = events[0].get('id')
+                    home_team = events[0].get('home_team', 'Unknown')
+                    away_team = events[0].get('away_team', 'Unknown')
+                else:
+                    event_id = "401810581"  # Fallback
+                    home_team = "Test Home"
+                    away_team = "Test Away"
+            else:
+                event_id = "401810581"  # Fallback
+                home_team = "Test Home"
+                away_team = "Test Away"
+        except:
+            event_id = "401810581"  # Fallback
+            home_team = "Test Home"
+            away_team = "Test Away"
+        
+        url = f"{BASE_URL}/ml/ensemble-predict/{event_id}?sport_key=basketball_nba"
+        print(f"\n🧪 Testing POST /ml/ensemble-predict/{event_id}")
+        print(f"   URL: {url}")
+        print(f"   Description: Test with valid NBA event. Should return predictions with ml_favored_team, spread_favored_team, totals_favored")
+        print(f"   Event: {away_team} @ {home_team}")
+        
+        try:
+            response = requests.post(url, timeout=30)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Validate ensemble prediction response
+                prediction_ok, prediction_details = self.validate_ensemble_prediction_response(data)
+                
+                if prediction_ok:
+                    print(f"   ✅ PASS - Ensemble Prediction: {prediction_details}")
+                    
+                    self.passed += 1
+                    self.results.append({
+                        'endpoint': f'/ml/ensemble-predict/{event_id}',
+                        'status': 'PASS',
+                        'prediction_details': prediction_details
+                    })
+                else:
+                    print(f"   ❌ FAIL - Ensemble prediction validation issue: {prediction_details}")
+                    self.failed += 1
+                    self.results.append({
+                        'endpoint': f'/ml/ensemble-predict/{event_id}',
+                        'status': 'FAIL',
+                        'error': f"Ensemble prediction validation: {prediction_details}"
+                    })
+            else:
+                print(f"   ❌ FAIL - Status: {response.status_code}")
+                print(f"   📄 Response: {response.text[:300]}...")
+                self.failed += 1
+                self.results.append({
+                    'endpoint': f'/ml/ensemble-predict/{event_id}',
+                    'status': 'FAIL',
+                    'error': f"HTTP {response.status_code}",
+                    'response_preview': response.text[:300]
+                })
+                
+        except Exception as e:
+            print(f"   ❌ FAIL - Error: {str(e)}")
+            self.failed += 1
+            self.results.append({
+                'endpoint': f'/ml/ensemble-predict/{event_id}',
+                'status': 'FAIL',
+                'error': str(e)
+            })
+
+    def test_ensemble_vs_xgboost_accuracy(self):
+        """Compare ensemble model accuracy vs basic XGBoost model"""
+        print(f"\n🧪 Testing Ensemble vs XGBoost Accuracy Comparison")
+        print(f"   Description: Verify ensemble model has higher accuracy than basic XGBoost")
+        
+        try:
+            # Get XGBoost status
+            xgb_response = requests.get(f"{BASE_URL}/ml/status", timeout=30)
+            ensemble_response = requests.get(f"{BASE_URL}/ml/ensemble-status", timeout=30)
+            
+            if xgb_response.status_code == 200 and ensemble_response.status_code == 200:
+                xgb_data = xgb_response.json()
+                ensemble_data = ensemble_response.json()
+                
+                # Compare accuracies
+                comparison_ok, comparison_details = self.validate_accuracy_comparison(xgb_data, ensemble_data)
+                
+                if comparison_ok:
+                    print(f"   ✅ PASS - Accuracy Comparison: {comparison_details}")
+                    
+                    self.passed += 1
+                    self.results.append({
+                        'endpoint': 'accuracy_comparison',
+                        'status': 'PASS',
+                        'comparison_details': comparison_details
+                    })
+                else:
+                    print(f"   ❌ FAIL - Accuracy comparison issue: {comparison_details}")
+                    self.failed += 1
+                    self.results.append({
+                        'endpoint': 'accuracy_comparison',
+                        'status': 'FAIL',
+                        'error': f"Accuracy comparison: {comparison_details}"
+                    })
+            else:
+                error_msg = f"XGBoost status: {xgb_response.status_code}, Ensemble status: {ensemble_response.status_code}"
+                print(f"   ❌ FAIL - {error_msg}")
+                self.failed += 1
+                self.results.append({
+                    'endpoint': 'accuracy_comparison',
+                    'status': 'FAIL',
+                    'error': error_msg
+                })
+                
+        except Exception as e:
+            print(f"   ❌ FAIL - Error: {str(e)}")
+            self.failed += 1
+            self.results.append({
+                'endpoint': 'accuracy_comparison',
+                'status': 'FAIL',
+                'error': str(e)
+            })
+
+    def validate_ensemble_status(self, data):
+        """Validate ensemble status response structure"""
+        try:
+            expected_sports = ['basketball_nba', 'americanfootball_nfl', 'icehockey_nhl']
+            
+            status_info = []
+            for sport in expected_sports:
+                if sport not in data:
+                    return False, f"Missing sport {sport} in ensemble status"
+                
+                sport_data = data[sport]
+                
+                # Check required fields
+                required_fields = ['model_loaded', 'ml_accuracy', 'spread_accuracy', 'totals_accuracy']
+                missing_fields = [f for f in required_fields if f not in sport_data]
+                
+                if missing_fields:
+                    return False, f"Missing fields for {sport}: {missing_fields}"
+                
+                # Check if model is loaded
+                model_loaded = sport_data.get('model_loaded', False)
+                if not model_loaded:
+                    status_info.append(f"{sport}=not_loaded")
+                    continue
+                
+                # Get accuracy values
+                ml_acc = sport_data.get('ml_accuracy')
+                spread_acc = sport_data.get('spread_accuracy')
+                totals_acc = sport_data.get('totals_accuracy')
+                
+                # Validate accuracy values are reasonable
+                for acc, name in [(ml_acc, 'ml'), (spread_acc, 'spread'), (totals_acc, 'totals')]:
+                    if acc is not None and (acc < 0.5 or acc > 0.95):
+                        return False, f"Unreasonable {name}_accuracy for {sport}: {acc}"
+                
+                status_info.append(f"{sport}=loaded(ML:{ml_acc:.1%},Spread:{spread_acc:.1%},Totals:{totals_acc:.1%})")
+            
+            return True, "; ".join(status_info)
+            
+        except Exception as e:
+            return False, f"Validation error: {str(e)}"
+
+    def validate_ensemble_prediction_response(self, data):
+        """Validate ensemble prediction response structure"""
+        try:
+            if 'prediction' not in data:
+                return False, "Missing prediction object"
+            
+            prediction = data['prediction']
+            
+            # Check for required ensemble prediction fields
+            required_fields = ['ml_favored_team', 'spread_favored_team', 'totals_favored', 
+                             'ml_favored_prob', 'spread_favored_prob', 'totals_favored_prob']
+            missing_fields = [f for f in required_fields if f not in prediction]
+            
+            if missing_fields:
+                return False, f"Missing ensemble prediction fields: {missing_fields}"
+            
+            # Validate team names are not generic
+            ml_favored_team = prediction.get('ml_favored_team', '')
+            spread_favored_team = prediction.get('spread_favored_team', '')
+            
+            if ml_favored_team.lower() in ['home', 'away', 'home team', 'away team']:
+                return False, f"ml_favored_team should be actual team name, not '{ml_favored_team}'"
+            
+            if spread_favored_team.lower() in ['home', 'away', 'home team', 'away team']:
+                return False, f"spread_favored_team should be actual team name, not '{spread_favored_team}'"
+            
+            # Validate totals_favored is OVER or UNDER
+            totals_favored = prediction.get('totals_favored', '').upper()
+            if totals_favored not in ['OVER', 'UNDER']:
+                return False, f"totals_favored should be 'OVER' or 'UNDER', got '{totals_favored}'"
+            
+            # Validate probabilities
+            ml_prob = prediction.get('ml_favored_prob', 0)
+            spread_prob = prediction.get('spread_favored_prob', 0)
+            totals_prob = prediction.get('totals_favored_prob', 0)
+            
+            if not (0.5 <= ml_prob <= 0.95):
+                return False, f"ml_favored_prob should be 0.5-0.95, got {ml_prob}"
+            
+            if not (0.5 <= spread_prob <= 0.95):
+                return False, f"spread_favored_prob should be 0.5-0.95, got {spread_prob}"
+            
+            if not (0.5 <= totals_prob <= 0.999):
+                return False, f"totals_favored_prob should be 0.5-0.999, got {totals_prob}"
+            
+            return True, f"ML: {ml_favored_team} ({ml_prob:.3f}), Spread: {spread_favored_team} ({spread_prob:.3f}), Totals: {totals_favored} ({totals_prob:.3f})"
+            
+        except Exception as e:
+            return False, f"Validation error: {str(e)}"
+
+    def validate_accuracy_comparison(self, xgb_data, ensemble_data):
+        """Compare XGBoost vs Ensemble accuracy to verify ensemble is better"""
+        try:
+            # Get NBA accuracies from both models
+            xgb_models = xgb_data.get('models', {})
+            nba_xgb = xgb_models.get('basketball_nba', {})
+            xgb_accuracy = nba_xgb.get('accuracy')
+            
+            ensemble_nba = ensemble_data.get('basketball_nba', {})
+            ensemble_ml_acc = ensemble_nba.get('ml_accuracy')
+            ensemble_spread_acc = ensemble_nba.get('spread_accuracy')
+            ensemble_totals_acc = ensemble_nba.get('totals_accuracy')
+            
+            if xgb_accuracy is None:
+                return False, "XGBoost NBA accuracy not available"
+            
+            if ensemble_ml_acc is None:
+                return False, "Ensemble NBA ML accuracy not available"
+            
+            # Compare ML accuracy (most important)
+            if ensemble_ml_acc <= xgb_accuracy:
+                return False, f"Ensemble ML accuracy ({ensemble_ml_acc:.1%}) should be higher than XGBoost ({xgb_accuracy:.1%})"
+            
+            # Calculate improvement
+            improvement = (ensemble_ml_acc - xgb_accuracy) / xgb_accuracy * 100
+            
+            comparison_details = f"XGBoost: {xgb_accuracy:.1%}, Ensemble ML: {ensemble_ml_acc:.1%} (+{improvement:.1f}%)"
+            
+            if ensemble_spread_acc is not None:
+                comparison_details += f", Spread: {ensemble_spread_acc:.1%}"
+            
+            if ensemble_totals_acc is not None:
+                comparison_details += f", Totals: {ensemble_totals_acc:.1%}"
+            
+            return True, comparison_details
+            
+        except Exception as e:
+            return False, f"Validation error: {str(e)}"
+
     def test_xgboost_favored_outcomes(self):
         """Test XGBoost ML prediction endpoints for FAVORED OUTCOMES (not just home team probabilities)"""
         print("\n🎯 TESTING XGBOOST FAVORED OUTCOMES (NEW FEATURE)")
