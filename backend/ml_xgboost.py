@@ -530,17 +530,25 @@ class XGBoostPredictor:
                 
                 home_covered = (home_score + estimated_spread) > away_score
             
-            # ===== TOTALS LABEL (FIXED) =====
+            # ===== TOTALS LABEL (FIXED v2) =====
             # Use actual total line if available
             actual_total_line = game.get("actual_total_line")
             if actual_total_line is not None and actual_total_line > 0:
                 went_over = actual_total > actual_total_line
                 games_with_real_totals += 1
             else:
-                # Use sport-specific default as the "line"
-                # This is imperfect but avoids circular logic
-                default_total = self.config["default_total"]
-                went_over = actual_total > default_total
+                # IMPROVED: Estimate line from team scoring averages (pre-game data)
+                # This avoids using a fixed default which creates predictable patterns
+                home_avg = features.get("home_avg_pts", self.config["default_total"] / 2)
+                away_avg = features.get("away_avg_pts", self.config["default_total"] / 2)
+                estimated_total_line = home_avg + away_avg
+                
+                # Clamp to reasonable range
+                min_total = self.config["min_total"]
+                max_total = self.config["max_total"]
+                estimated_total_line = max(min_total, min(max_total, estimated_total_line))
+                
+                went_over = actual_total > estimated_total_line
             
             # Build arrays
             feature_array = self.feature_engineering.features_to_array(features)
