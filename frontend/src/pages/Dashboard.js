@@ -704,38 +704,71 @@ const Dashboard = () => {
           <p className="text-text-muted text-sm mt-1">AI-powered betting insights</p>
         </div>
         
-        {/* Compact ML Model Status - Inline with header */}
+        {/* Enhanced ML Model Status - Inline with header */}
         {mlStatus && (
-          <div className="flex items-center gap-3 bg-zinc-800/50 rounded-lg px-3 py-2 border border-purple-500/20">
-            <span className="text-xs font-mono text-purple-400 flex items-center gap-1">
-              <Zap className="w-3 h-3" />
-              Ensemble ML
-            </span>
+          <div className="flex items-center gap-4 bg-gradient-to-r from-purple-900/30 to-zinc-800/80 rounded-lg px-4 py-2.5 border border-purple-500/30">
+            {/* ML Label with icon */}
             <div className="flex items-center gap-2">
-              {/* Use Ensemble models if available, fallback to basic models */}
+              <div className="p-1.5 bg-purple-500/20 rounded">
+                <Zap className="w-3.5 h-3.5 text-purple-400" />
+              </div>
+              <div>
+                <span className="text-xs font-mono font-bold text-purple-400">Ensemble ML</span>
+                <p className="text-[9px] text-text-muted">XGB + LGBM + CatBoost</p>
+              </div>
+            </div>
+            
+            {/* Divider */}
+            <div className="w-px h-8 bg-zinc-700"></div>
+            
+            {/* Sport Accuracies */}
+            <div className="flex items-center gap-3">
               {(mlStatus.ensemble ? Object.entries(mlStatus.ensemble.models || {}) : Object.entries(mlStatus.models || {})).map(([sport, model]) => {
                 const accuracy = mlStatus.ensemble ? model.ml_accuracy : model.accuracy;
                 const isLoaded = mlStatus.ensemble ? !!model.ml_accuracy : model.model_loaded;
+                const sportLabel = sportNames[sport]?.slice(0, 3) || sport.split('_').pop()?.slice(0, 3).toUpperCase();
                 return (
-                  <div key={sport} className="flex items-center gap-1" title={`${sportNames[sport] || sport}: ${isLoaded ? (accuracy * 100).toFixed(0) + '% accuracy' : 'Not trained'}`}>
-                    <span className={`w-2 h-2 rounded-full ${isLoaded ? 'bg-semantic-success' : 'bg-zinc-600'}`}></span>
-                    <span className="text-xs text-text-muted">{sportNames[sport]?.slice(0, 3) || sport.split('_').pop()?.slice(0, 3).toUpperCase()}</span>
-                    {isLoaded && (
-                      <span className="text-xs font-mono text-semantic-success">{(accuracy * 100).toFixed(0)}%</span>
-                    )}
+                  <div key={sport} className="text-center min-w-[40px]" title={`${sportNames[sport] || sport}: ${isLoaded ? (accuracy * 100).toFixed(0) + '% accuracy' : 'Not trained'}`}>
+                    <p className="text-[10px] text-text-muted">{sportLabel}</p>
+                    <p className={`text-sm font-mono font-bold ${isLoaded ? 'text-semantic-success' : 'text-zinc-600'}`}>
+                      {isLoaded ? `${(accuracy * 100).toFixed(0)}%` : '--'}
+                    </p>
                   </div>
                 );
               })}
             </div>
-            {/* Training Schedule Info */}
-            {mlStatus.training_schedule && (
-              <div className="flex items-center gap-1 ml-2 pl-2 border-l border-zinc-700" title={`Next training: ${new Date(mlStatus.training_schedule.next_scheduled).toLocaleString()}`}>
-                <Calendar className="w-3 h-3 text-text-muted" />
-                <span className="text-[10px] text-text-muted">
-                  Next: {new Date(mlStatus.training_schedule.next_scheduled).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
-                </span>
-              </div>
-            )}
+            
+            {/* Divider */}
+            <div className="w-px h-8 bg-zinc-700"></div>
+            
+            {/* Training Info */}
+            <div className="flex items-center gap-3">
+              {/* Next Training */}
+              {mlStatus.training_schedule && (
+                <div className="text-center" title={`Next training: ${new Date(mlStatus.training_schedule.next_scheduled).toLocaleString()}`}>
+                  <p className="text-[10px] text-text-muted flex items-center gap-1">
+                    <Calendar className="w-2.5 h-2.5" />
+                    Next
+                  </p>
+                  <p className="text-xs font-mono text-text-primary">
+                    {new Date(mlStatus.training_schedule.next_scheduled).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })}
+                  </p>
+                </div>
+              )}
+              
+              {/* Training Data */}
+              {mlStatus.historical_data && (
+                <div className="text-center" title="Total training games across all sports">
+                  <p className="text-[10px] text-text-muted flex items-center gap-1">
+                    <Activity className="w-2.5 h-2.5" />
+                    Data
+                  </p>
+                  <p className="text-xs font-mono text-text-primary">
+                    {(Object.values(mlStatus.historical_data || {}).reduce((sum, d) => sum + (d.total_games || d || 0), 0) / 1000).toFixed(1)}k
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         )}
         
