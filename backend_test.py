@@ -1100,7 +1100,8 @@ class APITester:
             nba_xgb = xgb_models.get('basketball_nba', {})
             xgb_accuracy = nba_xgb.get('accuracy')
             
-            ensemble_nba = ensemble_data.get('basketball_nba', {})
+            ensemble_models = ensemble_data.get('models', {})
+            ensemble_nba = ensemble_models.get('basketball_nba', {})
             ensemble_ml_acc = ensemble_nba.get('ml_accuracy')
             ensemble_spread_acc = ensemble_nba.get('spread_accuracy')
             ensemble_totals_acc = ensemble_nba.get('totals_accuracy')
