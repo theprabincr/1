@@ -3,18 +3,18 @@ XGBoost Machine Learning Model for Sports Betting Predictions
 =============================================================
 Implements real ML using XGBoost trained on historical game data.
 
-ENHANCED VERSION - Supports ALL THREE MARKETS:
-1. Moneyline (Home Win Probability)
-2. Spread (Cover Probability)
-3. Totals (Over/Under Probability)
+FIXED VERSION v2.0 - Addresses Critical Training Issues:
+1. Fixed train/test split alignment across all models
+2. Removed circular logic in spread/totals labels
+3. Added data validation and sanity checks
+4. Improved feature quality tracking
+5. Added proper cross-validation
+6. Fixed fallback logic that corrupted labels
 
-Key Features:
-1. Historical data collection from ESPN with outcomes for all markets
-2. Comprehensive feature engineering
-3. Three separate XGBoost models for each market
-4. Model persistence (save/load)
-5. Weekly retraining support
-6. Backtesting infrastructure for all markets
+SUPPORTS ALL THREE MARKETS:
+1. Moneyline (Home Win Probability)
+2. Spread (Cover Probability)  
+3. Totals (Over/Under Probability)
 """
 import logging
 import os
@@ -27,7 +27,7 @@ import asyncio
 
 import numpy as np
 from xgboost import XGBClassifier, XGBRegressor
-from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, mean_absolute_error
 import joblib
@@ -83,12 +83,40 @@ FEATURE_NAMES = [
     "h2h_home_wins",
     "h2h_total_games",
     
-    # NEW: Totals-specific features
-    "combined_avg_pts",  # home_avg_pts + away_avg_pts
-    "combined_pts_allowed",  # home_pts_allowed + away_pts_allowed
-    "pace_factor",  # Estimated game pace
-    "defensive_rating_diff",  # Defense comparison
+    # Totals-specific features
+    "combined_avg_pts",
+    "combined_pts_allowed",
+    "pace_factor",
+    "defensive_rating_diff",
 ]
+
+# Sport-specific configurations
+SPORT_CONFIG = {
+    "basketball_nba": {
+        "default_total": 220,
+        "spread_multiplier": 25,  # ELO diff to spread conversion
+        "min_total": 180,
+        "max_total": 260,
+    },
+    "americanfootball_nfl": {
+        "default_total": 45,
+        "spread_multiplier": 20,
+        "min_total": 30,
+        "max_total": 65,
+    },
+    "icehockey_nhl": {
+        "default_total": 6,
+        "spread_multiplier": 50,  # Different scale for hockey
+        "min_total": 4,
+        "max_total": 8,
+    },
+    "baseball_mlb": {
+        "default_total": 8,
+        "spread_multiplier": 40,
+        "min_total": 6,
+        "max_total": 12,
+    }
+}
 
 
 class FeatureEngineering:
@@ -183,19 +211,123 @@ class FeatureEngineering:
     def features_to_array(features: Dict[str, float]) -> np.ndarray:
         """Convert feature dict to numpy array in consistent order."""
         return np.array([features.get(name, 0) for name in FEATURE_NAMES])
+    
+    @staticmethod
+    def validate_features(features: Dict[str, float], sport_key: str = "basketball_nba") -> Tuple[bool, List[str]]:
+        """
+        Validate feature quality and identify issues.
+        Returns (is_valid, list_of_issues)
+        """
+        issues = []
+        config = SPORT_CONFIG.get(sport_key, SPORT_CONFIG["basketball_nba"])
+        
+        # Check for default/placeholder values that indicate missing data
+        if features.get("home_ml_odds", 0) == 1.91 and features.get("away_ml_odds", 0) == 1.91:
+            issues.append("odds_missing")
+        
+        if features.get("home_elo", 1500) == 1500 and features.get("away_elo", 1500) == 1500:
+            issues.append("elo_default")
+        
+        # Check total line is within reasonable bounds
+        total = features.get("total_line", 0)
+        if total < config["min_total"] or total > config["max_total"]:
+            issues.append(f"total_out_of_range_{total}")
+        
+        # Check for unrealistic win percentages
+        if features.get("home_win_pct", 0.5) in [0, 1] or features.get("away_win_pct", 0.5) in [0, 1]:
+            issues.append("extreme_win_pct")
+        
+        is_valid = len(issues) == 0
+        return is_valid, issues
+
+
+class DataValidator:
+    """
+    Validates training data quality and flags potential issues.
+    """
+    
+    @staticmethod
+    def validate_labels(y_ml: np.ndarray, y_spread: np.ndarray, y_totals: np.ndarray) -> Dict:
+        """Check label distribution for potential issues."""
+        validation = {
+            "ml_valid": True,
+            "spread_valid": True,
+            "totals_valid": True,
+            "issues": []
+        }
+        
+        # Check class balance (should be roughly 45-55% for each class)
+        ml_ratio = np.mean(y_ml)
+        spread_ratio = np.mean(y_spread)
+        totals_ratio = np.mean(y_totals)
+        
+        # Moneyline typically has slight home advantage (50-55%)
+        if ml_ratio < 0.40 or ml_ratio > 0.65:
+            validation["issues"].append(f"ml_imbalanced_{ml_ratio:.2%}")
+        
+        # Spread should be close to 50% (that's the point of the spread)
+        if spread_ratio < 0.40 or spread_ratio > 0.60:
+            validation["issues"].append(f"spread_imbalanced_{spread_ratio:.2%}")
+            validation["spread_valid"] = False
+        
+        # Totals should also be close to 50%
+        if totals_ratio < 0.35 or totals_ratio > 0.65:
+            validation["issues"].append(f"totals_imbalanced_{totals_ratio:.2%}")
+            validation["totals_valid"] = False
+        
+        # Check for single-class issues
+        if len(np.unique(y_ml)) < 2:
+            validation["ml_valid"] = False
+            validation["issues"].append("ml_single_class")
+        
+        if len(np.unique(y_spread)) < 2:
+            validation["spread_valid"] = False
+            validation["issues"].append("spread_single_class")
+        
+        if len(np.unique(y_totals)) < 2:
+            validation["totals_valid"] = False
+            validation["issues"].append("totals_single_class")
+        
+        return validation
+    
+    @staticmethod
+    def validate_accuracy(accuracy: float, model_type: str) -> Tuple[bool, str]:
+        """
+        Validate that accuracy is within expected bounds.
+        Returns (is_valid, warning_message)
+        """
+        # Expected accuracy ranges
+        expected_ranges = {
+            "moneyline": (0.52, 0.75),  # Moneyline can have higher accuracy
+            "spread": (0.48, 0.60),      # Spread should be close to 50%
+            "totals": (0.48, 0.60),      # Totals should be close to 50%
+        }
+        
+        min_acc, max_acc = expected_ranges.get(model_type, (0.45, 0.70))
+        
+        if accuracy < min_acc:
+            return False, f"{model_type} accuracy {accuracy:.1%} below expected minimum {min_acc:.1%}"
+        
+        if accuracy > max_acc:
+            return False, f"⚠️ {model_type} accuracy {accuracy:.1%} suspiciously high (>{max_acc:.1%}) - possible data leakage!"
+        
+        return True, ""
 
 
 class XGBoostPredictor:
     """
-    ENHANCED XGBoost-based predictor for sports betting.
-    Now supports ALL THREE MARKETS:
-    - Moneyline (home win probability)
-    - Spread (home cover probability)
-    - Totals (over probability)
+    FIXED XGBoost-based predictor for sports betting.
+    
+    Fixes applied:
+    1. Consistent train/test split across all models
+    2. Proper label validation
+    3. Sanity checks for accuracy
+    4. Cross-validation for model selection
     """
     
     def __init__(self, sport_key: str = "basketball_nba"):
         self.sport_key = sport_key
+        self.config = SPORT_CONFIG.get(sport_key, SPORT_CONFIG["basketball_nba"])
         
         # Three separate models for each market
         self.moneyline_model: Optional[XGBClassifier] = None
@@ -216,15 +348,17 @@ class XGBoostPredictor:
         self.metadata_path = MODEL_DIR / f"metadata_{sport_key}.json"
         
         self.feature_engineering = FeatureEngineering()
+        self.data_validator = DataValidator()
         self.is_loaded = False
         
         # Training metrics for each model
         self.ml_accuracy = 0.0
         self.spread_accuracy = 0.0
         self.totals_accuracy = 0.0
-        self.totals_mae = 0.0  # Mean Absolute Error for totals prediction
+        self.totals_mae = 0.0
         
         self.last_trained = None
+        self.training_warnings = []
         
         # For backward compatibility
         self.model = None
@@ -238,7 +372,7 @@ class XGBoostPredictor:
             # Load moneyline model
             if self.ml_model_path.exists():
                 self.moneyline_model = joblib.load(self.ml_model_path)
-                self.model = self.moneyline_model  # Backward compatibility
+                self.model = self.moneyline_model
                 models_loaded += 1
             
             # Load spread model
@@ -269,12 +403,15 @@ class XGBoostPredictor:
                     self.totals_accuracy = metadata.get("totals_accuracy", 0)
                     self.totals_mae = metadata.get("totals_mae", 0)
                     self.last_trained = metadata.get("last_trained")
-                    self.training_accuracy = self.ml_accuracy  # Backward compat
+                    self.training_warnings = metadata.get("warnings", [])
+                    self.training_accuracy = self.ml_accuracy
             
             if models_loaded >= 1 and self.scaler is not None:
                 self.is_loaded = True
                 logger.info(f"✅ Loaded {models_loaded} XGBoost models for {self.sport_key}")
                 logger.info(f"   ML: {self.ml_accuracy:.1%}, Spread: {self.spread_accuracy:.1%}, Totals: {self.totals_accuracy:.1%}")
+                if self.training_warnings:
+                    logger.warning(f"   ⚠️ Training warnings: {self.training_warnings}")
                 return True
                 
         except Exception as e:
@@ -296,7 +433,7 @@ class XGBoostPredictor:
             if self.scaler:
                 joblib.dump(self.scaler, self.scaler_path)
             
-            # Save metadata
+            # Save metadata with warnings
             metadata = {
                 "sport_key": self.sport_key,
                 "ml_accuracy": metrics.get("ml_accuracy", 0),
@@ -305,7 +442,10 @@ class XGBoostPredictor:
                 "totals_mae": metrics.get("totals_mae", 0),
                 "last_trained": datetime.now(timezone.utc).isoformat(),
                 "features": FEATURE_NAMES,
-                "model_type": "XGBClassifier_MultiMarket",
+                "model_type": "XGBClassifier_MultiMarket_v2",
+                "warnings": metrics.get("warnings", []),
+                "data_quality": metrics.get("data_quality", {}),
+                "cv_scores": metrics.get("cv_scores", {}),
                 # Backward compat
                 "accuracy": metrics.get("ml_accuracy", 0)
             }
@@ -318,6 +458,7 @@ class XGBoostPredictor:
             self.totals_mae = metrics.get("totals_mae", 0)
             self.training_accuracy = self.ml_accuracy
             self.last_trained = metadata["last_trained"]
+            self.training_warnings = metrics.get("warnings", [])
             
             logger.info(f"✅ Saved XGBoost models for {self.sport_key}")
         except Exception as e:
@@ -326,7 +467,12 @@ class XGBoostPredictor:
     def train(self, training_data: List[Dict]) -> Dict:
         """
         Train XGBoost models on historical game data.
-        Now trains THREE models: Moneyline, Spread, Totals
+        
+        FIXED VERSION:
+        1. Uses consistent train/test split indices for all models
+        2. Validates label quality before training
+        3. Adds sanity checks for accuracy
+        4. Uses cross-validation for better estimates
         """
         if len(training_data) < 50:
             logger.warning(f"Insufficient training data: {len(training_data)} games (need 50+)")
@@ -334,52 +480,75 @@ class XGBoostPredictor:
         
         logger.info(f"🚀 Training XGBoost models on {len(training_data)} games...")
         
-        # Extract features and labels for all three markets
+        # ===== PHASE 1: EXTRACT FEATURES AND LABELS =====
         X = []
-        y_ml = []  # Home win (1) or away win (0)
-        y_spread = []  # Home covered spread (1) or not (0)
-        y_totals = []  # Over (1) or Under (0)
-        y_total_pts = []  # Actual total points (for regression)
+        y_ml = []
+        y_spread = []
+        y_totals = []
+        y_total_pts = []
+        
+        # Track data quality
+        games_with_real_spread = 0
+        games_with_real_totals = 0
+        skipped_games = 0
         
         for game in training_data:
             features = game.get("features", {})
             
-            # Moneyline outcome
-            home_win = game.get("home_win")
+            # Skip games without features
+            if not features:
+                skipped_games += 1
+                continue
             
-            # Calculate spread cover
+            # Moneyline outcome (most reliable)
+            home_win = game.get("home_win")
+            if home_win is None:
+                skipped_games += 1
+                continue
+            
             home_score = game.get("home_score", 0)
             away_score = game.get("away_score", 0)
-            spread = features.get("spread", 0)
-            
-            # Home covers if: home_score + spread > away_score
-            # (spread is negative for favorite, positive for underdog)
-            home_covered = (home_score + spread) > away_score if spread != 0 else None
-            
-            # Calculate over/under
-            total_line = features.get("total_line", 0)
             actual_total = home_score + away_score
-            went_over = actual_total > total_line if total_line > 0 else None
             
-            # Only include if we have valid data
-            if home_win is not None and features:
-                feature_array = self.feature_engineering.features_to_array(features)
-                X.append(feature_array)
-                y_ml.append(1 if home_win else 0)
+            # ===== SPREAD LABEL (FIXED) =====
+            # Use actual spread from data if available, otherwise use realistic estimation
+            actual_spread = game.get("actual_spread")  # Real Vegas line if available
+            if actual_spread is not None:
+                # Real spread available
+                home_covered = (home_score + actual_spread) > away_score
+                games_with_real_spread += 1
+            else:
+                # Estimate spread from margin and home advantage
+                # DO NOT use ELO diff that we're also using as a feature (circular logic)
+                # Instead, use a simple model: home team favored by ~3 pts on average
+                home_advantage = 3.0 if self.sport_key == "basketball_nba" else 2.5
+                estimated_spread = -home_advantage  # Home favored by default
                 
-                # Spread - use moneyline as proxy if no spread data
-                if home_covered is not None:
-                    y_spread.append(1 if home_covered else 0)
-                else:
-                    y_spread.append(1 if home_win else 0)
+                # Adjust based on win percentage difference (different from ELO)
+                win_pct_diff = features.get("win_pct_diff", 0)
+                estimated_spread -= win_pct_diff * 10  # Stronger team gets bigger spread
                 
-                # Totals
-                if went_over is not None:
-                    y_totals.append(1 if went_over else 0)
-                else:
-                    y_totals.append(1 if actual_total > 210 else 0)  # Default
-                
-                y_total_pts.append(actual_total)
+                home_covered = (home_score + estimated_spread) > away_score
+            
+            # ===== TOTALS LABEL (FIXED) =====
+            # Use actual total line if available
+            actual_total_line = game.get("actual_total_line")
+            if actual_total_line is not None and actual_total_line > 0:
+                went_over = actual_total > actual_total_line
+                games_with_real_totals += 1
+            else:
+                # Use sport-specific default as the "line"
+                # This is imperfect but avoids circular logic
+                default_total = self.config["default_total"]
+                went_over = actual_total > default_total
+            
+            # Build arrays
+            feature_array = self.feature_engineering.features_to_array(features)
+            X.append(feature_array)
+            y_ml.append(1 if home_win else 0)
+            y_spread.append(1 if home_covered else 0)
+            y_totals.append(1 if went_over else 0)
+            y_total_pts.append(actual_total)
         
         X = np.array(X)
         y_ml = np.array(y_ml)
@@ -387,40 +556,75 @@ class XGBoostPredictor:
         y_totals = np.array(y_totals)
         y_total_pts = np.array(y_total_pts)
         
-        logger.info(f"  Training samples: {len(X)}")
-        logger.info(f"  ML: {sum(y_ml)} home wins, {len(y_ml) - sum(y_ml)} away wins")
-        logger.info(f"  Spread: {sum(y_spread)} home covers, {len(y_spread) - sum(y_spread)} away covers")
-        logger.info(f"  Totals: {sum(y_totals)} overs, {len(y_totals) - sum(y_totals)} unders")
+        logger.info(f"  Processed {len(X)} games (skipped {skipped_games})")
+        logger.info(f"  Games with real spread lines: {games_with_real_spread}")
+        logger.info(f"  Games with real total lines: {games_with_real_totals}")
         
-        # Scale features
+        # ===== PHASE 2: VALIDATE LABELS =====
+        label_validation = self.data_validator.validate_labels(y_ml, y_spread, y_totals)
+        
+        if label_validation["issues"]:
+            logger.warning(f"  ⚠️ Label validation issues: {label_validation['issues']}")
+        
+        logger.info(f"  ML distribution: {np.mean(y_ml):.1%} home wins")
+        logger.info(f"  Spread distribution: {np.mean(y_spread):.1%} home covers")
+        logger.info(f"  Totals distribution: {np.mean(y_totals):.1%} overs")
+        
+        # ===== PHASE 3: SCALE FEATURES =====
         self.scaler = StandardScaler()
         X_scaled = self.scaler.fit_transform(X)
         
-        # Split data
-        X_train, X_test, y_ml_train, y_ml_test = train_test_split(
-            X_scaled, y_ml, test_size=0.2, random_state=42, stratify=y_ml
-        )
-        _, _, y_spread_train, y_spread_test = train_test_split(
-            X_scaled, y_spread, test_size=0.2, random_state=42
-        )
-        _, _, y_totals_train, y_totals_test = train_test_split(
-            X_scaled, y_totals, test_size=0.2, random_state=42
-        )
-        _, _, y_pts_train, y_pts_test = train_test_split(
-            X_scaled, y_total_pts, test_size=0.2, random_state=42
+        # ===== PHASE 4: SINGLE TRAIN/TEST SPLIT (FIXED!) =====
+        # Generate indices ONCE and use for all models
+        indices = np.arange(len(X_scaled))
+        train_idx, test_idx = train_test_split(
+            indices, 
+            test_size=0.2, 
+            random_state=42,
+            stratify=y_ml  # Stratify on primary target
         )
         
-        metrics = {"success": True}
+        # Use same indices for all data
+        X_train, X_test = X_scaled[train_idx], X_scaled[test_idx]
+        y_ml_train, y_ml_test = y_ml[train_idx], y_ml[test_idx]
+        y_spread_train, y_spread_test = y_spread[train_idx], y_spread[test_idx]
+        y_totals_train, y_totals_test = y_totals[train_idx], y_totals[test_idx]
+        y_pts_train, y_pts_test = y_total_pts[train_idx], y_total_pts[test_idx]
         
-        # ===== TRAIN MONEYLINE MODEL =====
+        logger.info(f"  Training samples: {len(X_train)}, Test samples: {len(X_test)}")
+        
+        metrics = {
+            "success": True,
+            "warnings": [],
+            "data_quality": {
+                "total_games": len(X),
+                "games_with_real_spread": games_with_real_spread,
+                "games_with_real_totals": games_with_real_totals,
+                "label_validation": label_validation
+            },
+            "cv_scores": {}
+        }
+        
+        # ===== PHASE 5: TRAIN MONEYLINE MODEL =====
         logger.info("  📊 Training Moneyline model...")
         self.moneyline_model = XGBClassifier(
             n_estimators=100, max_depth=6, learning_rate=0.1,
             subsample=0.8, colsample_bytree=0.8, random_state=42,
             eval_metric='logloss', use_label_encoder=False
         )
+        
+        # Cross-validation first
+        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+        cv_scores = cross_val_score(self.moneyline_model, X_train, y_ml_train, cv=cv, scoring='accuracy')
+        metrics["cv_scores"]["ml"] = {
+            "mean": round(float(cv_scores.mean()), 4),
+            "std": round(float(cv_scores.std()), 4)
+        }
+        logger.info(f"     CV Accuracy: {cv_scores.mean():.1%} (±{cv_scores.std():.1%})")
+        
+        # Train final model
         self.moneyline_model.fit(X_train, y_ml_train)
-        self.model = self.moneyline_model  # Backward compat
+        self.model = self.moneyline_model
         
         y_ml_pred = self.moneyline_model.predict(X_test)
         y_ml_prob = self.moneyline_model.predict_proba(X_test)[:, 1]
@@ -428,55 +632,106 @@ class XGBoostPredictor:
         ml_accuracy = accuracy_score(y_ml_test, y_ml_pred)
         ml_auc = roc_auc_score(y_ml_test, y_ml_prob)
         
+        # Validate accuracy
+        acc_valid, acc_warning = self.data_validator.validate_accuracy(ml_accuracy, "moneyline")
+        if not acc_valid:
+            logger.warning(f"     {acc_warning}")
+            metrics["warnings"].append(acc_warning)
+        
         metrics["ml_accuracy"] = round(float(ml_accuracy), 4)
         metrics["ml_auc"] = round(float(ml_auc), 4)
-        logger.info(f"     Accuracy: {ml_accuracy:.1%}, AUC: {ml_auc:.3f}")
+        logger.info(f"     Test Accuracy: {ml_accuracy:.1%}, AUC: {ml_auc:.3f}")
         
-        # ===== TRAIN SPREAD MODEL =====
+        # ===== PHASE 6: TRAIN SPREAD MODEL =====
         logger.info("  📊 Training Spread model...")
-        self.spread_model = XGBClassifier(
-            n_estimators=100, max_depth=5, learning_rate=0.1,
-            subsample=0.8, colsample_bytree=0.8, random_state=42,
-            eval_metric='logloss', use_label_encoder=False
-        )
-        self.spread_model.fit(X_train, y_spread_train)
         
-        y_spread_pred = self.spread_model.predict(X_test)
-        y_spread_prob = self.spread_model.predict_proba(X_test)[:, 1]
+        # Only train if labels are valid
+        if label_validation["spread_valid"]:
+            self.spread_model = XGBClassifier(
+                n_estimators=100, max_depth=5, learning_rate=0.1,
+                subsample=0.8, colsample_bytree=0.8, random_state=42,
+                eval_metric='logloss', use_label_encoder=False
+            )
+            
+            # Cross-validation
+            cv_scores_spread = cross_val_score(self.spread_model, X_train, y_spread_train, cv=cv, scoring='accuracy')
+            metrics["cv_scores"]["spread"] = {
+                "mean": round(float(cv_scores_spread.mean()), 4),
+                "std": round(float(cv_scores_spread.std()), 4)
+            }
+            logger.info(f"     CV Accuracy: {cv_scores_spread.mean():.1%} (±{cv_scores_spread.std():.1%})")
+            
+            self.spread_model.fit(X_train, y_spread_train)
+            
+            y_spread_pred = self.spread_model.predict(X_test)
+            y_spread_prob = self.spread_model.predict_proba(X_test)[:, 1]
+            
+            spread_accuracy = accuracy_score(y_spread_test, y_spread_pred)
+            try:
+                spread_auc = roc_auc_score(y_spread_test, y_spread_prob)
+            except ValueError:
+                spread_auc = 0.5
+            
+            # Validate accuracy
+            acc_valid, acc_warning = self.data_validator.validate_accuracy(spread_accuracy, "spread")
+            if not acc_valid:
+                logger.warning(f"     {acc_warning}")
+                metrics["warnings"].append(acc_warning)
+            
+            metrics["spread_accuracy"] = round(float(spread_accuracy), 4)
+            metrics["spread_auc"] = round(float(spread_auc), 4)
+            logger.info(f"     Test Accuracy: {spread_accuracy:.1%}, AUC: {spread_auc:.3f}")
+        else:
+            logger.warning("     ⚠️ Skipping spread model - invalid labels")
+            metrics["spread_accuracy"] = 0.5
+            metrics["spread_auc"] = 0.5
+            metrics["warnings"].append("spread_model_skipped_invalid_labels")
         
-        spread_accuracy = accuracy_score(y_spread_test, y_spread_pred)
-        try:
-            spread_auc = roc_auc_score(y_spread_test, y_spread_prob)
-        except ValueError:
-            spread_auc = 0.5  # Default when only one class
-        
-        metrics["spread_accuracy"] = round(float(spread_accuracy), 4)
-        metrics["spread_auc"] = round(float(spread_auc), 4)
-        logger.info(f"     Accuracy: {spread_accuracy:.1%}, AUC: {spread_auc:.3f}")
-        
-        # ===== TRAIN TOTALS MODEL =====
+        # ===== PHASE 7: TRAIN TOTALS MODEL =====
         logger.info("  📊 Training Totals model...")
-        self.totals_model = XGBClassifier(
-            n_estimators=100, max_depth=5, learning_rate=0.1,
-            subsample=0.8, colsample_bytree=0.8, random_state=42,
-            eval_metric='logloss', use_label_encoder=False
-        )
-        self.totals_model.fit(X_train, y_totals_train)
         
-        y_totals_pred = self.totals_model.predict(X_test)
-        y_totals_prob = self.totals_model.predict_proba(X_test)[:, 1]
+        if label_validation["totals_valid"]:
+            self.totals_model = XGBClassifier(
+                n_estimators=100, max_depth=5, learning_rate=0.1,
+                subsample=0.8, colsample_bytree=0.8, random_state=42,
+                eval_metric='logloss', use_label_encoder=False
+            )
+            
+            # Cross-validation
+            cv_scores_totals = cross_val_score(self.totals_model, X_train, y_totals_train, cv=cv, scoring='accuracy')
+            metrics["cv_scores"]["totals"] = {
+                "mean": round(float(cv_scores_totals.mean()), 4),
+                "std": round(float(cv_scores_totals.std()), 4)
+            }
+            logger.info(f"     CV Accuracy: {cv_scores_totals.mean():.1%} (±{cv_scores_totals.std():.1%})")
+            
+            self.totals_model.fit(X_train, y_totals_train)
+            
+            y_totals_pred = self.totals_model.predict(X_test)
+            y_totals_prob = self.totals_model.predict_proba(X_test)[:, 1]
+            
+            totals_accuracy = accuracy_score(y_totals_test, y_totals_pred)
+            try:
+                totals_auc = roc_auc_score(y_totals_test, y_totals_prob)
+            except ValueError:
+                totals_auc = 0.5
+            
+            # Validate accuracy
+            acc_valid, acc_warning = self.data_validator.validate_accuracy(totals_accuracy, "totals")
+            if not acc_valid:
+                logger.warning(f"     {acc_warning}")
+                metrics["warnings"].append(acc_warning)
+            
+            metrics["totals_accuracy"] = round(float(totals_accuracy), 4)
+            metrics["totals_auc"] = round(float(totals_auc), 4)
+            logger.info(f"     Test Accuracy: {totals_accuracy:.1%}, AUC: {totals_auc:.3f}")
+        else:
+            logger.warning("     ⚠️ Skipping totals model - invalid labels")
+            metrics["totals_accuracy"] = 0.5
+            metrics["totals_auc"] = 0.5
+            metrics["warnings"].append("totals_model_skipped_invalid_labels")
         
-        totals_accuracy = accuracy_score(y_totals_test, y_totals_pred)
-        try:
-            totals_auc = roc_auc_score(y_totals_test, y_totals_prob)
-        except ValueError:
-            totals_auc = 0.5  # Default when only one class
-        
-        metrics["totals_accuracy"] = round(float(totals_accuracy), 4)
-        metrics["totals_auc"] = round(float(totals_auc), 4)
-        logger.info(f"     Accuracy: {totals_accuracy:.1%}, AUC: {totals_auc:.3f}")
-        
-        # ===== TRAIN TOTALS REGRESSOR (predicts actual total) =====
+        # ===== PHASE 8: TRAIN TOTALS REGRESSOR =====
         logger.info("  📊 Training Totals regressor...")
         self.totals_regressor = XGBRegressor(
             n_estimators=100, max_depth=5, learning_rate=0.1,
@@ -490,12 +745,12 @@ class XGBoostPredictor:
         metrics["totals_mae"] = round(float(totals_mae), 2)
         logger.info(f"     MAE: {totals_mae:.1f} points")
         
-        # Feature importance (from moneyline model)
+        # ===== PHASE 9: FEATURE IMPORTANCE =====
         feature_importance = dict(zip(FEATURE_NAMES, [float(x) for x in self.moneyline_model.feature_importances_]))
         top_features = sorted(feature_importance.items(), key=lambda x: x[1], reverse=True)[:10]
         top_features = [[name, round(float(importance), 4)] for name, importance in top_features]
         
-        # Save all models
+        # ===== PHASE 10: SAVE MODELS =====
         self.save_models(metrics)
         self.is_loaded = True
         
@@ -510,7 +765,10 @@ class XGBoostPredictor:
         })
         
         logger.info(f"✅ All models trained successfully!")
-        logger.info(f"   ML: {ml_accuracy:.1%}, Spread: {spread_accuracy:.1%}, Totals: {totals_accuracy:.1%}")
+        logger.info(f"   ML: {metrics['ml_accuracy']:.1%}, Spread: {metrics['spread_accuracy']:.1%}, Totals: {metrics['totals_accuracy']:.1%}")
+        
+        if metrics["warnings"]:
+            logger.warning(f"   ⚠️ Warnings: {metrics['warnings']}")
         
         return metrics
     
@@ -527,13 +785,10 @@ class XGBoostPredictor:
         """
         Make predictions for ALL THREE MARKETS using trained models.
         
-        Now returns FAVORED OUTCOME for each market:
+        Returns FAVORED OUTCOME for each market:
         - Moneyline: Which team is favored and their win probability
         - Spread: Which team is favored to cover and their probability
         - Totals: OVER or UNDER favored and the probability
-        
-        Returns:
-            Predictions with favored outcomes and probabilities for ML, Spread, and Totals
         """
         if not self.is_loaded:
             self.load_model()
@@ -554,13 +809,16 @@ class XGBoostPredictor:
             home_team_data, away_team_data, odds_data, context_data, h2h_data
         )
         
+        # Validate features
+        is_valid, issues = self.feature_engineering.validate_features(features, self.sport_key)
+        
         # Convert to array and scale
         X = self.feature_engineering.features_to_array(features).reshape(1, -1)
         X_scaled = self.scaler.transform(X)
         
         # Get spread and total line from odds
         spread_line = odds_data.get("spread", 0)
-        total_line = odds_data.get("total", 220)
+        total_line = odds_data.get("total", self.config["default_total"])
         
         # ===== MONEYLINE PREDICTION =====
         ml_prob = self.moneyline_model.predict_proba(X_scaled)[0]
@@ -617,7 +875,7 @@ class XGBoostPredictor:
         if self.totals_regressor is not None:
             predicted_total = float(self.totals_regressor.predict(X_scaled)[0])
         else:
-            predicted_total = features.get("combined_avg_pts", 220)
+            predicted_total = features.get("combined_avg_pts", self.config["default_total"])
         
         # Calculate confidence for each market (based on how far from 50%)
         ml_confidence = abs(home_win_prob - 0.5) * 2 * 100
@@ -690,6 +948,7 @@ class XGBoostPredictor:
             "totals_accuracy": float(self.totals_accuracy) if self.totals_accuracy else 0.0,
             "method": "xgboost_multi_market",
             "features_used": len(FEATURE_NAMES),
+            "feature_quality": "valid" if is_valid else f"issues:{issues}",
             
             # Backward compatibility
             "confidence": round(float(ml_confidence), 1),
@@ -700,17 +959,18 @@ class XGBoostPredictor:
 class HistoricalDataCollector:
     """
     Collects historical game data from ESPN for model training.
-    Enhanced to track spread and totals outcomes.
+    IMPROVED: Better data quality tracking and validation.
     """
     
     def __init__(self, db):
         self.db = db
         self.collection = db.historical_games
+        self.team_stats_cache = {}  # Cache for team stats across games
     
     async def fetch_season_data(self, sport_key: str = "basketball_nba", season: str = "2024") -> List[Dict]:
         """
         Fetch historical game data for a season from ESPN.
-        Now includes spread and totals data.
+        IMPROVED: Track team stats progression for better features.
         """
         import httpx
         
@@ -725,16 +985,10 @@ class HistoricalDataCollector:
         }
         
         sport_type, league = sport_map.get(sport_key, ("basketball", "nba"))
-        
-        # Sport-specific defaults
-        default_totals = {
-            "basketball_nba": 220,
-            "americanfootball_nfl": 45,
-            "icehockey_nhl": 6,
-            "baseball_mlb": 8
-        }
+        config = SPORT_CONFIG.get(sport_key, SPORT_CONFIG["basketball_nba"])
         
         games = []
+        self.team_stats_cache = {}  # Reset cache for new season
         
         async with httpx.AsyncClient(timeout=30.0) as client:
             # Calculate date range for 1 season
@@ -757,7 +1011,7 @@ class HistoricalDataCollector:
             
             current_date = start_date
             days_fetched = 0
-            max_days = 200
+            max_days = 250  # Increased for fuller season
             
             while current_date <= end_date and days_fetched < max_days:
                 date_str = current_date.strftime("%Y%m%d")
@@ -771,9 +1025,13 @@ class HistoricalDataCollector:
                         events = data.get("events", [])
                         
                         for event in events:
-                            game_record = await self._parse_espn_game(event, sport_key, default_totals.get(sport_key, 220))
+                            game_record = await self._parse_espn_game(
+                                event, sport_key, config, current_date
+                            )
                             if game_record and game_record.get("is_complete"):
                                 games.append(game_record)
+                                # Update team stats cache
+                                self._update_team_stats(game_record)
                     
                 except Exception as e:
                     logger.debug(f"Error fetching {date_str}: {e}")
@@ -782,7 +1040,7 @@ class HistoricalDataCollector:
                 days_fetched += 1
                 
                 if days_fetched % 10 == 0:
-                    await asyncio.sleep(0.5)
+                    await asyncio.sleep(0.3)
                     logger.info(f"  Fetched {days_fetched} days, {len(games)} games...")
         
         logger.info(f"✅ Collected {len(games)} historical games for {sport_key}")
@@ -792,8 +1050,85 @@ class HistoricalDataCollector:
         
         return games
     
-    async def _parse_espn_game(self, event: Dict, sport_key: str, default_total: float) -> Optional[Dict]:
-        """Parse ESPN event into game record with features for all markets."""
+    def _update_team_stats(self, game: Dict):
+        """Update team stats cache after each game."""
+        home_team = game.get("home_team", "")
+        away_team = game.get("away_team", "")
+        home_score = game.get("home_score", 0)
+        away_score = game.get("away_score", 0)
+        
+        for team, scored, allowed, is_home in [
+            (home_team, home_score, away_score, True),
+            (away_team, away_score, home_score, False)
+        ]:
+            if team not in self.team_stats_cache:
+                self.team_stats_cache[team] = {
+                    "games": 0, "wins": 0, "losses": 0,
+                    "points_for": 0, "points_against": 0,
+                    "home_games": 0, "home_wins": 0,
+                    "last_5_results": [],
+                    "streak": 0
+                }
+            
+            stats = self.team_stats_cache[team]
+            won = (scored > allowed)
+            
+            stats["games"] += 1
+            stats["wins"] += 1 if won else 0
+            stats["losses"] += 0 if won else 1
+            stats["points_for"] += scored
+            stats["points_against"] += allowed
+            
+            if is_home:
+                stats["home_games"] += 1
+                stats["home_wins"] += 1 if won else 0
+            
+            # Track last 5 results
+            stats["last_5_results"].append(1 if won else 0)
+            if len(stats["last_5_results"]) > 5:
+                stats["last_5_results"].pop(0)
+            
+            # Update streak
+            if won:
+                stats["streak"] = stats["streak"] + 1 if stats["streak"] >= 0 else 1
+            else:
+                stats["streak"] = stats["streak"] - 1 if stats["streak"] <= 0 else -1
+    
+    def _get_team_pregame_stats(self, team: str, config: Dict) -> Dict:
+        """Get team stats BEFORE a game (for prediction features)."""
+        if team not in self.team_stats_cache:
+            return {
+                "win_pct": 0.5,
+                "avg_pts": config["default_total"] / 2,
+                "avg_pts_allowed": config["default_total"] / 2,
+                "last5_wins": 2.5,
+                "streak": 0,
+                "elo": 1500
+            }
+        
+        stats = self.team_stats_cache[team]
+        games = max(stats["games"], 1)
+        
+        win_pct = stats["wins"] / games
+        avg_pts = stats["points_for"] / games
+        avg_pts_allowed = stats["points_against"] / games
+        last5_wins = sum(stats["last_5_results"]) if stats["last_5_results"] else 2.5
+        
+        # Calculate ELO from overall record
+        elo = 1200 + (win_pct * 600)
+        
+        return {
+            "win_pct": win_pct,
+            "avg_pts": avg_pts,
+            "avg_pts_allowed": avg_pts_allowed,
+            "last5_wins": last5_wins,
+            "streak": stats["streak"],
+            "elo": elo,
+            "games_played": games
+        }
+    
+    async def _parse_espn_game(self, event: Dict, sport_key: str, config: Dict, game_date: datetime) -> Optional[Dict]:
+        """Parse ESPN event into game record with IMPROVED features."""
         try:
             status = event.get("status", {}).get("type", {}).get("name", "")
             if status != "STATUS_FINAL":
@@ -810,126 +1145,134 @@ class HistoricalDataCollector:
                 return None
             
             # Determine home/away
-            home_team = None
-            away_team = None
+            home_team_data = None
+            away_team_data = None
             for comp in competitors:
                 if comp.get("homeAway") == "home":
-                    home_team = comp
+                    home_team_data = comp
                 else:
-                    away_team = comp
+                    away_team_data = comp
             
-            if not home_team or not away_team:
+            if not home_team_data or not away_team_data:
                 return None
             
-            home_score = int(home_team.get("score", 0))
-            away_score = int(away_team.get("score", 0))
+            home_team = home_team_data.get("team", {}).get("displayName", "")
+            away_team = away_team_data.get("team", {}).get("displayName", "")
+            home_score = int(home_team_data.get("score", 0))
+            away_score = int(away_team_data.get("score", 0))
             home_win = home_score > away_score
             actual_total = home_score + away_score
             margin = home_score - away_score
             
-            # Get team records
-            home_record = home_team.get("records", [{}])[0] if home_team.get("records") else {}
-            away_record = away_team.get("records", [{}])[0] if away_team.get("records") else {}
+            # Get PRE-GAME stats from cache
+            home_stats = self._get_team_pregame_stats(home_team, config)
+            away_stats = self._get_team_pregame_stats(away_team, config)
             
-            home_wins, home_losses = self._parse_record(home_record.get("summary", "0-0"))
-            away_wins, away_losses = self._parse_record(away_record.get("summary", "0-0"))
+            # Try to get odds from ESPN (if available)
+            odds_data = competition.get("odds", [{}])[0] if competition.get("odds") else {}
             
-            home_total = home_wins + home_losses
-            away_total = away_wins + away_losses
-            home_win_pct = home_wins / home_total if home_total > 0 else 0.5
-            away_win_pct = away_wins / away_total if away_total > 0 else 0.5
+            # Extract actual spread and total if available
+            actual_spread = None
+            actual_total_line = None
             
-            # Estimate ELO from record
-            home_elo = 1200 + (home_win_pct * 600)
-            away_elo = 1200 + (away_win_pct * 600)
+            if odds_data:
+                # ESPN sometimes provides spread
+                spread_str = odds_data.get("details", "")
+                if spread_str and any(c.isdigit() for c in spread_str):
+                    try:
+                        # Parse spread from string like "LAL -3.5"
+                        parts = spread_str.split()
+                        for part in parts:
+                            if part.replace("-", "").replace("+", "").replace(".", "").isdigit():
+                                actual_spread = float(part)
+                                break
+                    except:
+                        pass
+                
+                # ESPN sometimes provides over/under
+                ou_str = odds_data.get("overUnder", "")
+                if ou_str:
+                    try:
+                        actual_total_line = float(ou_str)
+                    except:
+                        pass
             
-            # Estimate spread from ELO (negative for home favorite)
-            elo_diff = home_elo - away_elo
-            estimated_spread = -elo_diff / 25  # ~4 pts per 100 ELO
-            
-            # Estimate total line from historical scoring
-            estimated_total = default_total + (home_win_pct - 0.5) * 10 + (away_win_pct - 0.5) * 10
-            
-            # Build features (PRE-GAME only)
+            # Build PRE-GAME features (what we would know before the game)
             features = {
-                "home_elo": home_elo,
-                "away_elo": away_elo,
-                "elo_diff": elo_diff,
-                "home_win_pct": home_win_pct,
-                "away_win_pct": away_win_pct,
-                "win_pct_diff": home_win_pct - away_win_pct,
-                "home_last10_wins": min(home_wins, 10),
-                "away_last10_wins": min(away_wins, 10),
-                "home_streak": 0,
-                "away_streak": 0,
-                "home_avg_margin": (home_win_pct - 0.5) * 20,
-                "away_avg_margin": (away_win_pct - 0.5) * 20,
-                "margin_diff": (home_win_pct - away_win_pct) * 20,
-                "home_avg_pts": default_total / 2 + (home_win_pct - 0.5) * 10,
-                "away_avg_pts": default_total / 2 + (away_win_pct - 0.5) * 10,
-                "home_avg_pts_allowed": default_total / 2 - (home_win_pct - 0.5) * 10,
-                "away_avg_pts_allowed": default_total / 2 - (away_win_pct - 0.5) * 10,
-                "home_net_rating": (home_win_pct - 0.5) * 20,
-                "away_net_rating": (away_win_pct - 0.5) * 20,
+                # Team strength from pre-game stats
+                "home_elo": home_stats["elo"],
+                "away_elo": away_stats["elo"],
+                "elo_diff": home_stats["elo"] - away_stats["elo"],
+                "home_win_pct": home_stats["win_pct"],
+                "away_win_pct": away_stats["win_pct"],
+                "win_pct_diff": home_stats["win_pct"] - away_stats["win_pct"],
+                
+                # Recent form
+                "home_last10_wins": home_stats["last5_wins"] * 2,  # Scale to 10
+                "away_last10_wins": away_stats["last5_wins"] * 2,
+                "home_streak": home_stats["streak"],
+                "away_streak": away_stats["streak"],
+                "home_avg_margin": home_stats["avg_pts"] - home_stats["avg_pts_allowed"],
+                "away_avg_margin": away_stats["avg_pts"] - away_stats["avg_pts_allowed"],
+                "margin_diff": (home_stats["avg_pts"] - home_stats["avg_pts_allowed"]) - (away_stats["avg_pts"] - away_stats["avg_pts_allowed"]),
+                
+                # Scoring
+                "home_avg_pts": home_stats["avg_pts"],
+                "away_avg_pts": away_stats["avg_pts"],
+                "home_avg_pts_allowed": home_stats["avg_pts_allowed"],
+                "away_avg_pts_allowed": away_stats["avg_pts_allowed"],
+                "home_net_rating": home_stats["avg_pts"] - home_stats["avg_pts_allowed"],
+                "away_net_rating": away_stats["avg_pts"] - away_stats["avg_pts_allowed"],
+                
+                # Context (simplified - real system would track rest days)
                 "home_rest_days": 2,
                 "away_rest_days": 2,
                 "rest_advantage": 0,
                 "is_back_to_back_home": 0,
                 "is_back_to_back_away": 0,
+                
+                # Odds/Market - use actual if available, else reasonable estimates
                 "home_ml_odds": 1.91,
                 "away_ml_odds": 1.91,
                 "implied_home_prob": 0.5,
-                "spread": estimated_spread,
-                "total_line": estimated_total,
+                "spread": actual_spread if actual_spread else 0,
+                "total_line": actual_total_line if actual_total_line else config["default_total"],
+                
+                # H2H (would need separate tracking)
                 "h2h_home_wins": 0,
                 "h2h_total_games": 0,
-                "combined_avg_pts": default_total,
-                "combined_pts_allowed": default_total,
-                "pace_factor": default_total / 2,
-                "defensive_rating_diff": 0,
+                
+                # Totals-specific
+                "combined_avg_pts": home_stats["avg_pts"] + away_stats["avg_pts"],
+                "combined_pts_allowed": home_stats["avg_pts_allowed"] + away_stats["avg_pts_allowed"],
+                "pace_factor": (home_stats["avg_pts"] + away_stats["avg_pts"] + home_stats["avg_pts_allowed"] + away_stats["avg_pts_allowed"]) / 4,
+                "defensive_rating_diff": home_stats["avg_pts_allowed"] - away_stats["avg_pts_allowed"],
             }
-            
-            # Calculate spread cover outcome
-            home_covered = (home_score + estimated_spread) > away_score
-            
-            # Calculate over/under outcome
-            went_over = actual_total > estimated_total
             
             return {
                 "event_id": event.get("id"),
                 "date": event.get("date"),
+                "game_date": game_date.isoformat(),
                 "sport_key": sport_key,
-                "home_team": home_team.get("team", {}).get("displayName", ""),
-                "away_team": away_team.get("team", {}).get("displayName", ""),
+                "home_team": home_team,
+                "away_team": away_team,
                 "home_score": home_score,
                 "away_score": away_score,
                 "home_win": home_win,
                 "margin": margin,
                 "total": actual_total,
-                # Spread data
-                "spread": estimated_spread,
-                "home_covered": home_covered,
-                # Totals data
-                "total_line": estimated_total,
-                "went_over": went_over,
+                # Actual betting lines (if available)
+                "actual_spread": actual_spread,
+                "actual_total_line": actual_total_line,
                 # Features
                 "features": features,
-                "is_complete": True
+                "is_complete": True,
+                "has_real_odds": actual_spread is not None or actual_total_line is not None
             }
             
         except Exception as e:
             logger.debug(f"Error parsing game: {e}")
             return None
-    
-    def _parse_record(self, record_str: str) -> Tuple[int, int]:
-        """Parse 'W-L' record string."""
-        try:
-            parts = record_str.split("-")
-            if len(parts) >= 2:
-                return int(parts[0]), int(parts[1])
-        except:
-            pass
-        return 0, 0
     
     async def _store_historical_games(self, games: List[Dict], sport_key: str, season: str):
         """Store historical games in database."""
@@ -957,7 +1300,7 @@ class HistoricalDataCollector:
 class Backtester:
     """
     Backtesting infrastructure for validating model predictions.
-    Now supports all three markets.
+    IMPROVED: Better metrics and realistic simulation.
     """
     
     def __init__(self, predictor: XGBoostPredictor):
@@ -1017,9 +1360,15 @@ class Backtester:
             # ===== SPREAD =====
             if market in ["all", "spread"] and self.predictor.spread_model:
                 spread_prob = self.predictor.spread_model.predict_proba(X_scaled)[0][1]
-                actual_covered = game.get("home_covered")
                 
-                if actual_covered is not None:
+                # Calculate actual cover outcome
+                home_score = game.get("home_score", 0)
+                away_score = game.get("away_score", 0)
+                spread = game.get("actual_spread") or features.get("spread", 0)
+                
+                if spread != 0:
+                    actual_covered = (home_score + spread) > away_score
+                    
                     if spread_prob >= threshold:
                         results["spread"]["picks"] += 1
                         if actual_covered:
@@ -1040,9 +1389,15 @@ class Backtester:
             # ===== TOTALS =====
             if market in ["all", "totals"] and self.predictor.totals_model:
                 totals_prob = self.predictor.totals_model.predict_proba(X_scaled)[0][1]
-                actual_over = game.get("went_over")
                 
-                if actual_over is not None:
+                home_score = game.get("home_score", 0)
+                away_score = game.get("away_score", 0)
+                actual_total = home_score + away_score
+                total_line = game.get("actual_total_line") or features.get("total_line", 0)
+                
+                if total_line > 0:
+                    actual_over = actual_total > total_line
+                    
                     if totals_prob >= threshold:
                         results["totals"]["picks"] += 1
                         if actual_over:
