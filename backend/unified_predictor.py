@@ -201,62 +201,63 @@ class UnifiedBetPredictor:
                 home_win_prob = ml_prediction.get("home_win_prob", 0.5)
                 home_cover_prob = ml_prediction.get("home_cover_prob", 0.5)
                 over_prob = ml_prediction.get("over_prob", 0.5)
+                
+                # Determine best market and pick
+                best_market = ml_prediction.get("best_market", "moneyline")
+                best_conf = ml_prediction.get("best_confidence", 50)
+                best_pick = ml_prediction.get("best_pick", ml_favored_team)
+                
+                # Get spread and total line from odds
+                spread_line = odds_data.get("spread", 0)
+                total_line = odds_data.get("total", 220)
+                
+                # Determine pick based on best market - USE FAVORED OUTCOMES
+                xgb_pick = None
+                xgb_pick_type = best_market
+                xgb_pick_display = None
+                xgb_conf = best_conf
+                
+                if best_market == "moneyline":
+                    # Pick favored team if probability is strong enough
+                    if ml_favored_prob >= 0.55:
+                        xgb_pick = ml_favored_team
+                        xgb_pick_display = f"{ml_favored_team} ML"
+                        xgb_conf = ml_conf
+                
+                elif best_market == "spread":
+                    # Pick favored team to cover if probability is strong enough
+                    if spread_favored_prob >= 0.55:
+                        xgb_pick = spread_favored_team
+                        spread_display = f"{spread_favored_line:+.1f}" if spread_favored_line else ""
+                        xgb_pick_display = f"{spread_favored_team} {spread_display}"
+                        xgb_conf = spread_conf
+                
+                elif best_market == "totals":
+                    # Pick favored direction if probability is strong enough
+                    if totals_favored_prob >= 0.55:
+                        xgb_pick = totals_favored
+                        xgb_pick_display = f"{totals_favored} {totals_line}"
+                        xgb_conf = totals_conf
+                
+                xgb_result = {
+                    "has_pick": xgb_pick is not None,
+                    "pick": xgb_pick,
+                    "pick_type": xgb_pick_type,
+                    "pick_display": xgb_pick_display,
+                    "confidence": xgb_conf,
+                    "ml_method": ml_method,  # "ensemble" or "xgboost"
                     
-                    # Determine best market and pick
-                    best_market = xgb_prediction.get("best_market", "moneyline")
-                    best_conf = xgb_prediction.get("best_confidence", 50)
-                    best_pick = xgb_prediction.get("best_pick", ml_favored_team)
+                    # ===== FAVORED OUTCOMES (NEW - DISPLAY THESE) =====
+                    # Moneyline
+                    "ml_favored_team": ml_favored_team,
+                    "ml_favored_prob": ml_favored_prob,
+                    "ml_underdog_team": ml_underdog_team,
+                    "ml_underdog_prob": ml_underdog_prob,
                     
-                    # Get spread and total line from odds
-                    spread_line = odds_data.get("spread", 0)
-                    total_line = odds_data.get("total", 220)
-                    
-                    # Determine pick based on best market - USE FAVORED OUTCOMES
-                    xgb_pick = None
-                    xgb_pick_type = best_market
-                    xgb_pick_display = None
-                    xgb_conf = best_conf
-                    
-                    if best_market == "moneyline":
-                        # Pick favored team if probability is strong enough
-                        if ml_favored_prob >= 0.55:
-                            xgb_pick = ml_favored_team
-                            xgb_pick_display = f"{ml_favored_team} ML"
-                            xgb_conf = ml_conf
-                    
-                    elif best_market == "spread":
-                        # Pick favored team to cover if probability is strong enough
-                        if spread_favored_prob >= 0.55:
-                            xgb_pick = spread_favored_team
-                            spread_display = f"{spread_favored_line:+.1f}" if spread_favored_line else ""
-                            xgb_pick_display = f"{spread_favored_team} {spread_display}"
-                            xgb_conf = spread_conf
-                    
-                    elif best_market == "totals":
-                        # Pick favored direction if probability is strong enough
-                        if totals_favored_prob >= 0.55:
-                            xgb_pick = totals_favored
-                            xgb_pick_display = f"{totals_favored} {totals_line}"
-                            xgb_conf = totals_conf
-                    
-                    xgb_result = {
-                        "has_pick": xgb_pick is not None,
-                        "pick": xgb_pick,
-                        "pick_type": xgb_pick_type,
-                        "pick_display": xgb_pick_display,
-                        "confidence": xgb_conf,
-                        
-                        # ===== FAVORED OUTCOMES (NEW - DISPLAY THESE) =====
-                        # Moneyline
-                        "ml_favored_team": ml_favored_team,
-                        "ml_favored_prob": ml_favored_prob,
-                        "ml_underdog_team": ml_underdog_team,
-                        "ml_underdog_prob": ml_underdog_prob,
-                        
-                        # Spread
-                        "spread_favored_team": spread_favored_team,
-                        "spread_favored_prob": spread_favored_prob,
-                        "spread_favored_line": spread_favored_line,
+                    # Spread
+                    "spread_favored_team": spread_favored_team,
+                    "spread_favored_prob": spread_favored_prob,
+                    "spread_favored_line": spread_favored_line,
                         
                         # Totals
                         "totals_favored": totals_favored,
