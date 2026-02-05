@@ -637,12 +637,7 @@ class EnsemblePredictor:
         logger.info(f"     Accuracy: {totals_accuracy:.1%}, AUC: {totals_auc:.3f}")
         
         # Save models
-        self._save_models(metrics)
-        self.is_loaded = True
-        
-        logger.info(f"✅ Ensemble training complete!")
-        logger.info(f"   ML: {ml_accuracy:.1%}, Spread: {spread_accuracy:.1%}, Totals: {totals_accuracy:.1%}")
-        
+        # Update metrics with final values BEFORE saving
         metrics.update({
             "ml_accuracy": round(float(ml_accuracy), 4),
             "spread_accuracy": round(float(spread_accuracy), 4),
@@ -653,6 +648,13 @@ class EnsemblePredictor:
             "model_type": "Stacking" if use_stacking else "Voting",
             "trained_at": datetime.now(timezone.utc).isoformat()
         })
+        
+        # Save models with complete metrics
+        self._save_models(metrics)
+        self.is_loaded = True
+        
+        logger.info(f"✅ Ensemble training complete!")
+        logger.info(f"   ML: {ml_accuracy:.1%}, Spread: {spread_accuracy:.1%}, Totals: {totals_accuracy:.1%}")
         
         return metrics
     
