@@ -1829,6 +1829,9 @@ class APITester:
         # ENSEMBLE ML SYSTEM (SPECIFIC REVIEW REQUEST)
         self.test_ensemble_ml_system()
         
+        # ENSEMBLE ML INTEGRATION INTO UNIFIED PREDICTOR (SPECIFIC REVIEW REQUEST)
+        self.test_ensemble_unified_integration()
+        
         # ML ENDPOINTS (NEW XGBoost Integration)
         self.test_ml_endpoints()
         
