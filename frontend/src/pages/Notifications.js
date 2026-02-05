@@ -66,22 +66,25 @@ const NotificationIcon = ({ type }) => {
 
 const Notifications = () => {
   const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  
+  // Use shared notification context for count
+  const { unreadCount, refreshNotificationCount } = useNotifications();
 
   const fetchNotifications = useCallback(async () => {
     try {
       const response = await axios.get(`${API}/notifications?unread_only=${showUnreadOnly}`);
       setNotifications(response.data.notifications);
-      setUnreadCount(response.data.unread_count);
+      // Refresh the shared count
+      refreshNotificationCount();
     } catch (error) {
       console.error("Error fetching notifications:", error);
     } finally {
       setLoading(false);
     }
-  }, [showUnreadOnly]);
+  }, [showUnreadOnly, refreshNotificationCount]);
 
   useEffect(() => {
     fetchNotifications();
