@@ -201,7 +201,7 @@ const Notifications = () => {
           <p className="text-text-muted">
             {showUnreadOnly 
               ? "You're all caught up!"
-              : "You'll receive notifications for line movements, API alerts, and results."}
+              : "You'll receive notifications when new picks are available, game results come in, and more."}
           </p>
         </div>
       )}
