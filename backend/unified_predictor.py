@@ -95,7 +95,6 @@ class UnifiedBetPredictor:
         # Initialize ML result
         ml_result = None
         ml_available = False
-        ml_method = None
         
         # Build team data for ML predictions
         home_team_data = {
@@ -110,12 +109,12 @@ class UnifiedBetPredictor:
         }
         odds_data = event.get("odds", {})
         
-        # Try Ensemble ML first (better accuracy)
-        if ENSEMBLE_AVAILABLE:
+        # Run Ensemble ML (XGBoost + LightGBM + CatBoost)
+        if ML_AVAILABLE:
             try:
                 ensemble_predictor = get_ensemble_predictor(sport_key)
                 if ensemble_predictor.is_loaded:
-                    logger.info("  🤖 Running ENSEMBLE ML (XGBoost + LightGBM + CatBoost)...")
+                    logger.info("  🤖 Running Ensemble ML (XGBoost + LightGBM + CatBoost)...")
                     
                     ml_prediction = ensemble_predictor.predict(
                         home_team_data, 
@@ -127,32 +126,9 @@ class UnifiedBetPredictor:
                     
                     if ml_prediction.get("model_available"):
                         ml_available = True
-                        ml_method = "ensemble"
                         logger.info(f"     ✅ Ensemble ML: Accuracy={ensemble_predictor.ml_accuracy*100:.1f}%")
             except Exception as e:
                 logger.warning(f"  ⚠️ Ensemble ML failed: {e}")
-        
-        # Fall back to XGBoost if Ensemble not available
-        if not ml_available and XGBOOST_AVAILABLE:
-            try:
-                predictor = get_predictor(sport_key)
-                if predictor.is_loaded:
-                    logger.info("  🤖 Running XGBoost ML (Fallback)...")
-                    
-                    ml_prediction = predictor.predict(
-                        home_team_data, 
-                        away_team_data, 
-                        odds_data,
-                        home_team_name=home_team,
-                        away_team_name=away_team
-                    )
-                    
-                    if ml_prediction.get("model_available"):
-                        ml_available = True
-                        ml_method = "xgboost"
-                        logger.info(f"     ✅ XGBoost ML: Accuracy={predictor.ml_accuracy*100:.1f}%")
-            except Exception as e:
-                logger.warning(f"  ⚠️ XGBoost ML failed: {e}")
         
         # Process ML prediction if available
         xgb_result = None  # Keep variable name for backward compatibility
