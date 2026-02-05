@@ -25,31 +25,23 @@ class UnifiedBetPredictor:
     """
     Unified predictor combining V5 (line movement), V6 (rule-based), and Ensemble ML.
     
-    UPGRADED: Now uses Ensemble model (XGBoost + LightGBM + CatBoost) as primary ML.
-    Falls back to single XGBoost if Ensemble is not trained.
+    Uses Ensemble model (XGBoost + LightGBM + CatBoost) for ML predictions.
     
-    Weighting (when Ensemble/XGBoost is trained):
-    - Ensemble/XGBoost ML: 40% weight - Real trained machine learning
+    Weighting (when Ensemble is trained):
+    - Ensemble ML: 40% weight - XGBoost + LightGBM + CatBoost stacking
     - V6 (Rule-based): 35% weight - Comprehensive analysis
     - V5 (Line Movement): 25% weight - Sharp money validation
     
     Weighting (without ML):
     - V6 (Rule-based): 70% weight - Primary decision maker
     - V5 (Line Movement): 30% weight - Validation signal
-    
-    Philosophy:
-    - Use Ensemble ML when trained for best predictions (higher accuracy)
-    - Fall back to XGBoost if Ensemble not available
-    - Use V6's comprehensive analysis as backup/validation
-    - Use V5's sharp money signals for confirmation
-    - Only recommend when multiple signals align
     """
     
     def __init__(self):
         # Weighting when ML is available
-        self.ml_weight = 0.40  # Ensemble/XGBoost ML
-        self.v6_weight_with_ml = 0.35  # V6 when ML available
-        self.v5_weight_with_ml = 0.25  # V5 when ML available
+        self.ml_weight = 0.40  # Ensemble ML
+        self.v6_weight_with_ml = 0.35
+        self.v5_weight_with_ml = 0.25
         
         # Legacy attribute names for compatibility
         self.xgb_weight = self.ml_weight
@@ -57,16 +49,16 @@ class UnifiedBetPredictor:
         self.v5_weight_with_xgb = self.v5_weight_with_ml
         
         # Weighting without ML (fallback)
-        self.v6_weight = 0.70  # V6 is primary (ML ensemble)
-        self.v5_weight = 0.30  # V5 is secondary (line movement validation)
+        self.v6_weight = 0.70
+        self.v5_weight = 0.30
         
         # Minimum thresholds
-        self.min_unified_confidence = 0.60  # 60% combined confidence
-        self.min_edge = 0.04  # 4% edge minimum
+        self.min_unified_confidence = 0.60
+        self.min_edge = 0.04
         
         # Agreement bonus
-        self.agreement_bonus = 0.10  # 10% boost when all models agree
-        self.two_agree_bonus = 0.05  # 5% boost when 2 models agree
+        self.agreement_bonus = 0.10
+        self.two_agree_bonus = 0.05
     
     async def generate_unified_prediction(
         self,
