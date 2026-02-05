@@ -1331,6 +1331,9 @@ class APITester:
         print("-" * 50)
         self.test_multiple_sports()
         
+        # ML TRAINING SYSTEM (SPECIFIC REVIEW REQUEST)
+        self.test_ml_training_system()
+        
         # ML ENDPOINTS (NEW XGBoost Integration)
         self.test_ml_endpoints()
         
