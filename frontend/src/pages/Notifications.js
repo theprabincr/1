@@ -4,6 +4,7 @@ import {
   Bell, Check, Trash2, RefreshCw, X,
   TrendingUp, Trophy, Zap, Target, BarChart3, Cpu, AlertTriangle
 } from "lucide-react";
+import { useNotifications } from "../App";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
