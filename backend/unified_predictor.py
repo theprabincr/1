@@ -388,7 +388,8 @@ class UnifiedBetPredictor:
         xgb_result: Dict,
         home_team: str,
         away_team: str,
-        event: Dict
+        event: Dict,
+        ml_method: str = "xgboost"
     ) -> Dict:
         """
         Combine predictions when XGBoost ML is available.
