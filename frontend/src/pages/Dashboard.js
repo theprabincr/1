@@ -712,15 +712,20 @@ const Dashboard = () => {
               XGBoost ML
             </span>
             <div className="flex items-center gap-2">
-              {Object.entries(mlStatus.models || {}).map(([sport, model]) => (
-                <div key={sport} className="flex items-center gap-1" title={`${sportNames[sport] || sport}: ${model.model_loaded ? (model.accuracy * 100).toFixed(0) + '% accuracy' : 'Not trained'}`}>
-                  <span className={`w-2 h-2 rounded-full ${model.model_loaded ? 'bg-semantic-success' : 'bg-zinc-600'}`}></span>
-                  <span className="text-xs text-text-muted">{sportNames[sport]?.slice(0, 3) || sport.split('_').pop()?.slice(0, 3).toUpperCase()}</span>
-                  {model.model_loaded && (
-                    <span className="text-xs font-mono text-semantic-success">{(model.accuracy * 100).toFixed(0)}%</span>
-                  )}
-                </div>
-              ))}
+              {/* Use Ensemble models if available, fallback to basic models */}
+              {(mlStatus.ensemble ? Object.entries(mlStatus.ensemble.models || {}) : Object.entries(mlStatus.models || {})).map(([sport, model]) => {
+                const accuracy = mlStatus.ensemble ? model.ml_accuracy : model.accuracy;
+                const isLoaded = mlStatus.ensemble ? !!model.ml_accuracy : model.model_loaded;
+                return (
+                  <div key={sport} className="flex items-center gap-1" title={`${sportNames[sport] || sport}: ${isLoaded ? (accuracy * 100).toFixed(0) + '% accuracy' : 'Not trained'}`}>
+                    <span className={`w-2 h-2 rounded-full ${isLoaded ? 'bg-semantic-success' : 'bg-zinc-600'}`}></span>
+                    <span className="text-xs text-text-muted">{sportNames[sport]?.slice(0, 3) || sport.split('_').pop()?.slice(0, 3).toUpperCase()}</span>
+                    {isLoaded && (
+                      <span className="text-xs font-mono text-semantic-success">{(accuracy * 100).toFixed(0)}%</span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
             {/* Training Schedule Info */}
             {mlStatus.training_schedule && (
