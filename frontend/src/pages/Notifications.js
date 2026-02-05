@@ -2,10 +2,54 @@ import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { 
   Bell, Check, Trash2, RefreshCw, X,
-  TrendingUp, Trophy, Zap, Target, BarChart3, Cpu
+  TrendingUp, Trophy, Zap, Target, BarChart3, Cpu, AlertTriangle
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+// Confirmation Modal Component
+const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      
+      {/* Modal */}
+      <div className="relative bg-zinc-900 border border-zinc-700 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
+        <div className="flex items-start gap-4">
+          <div className="p-3 rounded-full bg-semantic-danger/20">
+            <AlertTriangle className="w-6 h-6 text-semantic-danger" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-bold text-text-primary mb-2">{title}</h3>
+            <p className="text-text-muted text-sm">{message}</p>
+          </div>
+        </div>
+        
+        <div className="flex gap-3 mt-6 justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg bg-zinc-800 text-text-secondary hover:bg-zinc-700 transition-colors font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 rounded-lg bg-semantic-danger text-white hover:bg-red-600 transition-colors font-medium flex items-center gap-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            Clear All
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const NotificationIcon = ({ type }) => {
   const icons = {
@@ -24,6 +68,7 @@ const Notifications = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -71,14 +116,18 @@ const Notifications = () => {
     }
   };
 
-  const clearAllNotifications = async () => {
-    if (window.confirm('Are you sure you want to delete all notifications?')) {
-      try {
-        await axios.delete(`${API}/notifications`);
-        fetchNotifications();
-      } catch (error) {
-        console.error("Error clearing notifications:", error);
-      }
+  const handleClearAllClick = () => {
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmClearAll = async () => {
+    try {
+      await axios.delete(`${API}/notifications`);
+      fetchNotifications();
+    } catch (error) {
+      console.error("Error clearing notifications:", error);
+    } finally {
+      setShowConfirmModal(false);
     }
   };
 
@@ -92,6 +141,15 @@ const Notifications = () => {
 
   return (
     <div className="space-y-6">
+      {/* Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={handleConfirmClearAll}
+        title="Clear All Notifications"
+        message="Are you sure you want to delete all notifications? This action cannot be undone."
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -126,7 +184,7 @@ const Notifications = () => {
           )}
           {notifications.length > 0 && (
             <button
-              onClick={clearAllNotifications}
+              onClick={handleClearAllClick}
               className="btn-outline flex items-center gap-2 text-semantic-danger border-semantic-danger/50 hover:bg-semantic-danger/10"
             >
               <Trash2 className="w-4 h-4" />
