@@ -780,6 +780,76 @@ const Dashboard = () => {
         />
       </div>
 
+      {/* ML Training Schedule Section */}
+      {mlStatus && mlStatus.training_schedule && (
+        <div className="bg-gradient-to-r from-purple-900/20 to-zinc-800 border border-purple-500/30 rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-500/20 rounded-lg">
+                <Zap className="w-5 h-5 text-purple-400" />
+              </div>
+              <div>
+                <h3 className="font-mono font-bold text-sm text-purple-400">XGBoost ML Training</h3>
+                <p className="text-xs text-text-muted mt-0.5">
+                  Models auto-retrain {mlStatus.training_schedule.frequency}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-6">
+              {/* Training Schedule */}
+              <div className="text-right">
+                <p className="text-xs text-text-muted">Next Training</p>
+                <p className="text-sm font-mono text-text-primary">
+                  {new Date(mlStatus.training_schedule.next_scheduled).toLocaleDateString([], { 
+                    weekday: 'short', 
+                    month: 'short', 
+                    day: 'numeric'
+                  })}
+                </p>
+                <p className="text-xs text-text-muted">
+                  {mlStatus.training_schedule.time} {mlStatus.training_schedule.timezone}
+                </p>
+              </div>
+              
+              {/* Vertical Divider */}
+              <div className="w-px h-10 bg-zinc-700"></div>
+              
+              {/* Historical Data */}
+              <div className="text-right">
+                <p className="text-xs text-text-muted">Training Data</p>
+                <p className="text-sm font-mono text-text-primary">
+                  {Object.values(mlStatus.historical_data || {}).reduce((sum, d) => sum + (d.total_games || d || 0), 0).toLocaleString()} games
+                </p>
+                <p className="text-xs text-text-muted">
+                  {[...new Set(Object.values(mlStatus.historical_data || {}).flatMap(d => d.seasons || []))].length} seasons
+                </p>
+              </div>
+              
+              {/* Vertical Divider */}
+              <div className="w-px h-10 bg-zinc-700"></div>
+              
+              {/* Model Accuracies */}
+              <div className="flex gap-3">
+                {Object.entries(mlStatus.models || {}).map(([sport, model]) => (
+                  <div key={sport} className="text-center">
+                    <p className="text-xs text-text-muted">{sportNames[sport]?.slice(0, 3) || sport.split('_').pop()?.slice(0, 3).toUpperCase()}</p>
+                    <p className={`text-sm font-mono font-bold ${model.model_loaded ? 'text-semantic-success' : 'text-text-muted'}`}>
+                      {model.model_loaded ? `${(model.accuracy * 100).toFixed(0)}%` : '--'}
+                    </p>
+                    {model.last_trained && (
+                      <p className="text-[10px] text-text-muted">
+                        {new Date(model.last_trained).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Live Games Section - Only shows when games are live */}
       {liveScores.length > 0 && (
         <div className="bg-gradient-to-r from-zinc-900 to-zinc-800 border border-zinc-700 rounded-xl p-6">
