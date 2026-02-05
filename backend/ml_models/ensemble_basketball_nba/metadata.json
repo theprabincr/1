@@ -3,7 +3,7 @@
   "ml_accuracy": 0,
   "spread_accuracy": 0,
   "totals_accuracy": 0,
-  "last_trained": "2026-02-05T10:46:09.170998+00:00",
+  "last_trained": "2026-02-05T10:54:40.855828+00:00",
   "model_type": "Ensemble",
   "features": [
     "home_elo",
