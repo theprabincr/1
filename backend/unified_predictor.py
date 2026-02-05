@@ -108,32 +108,32 @@ class UnifiedBetPredictor:
             for adv in player_stats_comparison.get("key_advantages", [])[:2]:
                 logger.info(f"     - {adv}")
         
-        # Initialize XGBoost result
-        xgb_result = None
-        xgb_available = False
+        # Initialize ML result
+        ml_result = None
+        ml_available = False
+        ml_method = None
         
-        # Run XGBoost ML if available
-        if XGBOOST_AVAILABLE:
+        # Build team data for ML predictions
+        home_team_data = {
+            "elo_rating": matchup_data.get("home_team", {}).get("elo_rating", 1500),
+            "form": matchup_data.get("home_team", {}).get("form", {}),
+            "stats": matchup_data.get("home_team", {}).get("stats", {})
+        }
+        away_team_data = {
+            "elo_rating": matchup_data.get("away_team", {}).get("elo_rating", 1500),
+            "form": matchup_data.get("away_team", {}).get("form", {}),
+            "stats": matchup_data.get("away_team", {}).get("stats", {})
+        }
+        odds_data = event.get("odds", {})
+        
+        # Try Ensemble ML first (better accuracy)
+        if ENSEMBLE_AVAILABLE:
             try:
-                predictor = get_predictor(sport_key)
-                if predictor.is_loaded:
-                    logger.info("  🤖 Running XGBoost ML (All Markets)...")
+                ensemble_predictor = get_ensemble_predictor(sport_key)
+                if ensemble_predictor.is_loaded:
+                    logger.info("  🤖 Running ENSEMBLE ML (XGBoost + LightGBM + CatBoost)...")
                     
-                    # Build team data for XGBoost
-                    home_team_data = {
-                        "elo_rating": matchup_data.get("home_team", {}).get("elo_rating", 1500),
-                        "form": matchup_data.get("home_team", {}).get("form", {}),
-                        "stats": matchup_data.get("home_team", {}).get("stats", {})
-                    }
-                    away_team_data = {
-                        "elo_rating": matchup_data.get("away_team", {}).get("elo_rating", 1500),
-                        "form": matchup_data.get("away_team", {}).get("form", {}),
-                        "stats": matchup_data.get("away_team", {}).get("stats", {})
-                    }
-                    odds_data = event.get("odds", {})
-                    
-                    # Get predictions for ALL markets - NOW WITH TEAM NAMES
-                    xgb_prediction = predictor.predict(
+                    ml_prediction = ensemble_predictor.predict(
                         home_team_data, 
                         away_team_data, 
                         odds_data,
@@ -141,31 +141,66 @@ class UnifiedBetPredictor:
                         away_team_name=away_team
                     )
                     
-                    # ===== FAVORED OUTCOMES (NEW) =====
-                    # Moneyline - show favored team
-                    ml_favored_team = xgb_prediction.get("ml_favored_team", home_team)
-                    ml_favored_prob = xgb_prediction.get("ml_favored_prob", 0.5)
-                    ml_underdog_team = xgb_prediction.get("ml_underdog_team", away_team)
-                    ml_underdog_prob = xgb_prediction.get("ml_underdog_prob", 0.5)
-                    ml_conf = xgb_prediction.get("ml_confidence", 50)
+                    if ml_prediction.get("model_available"):
+                        ml_available = True
+                        ml_method = "ensemble"
+                        logger.info(f"     ✅ Ensemble ML: Accuracy={ensemble_predictor.ml_accuracy*100:.1f}%")
+            except Exception as e:
+                logger.warning(f"  ⚠️ Ensemble ML failed: {e}")
+        
+        # Fall back to XGBoost if Ensemble not available
+        if not ml_available and XGBOOST_AVAILABLE:
+            try:
+                predictor = get_predictor(sport_key)
+                if predictor.is_loaded:
+                    logger.info("  🤖 Running XGBoost ML (Fallback)...")
                     
-                    # Spread - show favored team to cover
-                    spread_favored_team = xgb_prediction.get("spread_favored_team", home_team)
-                    spread_favored_prob = xgb_prediction.get("spread_favored_prob", 0.5)
-                    spread_favored_line = xgb_prediction.get("spread_favored_line", 0)
-                    spread_conf = xgb_prediction.get("spread_confidence", 50)
+                    ml_prediction = predictor.predict(
+                        home_team_data, 
+                        away_team_data, 
+                        odds_data,
+                        home_team_name=home_team,
+                        away_team_name=away_team
+                    )
                     
-                    # Totals - show favored direction
-                    totals_favored = xgb_prediction.get("totals_favored", "OVER")
-                    totals_favored_prob = xgb_prediction.get("totals_favored_prob", 0.5)
-                    totals_line = xgb_prediction.get("totals_line", 220)
-                    totals_conf = xgb_prediction.get("totals_confidence", 50)
-                    predicted_total = xgb_prediction.get("predicted_total", 220)
-                    
-                    # Raw probabilities (for backward compat)
-                    home_win_prob = xgb_prediction.get("home_win_prob", 0.5)
-                    home_cover_prob = xgb_prediction.get("home_cover_prob", 0.5)
-                    over_prob = xgb_prediction.get("over_prob", 0.5)
+                    if ml_prediction.get("model_available"):
+                        ml_available = True
+                        ml_method = "xgboost"
+                        logger.info(f"     ✅ XGBoost ML: Accuracy={predictor.ml_accuracy*100:.1f}%")
+            except Exception as e:
+                logger.warning(f"  ⚠️ XGBoost ML failed: {e}")
+        
+        # Process ML prediction if available
+        xgb_result = None  # Keep variable name for backward compatibility
+        xgb_available = ml_available
+        
+        if ml_available:
+            try:
+                # ===== FAVORED OUTCOMES =====
+                # Moneyline - show favored team
+                ml_favored_team = ml_prediction.get("ml_favored_team", home_team)
+                ml_favored_prob = ml_prediction.get("ml_favored_prob", 0.5)
+                ml_underdog_team = ml_prediction.get("ml_underdog_team", away_team)
+                ml_underdog_prob = ml_prediction.get("ml_underdog_prob", 0.5)
+                ml_conf = ml_prediction.get("ml_confidence", 50)
+                
+                # Spread - show favored team to cover
+                spread_favored_team = ml_prediction.get("spread_favored_team", home_team)
+                spread_favored_prob = ml_prediction.get("spread_favored_prob", 0.5)
+                spread_favored_line = ml_prediction.get("spread_favored_line", 0)
+                spread_conf = ml_prediction.get("spread_confidence", 50)
+                
+                # Totals - show favored direction
+                totals_favored = ml_prediction.get("totals_favored", "OVER")
+                totals_favored_prob = ml_prediction.get("totals_favored_prob", 0.5)
+                totals_line = ml_prediction.get("totals_line", 220)
+                totals_conf = ml_prediction.get("totals_confidence", 50)
+                predicted_total = ml_prediction.get("predicted_total", 220)
+                
+                # Raw probabilities (for backward compat)
+                home_win_prob = ml_prediction.get("home_win_prob", 0.5)
+                home_cover_prob = ml_prediction.get("home_cover_prob", 0.5)
+                over_prob = ml_prediction.get("over_prob", 0.5)
                     
                     # Determine best market and pick
                     best_market = xgb_prediction.get("best_market", "moneyline")
