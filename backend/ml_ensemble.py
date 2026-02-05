@@ -661,12 +661,13 @@ class EnsemblePredictor:
     def _save_models(self, metrics: Dict):
         """Save trained models."""
         try:
-            if self.ml_ensemble:
-                joblib.dump(self.ml_ensemble, self.model_dir / "ml_ensemble.joblib")
-            if self.spread_ensemble:
-                joblib.dump(self.spread_ensemble, self.model_dir / "spread_ensemble.joblib")
-            if self.totals_ensemble:
-                joblib.dump(self.totals_ensemble, self.model_dir / "totals_ensemble.joblib")
+            # Save individual models for each market
+            if self.ml_models:
+                joblib.dump(self.ml_models, self.model_dir / "ml_models.joblib")
+            if self.spread_models:
+                joblib.dump(self.spread_models, self.model_dir / "spread_models.joblib")
+            if self.totals_models:
+                joblib.dump(self.totals_models, self.model_dir / "totals_models.joblib")
             if self.scaler:
                 joblib.dump(self.scaler, self.model_dir / "scaler.joblib")
             
@@ -678,7 +679,8 @@ class EnsemblePredictor:
                 "totals_accuracy": metrics.get("totals_accuracy", 0),
                 "last_trained": datetime.now(timezone.utc).isoformat(),
                 "model_type": metrics.get("model_type", "Ensemble"),
-                "features": ENHANCED_FEATURE_NAMES
+                "features": ENHANCED_FEATURE_NAMES,
+                "individual_accuracies": metrics.get("models", {}).get("moneyline", {})
             }
             with open(self.metadata_path, 'w') as f:
                 json.dump(metadata, f, indent=2)
@@ -691,17 +693,17 @@ class EnsemblePredictor:
     def load_model(self) -> bool:
         """Load trained models from disk."""
         try:
-            ml_path = self.model_dir / "ml_ensemble.joblib"
-            spread_path = self.model_dir / "spread_ensemble.joblib"
-            totals_path = self.model_dir / "totals_ensemble.joblib"
+            ml_path = self.model_dir / "ml_models.joblib"
+            spread_path = self.model_dir / "spread_models.joblib"
+            totals_path = self.model_dir / "totals_models.joblib"
             scaler_path = self.model_dir / "scaler.joblib"
             
             if ml_path.exists():
-                self.ml_ensemble = joblib.load(ml_path)
+                self.ml_models = joblib.load(ml_path)
             if spread_path.exists():
-                self.spread_ensemble = joblib.load(spread_path)
+                self.spread_models = joblib.load(spread_path)
             if totals_path.exists():
-                self.totals_ensemble = joblib.load(totals_path)
+                self.totals_models = joblib.load(totals_path)
             if scaler_path.exists():
                 self.scaler = joblib.load(scaler_path)
             
@@ -713,7 +715,7 @@ class EnsemblePredictor:
                     self.totals_accuracy = metadata.get("totals_accuracy", 0)
                     self.last_trained = metadata.get("last_trained")
             
-            if self.ml_ensemble and self.scaler:
+            if self.ml_models and self.scaler:
                 self.is_loaded = True
                 logger.info(f"✅ Loaded ensemble models for {self.sport_key}")
                 return True
@@ -730,7 +732,7 @@ class EnsemblePredictor:
         if not self.is_loaded:
             self.load_model()
         
-        if not self.is_loaded or self.ml_ensemble is None:
+        if not self.is_loaded or not self.ml_models:
             return {
                 "home_win_prob": 0.5,
                 "confidence": 50.0,
