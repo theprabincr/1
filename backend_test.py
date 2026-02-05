@@ -412,6 +412,20 @@ class APITester:
         # Test 3: POST /api/ml/predict/{event_id} - Verify favored team predictions
         self.test_ml_predict_with_favored_outcomes()
 
+    def test_ensemble_ml_system(self):
+        """Test Ensemble ML System endpoints - SPECIFIC REVIEW REQUEST"""
+        print("\n🎯 TESTING ENSEMBLE ML SYSTEM (REVIEW REQUEST)")
+        print("-" * 50)
+        
+        # Test 1: GET /api/ml/ensemble-status - Verify models with accuracy metrics
+        self.test_ensemble_status()
+        
+        # Test 2: POST /api/ml/ensemble-predict/{event_id} - Test with valid NBA event
+        self.test_ensemble_predict()
+        
+        # Test 3: Compare ensemble vs basic XGBoost accuracy
+        self.test_ensemble_vs_xgboost_accuracy()
+
     def test_ml_status_with_training_schedule(self):
         """Test ML status endpoint for training schedule information"""
         url = f"{BASE_URL}/ml/status"
