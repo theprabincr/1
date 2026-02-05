@@ -324,7 +324,7 @@ class UnifiedBetPredictor:
         # Analyze results and combine (now with Ensemble/XGBoost)
         unified_prediction = self._combine_predictions(
             v5_result, v6_result, home_team, away_team, event,
-            xgb_result=xgb_result, xgb_available=xgb_available
+            xgb_result=xgb_result, xgb_available=xgb_available, ml_method=ml_method
         )
         
         return unified_prediction
