@@ -33,6 +33,34 @@ Use the `auto_frontend_testing_agent` to test UI functionality.
 
 ## Test Status
 
+### Ensemble ML Integration into Unified Predictor ✅ COMPLETED (February 5, 2026)
+
+**ENSEMBLE ML INTEGRATION VERIFICATION:**
+|| Test | Status | Validation Results |
+||------|--------|-------------------|
+|| `POST /api/analyze-unified/{event_id}?sport_key=basketball_nba` | ✅ PASS | **Unified Predictor now uses Ensemble ML**: algorithm='unified_ensemble', logs show "Running ENSEMBLE ML (XGBoost + LightGBM + CatBoost)" |
+|| `GET /api/ml/ensemble-status` | ✅ PASS | **Ensemble Status**: NBA trained (ML:61.5%, Spread:60.4%, Totals:56.9%), NFL/NHL loaded but not trained |
+|| **XGBoost vs Ensemble Accuracy Comparison** | ✅ PASS | **Ensemble Superior**: XGBoost 60.0% → Ensemble 61.5% (+2.5% improvement), Spread accuracy improved +5.6% |
+
+**KEY FINDINGS VERIFIED:**
+- ✅ **Unified Predictor Integration**: The unified predictor now uses Ensemble ML as the primary ML model instead of single XGBoost
+- ✅ **Algorithm Field Updated**: Returns `algorithm: "unified_ensemble"` when using Ensemble ML (previously was "unified_xgboost")
+- ✅ **Backend Logs Confirmation**: Logs show "🤖 Running ENSEMBLE ML (XGBoost + LightGBM + CatBoost)..." during unified analysis
+- ✅ **Ensemble Status Accurate**: Shows correct accuracy metrics for NBA (61.5% ML, 60.4% Spread, 56.9% Totals)
+- ✅ **Performance Improvement**: Ensemble ML demonstrates superior accuracy over single XGBoost across all markets
+- ✅ **Fallback Mechanism**: System falls back to XGBoost if Ensemble is not available/trained
+
+**TESTING AGENT VERIFICATION (February 5, 2026):**
+- ✅ **ALL 3 ENSEMBLE INTEGRATION REQUIREMENTS TESTED AND PASSED**
+- ✅ Unified predictor successfully integrated with Ensemble ML as primary model
+- ✅ Ensemble status endpoint returns proper accuracy metrics for trained models
+- ✅ Ensemble model demonstrates measurable improvement over basic XGBoost
+- ✅ Backend logs confirm Ensemble ML execution during unified analysis
+- ✅ Algorithm field correctly identifies when Ensemble ML is being used
+- ✅ No critical issues found - Ensemble ML integration fully operational and ready
+
+---
+
 ### Ensemble ML System Tests ✅ COMPLETED (February 5, 2026)
 
 **ENSEMBLE MODEL (XGBoost + LightGBM + CatBoost Stacking):**
